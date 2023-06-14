@@ -33,17 +33,18 @@ namespace ToolCore
     /// <summary>
     /// Holds all thrust block data
     /// </summary>
-    internal class ToolComp : MyEntityComponentBase
+    internal partial class ToolComp : MyEntityComponentBase
     {
         private readonly ToolSession Session;
 
-        internal readonly IMyGunObject<MyToolBase> ToolGun;
+        internal readonly GunCore ToolGun;
         internal readonly MyInventory Inventory;
 
         internal ToolDefinition Definition;
-        internal IMyShipToolBase Tool;
+        internal IMyConveyorSorter Tool;
         internal IMyModelDummy Muzzle;
         internal MyEntity MuzzlePart;
+        internal MyResourceSinkComponent Sink;
         internal MyOrientedBoundingBoxD Obb;
         internal MyEntity3DSoundEmitter SoundEmitter;
 
@@ -73,13 +74,22 @@ namespace ToolCore
         internal bool Powered;
         internal bool Dirty;
         internal bool AvActive;
+        internal bool UpdatePower;
+
+        internal bool Hitting;
+        internal bool WasHitting;
+        internal Vector3D HitPosition;
+        internal MyStringHash HitMaterial = MyStringHash.GetOrCompute("Metal");
+
+        internal bool Activated;
 
         internal bool NoEmitter;
         internal bool Draw = true;
         internal bool Debug = true;
 
-        internal long CompTick120;
+        internal long CompTick20;
         internal long CompTick60;
+        internal long CompTick120;
         internal int LastPushTick;
         internal bool LastPushSucceeded;
 
@@ -99,8 +109,10 @@ namespace ToolCore
             internal readonly List<ParticleEffect> ParticleEffects;
             internal readonly SoundDef SoundDef;
 
+            internal bool Active;
             internal bool Expired;
             internal bool Dirty;
+            internal bool Restart;
             internal int LastActiveTick;
 
             internal Effects(List<AnimationDef> animationDefs, List<ParticleEffectDef> particleEffectDefs, SoundDef soundDef, ToolComp comp)
@@ -147,21 +159,27 @@ namespace ToolCore
                 HasSound = (SoundDef = soundDef) != null;
             }
 
+            internal void Clean()
+            {
+                Active = false;
+                Expired = false;
+                Dirty = false;
+                Restart = false;
+                LastActiveTick = 0;
+            }
+
             internal class Animation
             {
+                internal readonly AnimationDef Definition;
                 internal MyEntitySubpart Subpart;
-
-                internal readonly Matrix Transform;
-                internal readonly int WindupTime;
 
                 internal bool Starting;
                 internal int TransitionState;
 
                 public Animation(AnimationDef def, MyEntitySubpart subpart)
                 {
+                    Definition = def;
                     Subpart = subpart;
-                    Transform = def.Transform;
-                    WindupTime = def.WindupTime;
                 }
             }
 
@@ -170,9 +188,7 @@ namespace ToolCore
                 internal IMyModelDummy Dummy;
                 internal MyEntity Parent;
 
-                internal readonly string Name;
-                internal readonly Vector3 Offset;
-                internal readonly bool Loop;
+                internal ParticleEffectDef Definition;
 
                 internal MyParticleEffect Particle;
                 internal bool Looping;
@@ -181,9 +197,7 @@ namespace ToolCore
                 {
                     Dummy = dummy;
                     Parent = parent;
-                    Name = def.Name;
-                    Offset = def.Offset;
-                    Loop = def.Loop;
+                    Definition = def;
                 }
             }
         }
@@ -223,13 +237,13 @@ namespace ToolCore
             }
         }
 
-        internal ToolComp(IMyShipToolBase block, ToolDefinition def, ToolSession session)
+        internal ToolComp(IMyConveyorSorter block, ToolDefinition def, ToolSession session)
         {
             Session = session;
 
             Definition = def;
             Tool = block;
-            ToolGun = Tool as IMyGunObject<MyToolBase>;
+            ToolGun = new GunCore(this);
             Inventory = (MyInventory)(Tool as MyEntity).GetInventoryBase();
 
             Grid = Tool.CubeGrid as MyCubeGrid;
@@ -256,9 +270,11 @@ namespace ToolCore
             if (hasSound)
                 SoundEmitter = new MyEntity3DSoundEmitter(Tool as MyEntity);
 
-            CompTick120 = Tool.EntityId % 120;
+            CompTick20 = Tool.EntityId % 20;
             CompTick60 = Tool.EntityId % 60;
+            CompTick120 = Tool.EntityId % 120;
 
+            Tool.Enabled = false;
             Tool.EnabledChanged += EnabledChanged;
             Tool.IsWorkingChanged += IsWorkingChanged;
 
@@ -267,33 +283,157 @@ namespace ToolCore
 
         }
 
-        internal void UpdateState(Trigger state, bool fresh)
+        internal void UpdateState1(Trigger state, bool add)
         {
-            State |= state;
+            if (add)
+                State |= state;
+            else
+            {
+                state &= State;
+                State ^= state;
+            }
+            //Logs.WriteLine($"{state} : {add} : result = {State}");
 
-            Logs.WriteLine($"{EventEffects.Count} effects");
-            foreach (var aa in EventEffects)
-                Logs.WriteLine(aa.Key.ToString());
+            Effects effects;
+            foreach (var trigger in (Trigger[])Enum.GetValues(typeof(Trigger)))
+            {
+                if ((state & trigger) == 0)
+                    continue;
+
+                if (!add && (State & trigger) > 0)
+                    continue;
+
+                if (!EventEffects.TryGetValue(trigger, out effects))
+                    continue;
+
+                //var text = add ? "adding" : "removing";
+                //Logs.WriteLine($"Valid effect: {trigger} : {text} : active: {effects.Active} : expired: {effects.Expired}");
+
+                if (!add)
+                {
+                    effects.Expired = effects.Active;
+                    continue;
+                }
+
+                if (!effects.Active)
+                {
+                    ActiveEffects.Add(effects);
+                    effects.Active = true;
+                    continue;
+                }
+
+                if (effects.Expired)
+                {
+                    effects.Expired = false;
+                    effects.Restart = true;
+                }
+            }
+        }
+
+        internal void UpdateState(Trigger state, bool add, bool force = false)
+        {
+            var isActive = (State & state) > 0;
+            //Logs.WriteLine($"UpdateState : {state} : {add} : {isActive}");
+
+            if (!force)
+            {
+                if (add == isActive)
+                    return;
+
+                if (add)
+                    State |= state;
+                else
+                {
+                    state &= State;
+                    State ^= state;
+                }
+            }
+
+            switch (state)
+            {
+                case Trigger.Functional:
+                    UpdateEffects(Trigger.Functional, add);
+                    if (add && !IsPowered()) break;
+                    UpdateState(Trigger.Powered, add);
+                    break;
+                case Trigger.Powered:
+                    UpdateEffects(Trigger.Powered, add);
+                    if (add && !Enabled) break;
+                    UpdateState(Trigger.Enabled, add);
+                    break;
+                case Trigger.LeftClick:
+                case Trigger.RightClick:
+                    UpdateEffects(state, add);
+                    UpdateState(Trigger.Click, add, true);
+                    break;
+                case Trigger.Enabled:
+                case Trigger.Click:
+                    UpdateEffects(state, add);
+                    if (!add && (State & Trigger.Active) > 0) break;
+                    UpdateState(Trigger.Active, add, true);
+                    break;
+                case Trigger.Active:
+                    UpdateEffects(Trigger.Active, add);
+                    if (add) break;
+                    UpdateState(Trigger.Hit, false);
+                    break;
+                case Trigger.Hit:
+                    UpdateEffects(Trigger.Hit, add);
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        internal void UpdateEffects(Trigger state, bool add)
+        {
             Effects effects;
             if (!EventEffects.TryGetValue(state, out effects))
                 return;
-            Logs.WriteLine($"valid effect");
 
-            if (fresh)
+            if (!add)
+            {
+                effects.Expired = effects.Active;
+                return;
+            }
+
+            if (!effects.Active)
+            {
                 ActiveEffects.Add(effects);
-            else
-                effects.Expired = true;
+                effects.Active = true;
+                return;
+            }
+
+            if (effects.Expired)
+            {
+                effects.Expired = false;
+                effects.Restart = true;
+            }
+        }
+
+        internal bool IsPowered(bool log = false)
+        {
+            Sink.Update();
+            var required = RequiredInput();
+            var elec = MyResourceDistributorComponent.ElectricityId;
+            var distributor = (MyResourceDistributorComponent)((IMyCubeGrid)Grid).ResourceDistributor;
+            Powered = required > 0 && Sink.IsPoweredByType(elec) && (Sink.ResourceAvailableByType(elec) >= required || distributor.MaxAvailableResourceByType(elec) >= required);
+            return Powered;
         }
 
         private void EnabledChanged(IMyTerminalBlock block)
         {
             Enabled = (block as IMyFunctionalBlock).Enabled;
+
+            Sink.Update();
+            UpdatePower = true;
+            if (!Powered) return;
+
+            UpdateState(Trigger.Enabled, Enabled);
         }
 
         private void IsWorkingChanged(IMyCubeBlock block)
         {
-            Functional = block.IsFunctional;
-            Dirty = true;
         }
 
         public override void OnAddedToContainer()
@@ -326,25 +466,49 @@ namespace ToolCore
             SubpartsInit();
         }
 
-        internal void SinkInit()
+        private void SinkInit()
         {
-
-            var sink = Tool.Components?.Get<MyResourceSinkComponent>();
-            if (sink != null)
+            var sinkInfo = new MyResourceSinkInfo()
             {
-                var sinkInfo = new MyResourceSinkInfo()
-                {
-                    MaxRequiredInput = 0,
-                    RequiredInputFunc = () => 0f,
-                    ResourceTypeId = MyResourceDistributorComponent.ElectricityId
-                };
+                MaxRequiredInput = Definition.ActivePower,
+                RequiredInputFunc = RequiredInput,
+                ResourceTypeId = MyResourceDistributorComponent.ElectricityId
+            };
 
-                sink.SetRequiredInputFuncByType(sinkInfo.ResourceTypeId, () => 0f);
-
-                //sink.RemoveType(ref sinkInfo.ResourceTypeId);
-                //sink.AddType(ref sinkInfo);
-                Logs.WriteLine("sink reset");
+            Sink = Tool.Components?.Get<MyResourceSinkComponent>();
+            if (Sink != null)
+            {
+                Logs.WriteLine("Sink found on init, setting input func...");
+                Sink.SetRequiredInputFuncByType(MyResourceDistributorComponent.ElectricityId, RequiredInput);
             }
+            else
+            {
+                Logs.WriteLine("No sink found on init, creating...");
+                Sink = new MyResourceSinkComponent();
+                Sink.Init(MyStringHash.GetOrCompute("Defense"), sinkInfo);
+                Tool.Components.Add(Sink);
+            }
+
+            var distributor = (MyResourceDistributorComponent)Tool.CubeGrid.ResourceDistributor;
+            if (distributor == null)
+            {
+                Logs.WriteLine("Grid distributor null on sink init!");
+                return;
+            }
+
+            distributor.AddSink(Sink);
+            Sink.Update();
+        }
+
+        private float RequiredInput()
+        {
+            if (!Functional)
+                return 0f;
+
+            if (Enabled || ToolGun.WantsToShoot)
+                return Definition.ActivePower;
+
+            return Definition.IdlePower;
         }
 
         internal void SubpartsInit()
@@ -366,7 +530,7 @@ namespace ToolCore
                     {
                         Muzzle = dummy.Value;
                         MuzzlePart = (MyEntity)entity;
-                        Logs.WriteLine("Emitter found");
+                        Logs.WriteLine("SubpartsInit() : Emitter found");
                     }
                 }
 
@@ -374,7 +538,10 @@ namespace ToolCore
             }
 
             if (Muzzle == null)
+            {
                 NoEmitter = true;
+                Logs.WriteLine($"Failed to find emitter dummy '{Definition.EmitterName}'!");
+            }
 
             Dirty = false;
         }
@@ -443,6 +610,7 @@ namespace ToolCore
                                 removal = (byte)(removal * density);
                                 //Logs.WriteLine($"{dist} : {density} : {removal}");
                             }
+                            Hitting |= removal > 0;
 
                             var newContent = removal >= content ? MyVoxelConstants.VOXEL_CONTENT_EMPTY : (byte)(content - removal);
 
@@ -516,6 +684,7 @@ namespace ToolCore
                                     var density = MathHelper.Clamp(dist, -1, 1) * 0.5 + 0.5;
                                     removal = (byte)(removal * density + leftover);
                                 }
+                                Hitting |= removal > 0;
 
                                 var newContent = removal >= content ? MyVoxelConstants.VOXEL_CONTENT_EMPTY : (byte)(content - removal);
                                 //Logs.WriteLine($"{content} : {removal} : {newContent} : {leftover} : layer {i}");
@@ -740,6 +909,7 @@ namespace ToolCore
                             var leftover = reduction - removal;
                             removal = (int)(removal * density) + leftover;
                         }
+                        Hitting |= removal > 0;
                         var newContent = removal >= content ? 0 : content - removal;
 
                         var def = MyDefinitionManager.Static.GetVoxelMaterialDefinition(material);
@@ -932,7 +1102,6 @@ namespace ToolCore
                             content = data.Content(index);
                             material = data.Material(index);
 
-                            MyDefinitionManager.Static.LoadData(new List<MyObjectBuilder_Checkpoint.ModItem>());
                             var removal = Math.Min(reduction, 255);
 
                             var limit = 1f;
@@ -963,6 +1132,7 @@ namespace ToolCore
                                 removal = (int)(removal * density) + leftover;
                             }
                             removal = MathHelper.Clamp(removal, 0, content);
+                            Hitting |= removal > 0;
                             var newContent = content - removal;
                             if (removal > maxContent) maxContent = removal;
 

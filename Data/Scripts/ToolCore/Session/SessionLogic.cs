@@ -51,18 +51,13 @@ namespace ToolCore
                     var comp = gridComp.ToolComps[j];
                     var def = comp.Definition;
 
-                    var oldAvState = comp.State & def.EventFlags;
                     UpdateTool(comp, gridComp);
-                    var newAvState = comp.State & def.EventFlags;
 
-                    if (oldAvState == newAvState)
-                        continue;
-
-                    if (oldAvState == 0)
+                    var avState = comp.State & def.EventFlags;
+                    if (!comp.AvActive && avState > 0)
                     {
                         AvComps.Add(comp);
                         comp.AvActive = true;
-                        continue;
                     }
 
 
@@ -82,17 +77,29 @@ namespace ToolCore
             var tool = comp.Tool;
             var parentGrid = gridComp.Grid;
 
-            var wasFunctional = (comp.State & Trigger.Functional) != 0;
+            if (comp.Functional != tool.IsFunctional)
+                comp.UpdateState(Trigger.Functional, tool.IsFunctional);
 
-            if (!tool.IsFunctional)
+            comp.Functional = tool.IsFunctional;
+            if (!comp.Functional)
             {
-                if (wasFunctional)
-                    comp.UpdateState(Trigger.Functional, false);
-
+                comp.Dirty = true;
                 return;
             }
-            if (!wasFunctional)
-                comp.UpdateState(Trigger.Functional, true);
+
+            if (comp.UpdatePower || comp.CompTick20 == TickMod20)
+            {
+                var wasPowered = comp.Powered;
+                if (comp.UpdatePower) Logs.WriteLine($"UpdatePower: {wasPowered} : {comp.IsPowered(comp.UpdatePower)}");
+                if (wasPowered != comp.IsPowered())
+                {
+                    comp.UpdateState(Trigger.Powered, comp.Powered);
+                }
+                comp.UpdatePower = false;
+            }
+
+            if (!comp.Powered)
+                return;
 
             if (comp.Dirty)
                 comp.SubpartsInit();
@@ -100,7 +107,7 @@ namespace ToolCore
             if (gridComp.ConveyorsDirty)
                 comp.UpdateConnections();
 
-            if (!tool.Enabled && !comp.ToolGun.IsShooting)
+            if (!tool.Enabled && !comp.ToolGun.Shooting)
                 return;
 
             // Replace with fallback
@@ -208,6 +215,7 @@ namespace ToolCore
 
                 if (entity is IMyCharacter)
                 {
+                    comp.Hitting = true;
                     var character = (IMyCharacter)entity;
                     character.DoDamage(1f, damageType, true, null, tool.OwnerId);
                     continue;
@@ -215,6 +223,7 @@ namespace ToolCore
 
                 if (entity is IMyDestroyableObject)
                 {
+                    comp.Hitting = true;
                     var floating = (IMyDestroyableObject)entity;
                     floating.DoDamage(1f, damageType, true, null, tool.OwnerId);
                     continue;
@@ -278,7 +287,7 @@ namespace ToolCore
                             data.Min = min;
                             data.Max = max;
                             data.Origin = localCentre;
-                            MyAPIGateway.Parallel.StartBackground(comp.DrillSphere, comp.OnDrillComplete);
+                            MyAPIGateway.Parallel.StartBackground(comp.DrillSphere2, comp.OnDrillComplete);
                             break;
                         case EffectShape.Cylinder:
                             data = comp.DrillData;
@@ -402,6 +411,8 @@ namespace ToolCore
             _missingComponents.Clear();
             _hitBlocks.ApplyAdditions();
 
+            comp.Hitting |= _hitBlocks.Count > 0;
+
             var inventory = comp.Inventory;
             switch (comp.Mode)
             {
@@ -516,6 +527,14 @@ namespace ToolCore
                     break;
             }
 
+            if (comp.Hitting != comp.WasHitting)
+                comp.UpdateState(Trigger.Hit, comp.Hitting);
+
+            comp.WasHitting = comp.Hitting;
+            comp.Hitting = false;
+
+
+
             for (int a = 0; a < _hitBlocks.Count; a++)
             {
                 var slim = _hitBlocks[a];
@@ -563,13 +582,14 @@ namespace ToolCore
                     if (!GridMap.TryGetValue(block.CubeGrid, out gridComp))
                         continue;
 
-                    var tool = block as IMyShipToolBase;
+                    var tool = block as IMyConveyorSorter;
                     if (tool != null)
                     {
                         var def = DefinitionMap[tool.BlockDefinition];
                         var comp = new ToolComp(tool, def, this);
                         ToolMap[block.EntityId] = comp;
                         comp.Init();
+                        ((IMyCubeGrid)gridComp.Grid).WeaponSystem.Register(comp.ToolGun);
                         gridComp.FatBlockAdded(tool as MyCubeBlock);
 
                         continue;

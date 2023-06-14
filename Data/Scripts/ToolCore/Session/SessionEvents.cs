@@ -33,9 +33,10 @@ namespace ToolCore
                 grid.AddedToScene += addToStart => _startGrids.Add(grid);
             }
 
-            var tool = entity as IMyShipToolBase;
+            var tool = entity as IMyConveyorSorter;
             if (tool != null && DefinitionMap.ContainsKey(tool.BlockDefinition))
             {
+                Logs.WriteLine("AAA");
                 var cube = tool as MyCubeBlock;
                 cube.AddedToScene += addToStart => _startBlocks.Add(cube);
             }

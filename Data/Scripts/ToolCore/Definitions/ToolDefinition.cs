@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using VRage;
 using VRage.Game;
+using VRage.Utils;
 using VRageMath;
 
 namespace ToolCore
@@ -24,6 +25,8 @@ namespace ToolCore
         internal bool AffectOwnGrid;
         internal Vector3D Offset;
         internal float Speed;
+        internal float ActivePower;
+        internal float IdlePower;
 
         //Shape dimensions
         internal Vector3D HalfExtent;
@@ -42,6 +45,7 @@ namespace ToolCore
 
         internal float VoxelHarvestRatio;
 
+        internal readonly List<ToolComp.ToolMode> ToolModes = new List<ToolComp.ToolMode>();
         internal readonly List<List<Vector3I>> Layers = new List<List<Vector3I>>();
 
         internal readonly Trigger EventFlags;
@@ -57,6 +61,8 @@ namespace ToolCore
             internal readonly float Speed;
             internal readonly int WindupTime;
             internal readonly Matrix Transform;
+            internal readonly bool HasWindup;
+            internal readonly float WindupRadsFraction;
 
             internal AnimationDef(Animation animation)
             {
@@ -65,6 +71,7 @@ namespace ToolCore
                 Direction = animation.Direction;
                 Speed = animation.Speed;
                 WindupTime = animation.WindupTime;
+                HasWindup = WindupTime > 0;
 
                 var speedTicks = Speed / 60f;
                 switch (Type)
@@ -72,6 +79,7 @@ namespace ToolCore
                     case AnimationType.Rotate:
                         var radsPerTick = MathHelper.ToRadians(speedTicks);
                         Transform = Matrix.CreateFromAxisAngle(Direction, radsPerTick);
+                        if (HasWindup) WindupRadsFraction = radsPerTick / WindupTime;
                         break;
                     case AnimationType.Linear:
                         Transform = Matrix.CreateTranslation(Direction * speedTicks);
@@ -81,6 +89,8 @@ namespace ToolCore
                         break;
 
                 }
+                Logs.WriteLine("Animation Matrix:");
+                Logs.WriteLine(Transform.ToString());
             }
         }
 
@@ -90,13 +100,25 @@ namespace ToolCore
             internal readonly string Name;
             internal readonly Vector3 Offset;
             internal readonly bool Loop;
+            internal readonly bool Lookup;
 
-            public ParticleEffectDef(ParticleEffect particleEffect)
+            internal readonly Dictionary<MyStringHash, string> ParticleMap;
+
+            public ParticleEffectDef(ParticleEffect particleEffect, ToolSession session)
             {
                 Dummy = particleEffect.Dummy;
                 Name = particleEffect.Name;
                 Offset = particleEffect.Offset;
                 Loop = particleEffect.Loop;
+
+                if (!Name.StartsWith("MaterialProperties"))
+                    return;
+
+                var material = Name.Substring(19);
+                Logs.WriteLine(material);
+
+                var mHash = MyStringHash.GetOrCompute(material);
+                Lookup = session.ParticleMap.TryGetValue(mHash, out ParticleMap);
             }
         }
 
@@ -104,15 +126,29 @@ namespace ToolCore
         {
             internal readonly MySoundPair SoundPair;
             internal readonly string Name;
+            internal readonly bool Lookup;
 
-            public SoundDef(Sound sound)
+            internal readonly Dictionary<MyStringHash, MySoundPair> SoundMap;
+
+            public SoundDef(Sound sound, ToolSession session)
             {
                 Name = sound.Name;
-                SoundPair = new MySoundPair(Name, false);
+
+                if (!Name.StartsWith("MaterialProperties"))
+                {
+                    SoundPair = new MySoundPair(Name, false);
+                    return;
+                }
+
+                var material = Name.Substring(19);
+                Logs.WriteLine(material);
+
+                var mHash = MyStringHash.GetOrCompute(material);
+                Lookup = session.SoundMap.TryGetValue(mHash, out SoundMap);
             }
         }
 
-        public ToolDefinition(ToolValues values)
+        public ToolDefinition(ToolValues values, ToolSession session)
         {
             ToolType = values.ToolType;
             EffectShape = values.EffectShape;
@@ -122,6 +158,8 @@ namespace ToolCore
             AffectOwnGrid = values.AffectOwnGrid;
             Offset = values.Offset;
             Speed = values.Speed;
+            ActivePower = values.ActivePower;
+            IdlePower = values.IdlePower;
 
             VoxelHarvestRatio = 0.009f * MyAPIGateway.Session.SessionSettings.HarvestRatioMultiplier; // * tool multiplier?
 
@@ -130,6 +168,15 @@ namespace ToolCore
             Radius = values.Radius;
             Length = values.Length;
 
+            if ((ToolType & ToolType.Drill) > 0)
+                ToolModes.Add(ToolComp.ToolMode.Drill);
+            if ((ToolType & ToolType.Grind) > 0)
+                ToolModes.Add(ToolComp.ToolMode.Grind);
+            if ((ToolType & ToolType.Weld) > 0)
+                ToolModes.Add(ToolComp.ToolMode.Weld);
+
+            if (ToolModes.Count == 0)
+                Logs.WriteLine($"No valid tool modes!");
 
 
 
@@ -233,13 +280,13 @@ namespace ToolCore
                 {
                     foreach (var particleEffect in eventDef.ParticleEffects)
                     {
-                        particleEffectDefs.Add(new ParticleEffectDef(particleEffect));
+                        particleEffectDefs.Add(new ParticleEffectDef(particleEffect, session));
                     }
                 }
 
                 SoundDef soundDef = null;
                 if (hasSound)
-                    soundDef = new SoundDef(eventDef.Sound);
+                    soundDef = new SoundDef(eventDef.Sound, session);
 
                 EventEffectDefs[eventDef.Trigger] = new MyTuple<List<AnimationDef>, List<ParticleEffectDef>, SoundDef>(animationDefs, particleEffectDefs, soundDef);
                 EventFlags |= eventDef.Trigger;

@@ -23,7 +23,7 @@ using VRageMath;
 
 namespace ToolCore
 {
-    [MySessionComponentDescriptor(MyUpdateOrder.BeforeSimulation)]
+    [MySessionComponentDescriptor(MyUpdateOrder.BeforeSimulation | MyUpdateOrder.AfterSimulation)]
     internal partial class ToolSession : MySessionComponentBase
     {
         internal static int Tick;
@@ -50,9 +50,13 @@ namespace ToolCore
             MyEntities.OnEntityCreate += OnEntityCreate;
 
             Logs.InitLogs();
+            Controls.CreateTerminalControls<IMyConveyorSorter>();
 
             LoadDefinitions();
             LoadToolCoreDefs();
+
+            MyAPIGateway.TerminalControls.CustomActionGetter += Controls.CustomActionGetter;
+            MyAPIGateway.TerminalControls.CustomControlGetter += Controls.CustomControlGetter;
         }
 
         public override void BeforeStart()
@@ -97,6 +101,7 @@ namespace ToolCore
 
         public override void UpdateAfterSimulation()
         {
+            if (IsDedicated) return;
             try
             {
                 AvLoop();
@@ -113,6 +118,11 @@ namespace ToolCore
 
             MyVisualScriptLogicProvider.PlayerDisconnected -= PlayerDisconnected;
             MyVisualScriptLogicProvider.PlayerRespawnRequest -= PlayerConnected;
+
+            MyAPIGateway.TerminalControls.CustomActionGetter -= Controls.CustomActionGetter;
+            MyAPIGateway.TerminalControls.CustomControlGetter -= Controls.CustomControlGetter;
+
+            Controls.Clean();
 
             Logs.Close();
             Clean();

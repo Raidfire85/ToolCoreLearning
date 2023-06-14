@@ -1,4 +1,5 @@
-﻿using Sandbox.Game.Weapons;
+﻿using Sandbox.Game.EntityComponents;
+using Sandbox.Game.Weapons;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,10 +12,22 @@ using VRageMath;
 
 namespace ToolCore
 {
-    internal class TestGun : IMyGunObject<MyToolBase>
+    internal class GunCore : IMyGunObject<MyToolBase>
     {
+        public GunCore(ToolComp comp)
+        {
+            _comp = comp;
+            _id = comp.Tool.BlockDefinition;
+        }
+
         private ToolComp _comp;
         private MyDefinitionId _id;
+
+        internal bool WantsToShoot;
+        internal bool Primary = true;
+        internal bool Shooting;
+        internal bool Enabled;
+
         public float BackkickForcePerSecond
         {
             get { return 0f; }
@@ -52,8 +65,7 @@ namespace ToolCore
 
         public bool IsShooting
         {
-            //get { return (uint)_comp.State > 1; }
-            get { return false; }
+            get { return Shooting; }
         }
 
         public int ShootDirectionUpdateTime
@@ -81,6 +93,7 @@ namespace ToolCore
 
         public void BeginShoot(MyShootActionEnum action)
         {
+            //Logs.WriteLine($"BeginShoot : {action}");
         }
 
         public bool CanShoot(MyShootActionEnum action, long shooter, out MyGunStatusEnum status)
@@ -91,16 +104,16 @@ namespace ToolCore
             //    status = MyGunStatusEnum.Failed;
             //    return false;
             //}
-            //if (!_comp.Functional)
-            //{
-            //    status = MyGunStatusEnum.NotFunctional;
-            //    return false;
-            //}
-            //if (!base.HasPlayerAccess(shooter, MyRelationsBetweenPlayerAndBlock.NoOwnership))
-            //{
-            //    status = MyGunStatusEnum.AccessDenied;
-            //    return false;
-            //}
+            if (!_comp.Functional)
+            {
+                status = MyGunStatusEnum.NotFunctional;
+                return false;
+            }
+            if (!_comp.Tool.HasPlayerAccess(shooter, MyRelationsBetweenPlayerAndBlock.NoOwnership))
+            {
+                status = MyGunStatusEnum.AccessDenied;
+                return false;
+            }
             //if (MySandboxGame.TotalGamePlayTimeInMilliseconds - this.m_lastTimeActivate < 250)
             //{
             //    status = MyGunStatusEnum.Cooldown;
@@ -111,7 +124,7 @@ namespace ToolCore
 
         public Vector3 DirectionToTarget(Vector3D target)
         {
-            return Vector3.Zero;
+            return _comp.Muzzle.Matrix.Forward;
         }
 
         public void DrawHud(IMyCameraController camera, long playerId)
@@ -124,14 +137,14 @@ namespace ToolCore
 
         public void EndShoot(MyShootActionEnum action)
         {
-            if (action != MyShootActionEnum.PrimaryAction)
-            {
+            //Logs.WriteLine($"EndShoot : {action}");
+            WantsToShoot = false;
+
+            if (!_comp.Functional || _comp.Enabled || !Shooting)
                 return;
-            }
-            //if (!this.Enabled)
-            //{
-            //    this.StopShooting();
-            //}
+
+            var state = action == MyShootActionEnum.PrimaryAction ? Trigger.LeftClick : Trigger.RightClick;
+            UpdateShootState(state);
         }
 
         public int GetAmmunitionAmount()
@@ -146,14 +159,12 @@ namespace ToolCore
 
         public Vector3D GetMuzzlePosition()
         {
-            //return _comp.Muzzle.Matrix.Translation;
-            return Vector3D.Zero;
+            return _comp.Muzzle.Matrix.Translation;
         }
 
         public Vector3 GetShootDirection()
         {
-            //return _comp.Muzzle.Matrix.Forward;
-            return Vector3.Zero;
+            return _comp.Muzzle.Matrix.Forward;
         }
 
         public int GetTotalAmmunitionAmount()
@@ -187,16 +198,40 @@ namespace ToolCore
 
         public void Shoot(MyShootActionEnum action, Vector3 direction, Vector3D? overrideWeaponPos, string gunAction = null)
         {
-            //Do Stuff
+            //Logs.WriteLine($"Shoot : {action}");
+            if (!WantsToShoot)
+            {
+                _comp.Sink.Update();
+                _comp.UpdatePower = true;
+            }
+
+            WantsToShoot = true;
+            Primary = action == MyShootActionEnum.PrimaryAction;
+
+            var happy = _comp.Functional && _comp.Powered && !_comp.Enabled;
+            if (Shooting == happy)
+                return;
+
+            var state = Primary ? Trigger.LeftClick : Trigger.RightClick;
+            UpdateShootState(state);
         }
 
         public void ShootFailReactionLocal(MyShootActionEnum action, MyGunStatusEnum status)
         {
+            Logs.WriteLine("ShootFailReactionLocal");
         }
 
         public bool SupressShootAnimation()
         {
             return false;
+        }
+
+        internal void UpdateShootState(Trigger state)
+        {
+            Shooting = WantsToShoot && _comp.Functional && _comp.Powered && !_comp.Enabled;
+            Logs.WriteLine($"Setting Shooting to {Shooting}");
+
+            _comp.UpdateState(state, Shooting);
         }
 
         public void UpdateSoundEmitter()

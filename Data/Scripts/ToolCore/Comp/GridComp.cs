@@ -144,7 +144,7 @@ namespace ToolCore
                     block.IsWorkingChanged += (cube) => ConveyorsDirty = true;
                 }
 
-                if (block is IMyShipToolBase)
+                if (block is IMyConveyorSorter)
                 {
                     ToolComp comp;
                     if (_session.ToolMap.TryGetValue(block.EntityId, out comp) && !ToolComps.Contains(comp))
@@ -180,7 +180,7 @@ namespace ToolCore
 
         private void FatBlockRemoved(MyCubeBlock block)
         {
-            if (block is IMyShipToolBase)
+            if (block is IMyConveyorSorter)
             {
                 ToolComp comp;
                 if (_session.ToolMap.TryGetValue(block.EntityId, out comp))

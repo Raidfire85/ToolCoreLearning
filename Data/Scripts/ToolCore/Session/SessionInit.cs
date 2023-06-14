@@ -32,8 +32,29 @@ namespace ToolCore
         {
             foreach (var def in MyDefinitionManager.Static?.GetAllDefinitions())
             {
-
+                if (def is MyPhysicalMaterialDefinition && def.Enabled)
+                    LoadMaterial(def as MyPhysicalMaterialDefinition);
             }
+        }
+
+        internal void LoadMaterial(MyPhysicalMaterialDefinition def)
+        {
+            var start = MyStringId.GetOrCompute("Start");
+            Dictionary<MyStringHash, MyPhysicalMaterialDefinition.CollisionProperty> materialProperties;
+            if (!def.CollisionProperties.TryGetValue(start, out materialProperties))
+                return;
+
+            var pMap = new Dictionary<MyStringHash, string>();
+            var sMap = new Dictionary<MyStringHash, MySoundPair>();
+            foreach (var material in materialProperties.Keys)
+            {
+                var cProp = materialProperties[material];
+                pMap.Add(material, cProp.ParticleEffect);
+                sMap.Add(material, cProp.Sound);
+            }
+            ParticleMap.Add(def.Id.SubtypeId, pMap);
+            SoundMap.Add(def.Id.SubtypeId, sMap);
+            Logs.WriteLine($"Added {pMap.Count} material properties for material {def.Id.SubtypeName}");
         }
 
         internal void LoadToolCoreDefs()
@@ -107,7 +128,7 @@ namespace ToolCore
 
                 if (_toolTypes.Contains(definition.Id.TypeId))
                 {
-                    var toolDef = new ToolDefinition(definition.ToolValues);
+                    var toolDef = new ToolDefinition(definition.ToolValues, this);
                     DefinitionMap[definition.Id] = toolDef;
                 }
 

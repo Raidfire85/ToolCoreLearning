@@ -28,6 +28,8 @@ namespace ToolCore
         public float Radius = 1f; //Sphere, Cylinder
         public float Length = 1f; //Cylinder, Line
 
+        public float IdlePower = 0f;
+        public float ActivePower = 1f;
         public float Speed = 1f;
         public int UpdateInterval = 10;
 
@@ -40,9 +42,9 @@ namespace ToolCore
     public enum ToolType
     {
         Drill = 1,
-        Grinder = 2,
+        Grind = 2,
         GrindDrill = 3,
-        Welder = 4,
+        Weld = 4,
         WeldDrill = 5,
         WeldGrind = 6,
         Multi = 7,
@@ -75,14 +77,18 @@ namespace ToolCore
 
     }
 
+    [Flags]
     public enum Trigger
     {
         None = 0,
-        Functional = 1,//001
-        LeftClick = 2, //010
-        RightClick = 4,//100
-        Click = 6,     //110
-        Hit = 8,      //1000
+        Functional = 1,
+        Powered = 2,
+        Enabled = 4,
+        LeftClick = 8,
+        RightClick = 16,
+        Click = 24,
+        Active = 28,
+        Hit = 32,
 
     }
 
@@ -90,16 +96,16 @@ namespace ToolCore
     {
         public string Subpart;
         public AnimationType Type;
-        public Vector3 Direction = Vector3.Zero;
+        public SerializableVector3 Direction = Vector3.Zero;
         public float Speed = 1f; //(degrees/metres) per second
-        public int WindupTime = 0;
+        public int WindupTime = 0; //ticks
     }
 
     public class ParticleEffect
     {
         public string Dummy;
         public string Name;
-        public Vector3 Offset = Vector3.Zero;
+        public SerializableVector3 Offset = Vector3.Zero;
         public bool Loop;
     }
 

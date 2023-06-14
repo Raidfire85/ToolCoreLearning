@@ -35,87 +35,105 @@ namespace ToolCore
                 var tool = comp.Tool;
                 var def = comp.Definition;
 
-                var avState = comp.State & def.EventFlags;
-                if (avState == 0)
-                {
-                    //AvComps.Remove(comp);
-                    //clean
-                }
-
+                MyAPIGateway.Utilities.ShowNotification($"Running {comp.ActiveEffects.Count} effects", 16);
                 for (int j = comp.ActiveEffects.Count - 1; j >= 0; j--)
                 {
                     var effects = comp.ActiveEffects[j];
 
-                    if (effects.HasParticles)
-                        RunParticles(effects);
+                    if (tool.MarkedForClose)
+                    {
+                        effects.Expired = true;
+                        effects.Dirty = true;
+                        Logs.WriteLine("Caught effects on block marked for close");
+                    }
 
-                    if (effects.HasAnimations)
-                        RunAnimations(effects);
+
+                    var particlesFinished = !effects.HasParticles || RunParticles(effects);
+
+                    var animationsFinished = !effects.HasAnimations || RunAnimations(effects);
                     
-                    if (effects.HasSound)
-                        RunSound(effects, comp);
-
-
+                    if (effects.HasSound) RunSound(effects, comp);
 
                     effects.LastActiveTick = Tick;
-                    if (effects.Dirty)
+                    effects.Restart = false;
+
+                    if (effects.Dirty || effects.Expired && particlesFinished && animationsFinished)
+                    {
                         comp.ActiveEffects.RemoveAtFast(j);
+                        effects.Clean();
+                    }
                 }
 
+                if (comp.ActiveEffects.Count == 0)
+                {
+                    comp.AvActive = false;
+                    AvComps.Remove(comp);
+                }
             }
             AvComps.ApplyRemovals();
         }
 
-        internal void RunParticles(Effects effects)
+        internal bool RunParticles(Effects effects)
         {
-            Logs.WriteLine("AAA");
             var particles = effects.ParticleEffects;
+            MyAPIGateway.Utilities.ShowNotification($"Running {particles.Count} particles", 16);
             for (int i = 0; i < particles.Count; i++)
             {
                 var pEffect = particles[i];
+                var def = pEffect.Definition;
 
-                if (effects.Expired)
+                if (effects.Expired && pEffect.Particle != null)
                 {
-                    pEffect.Particle?.Stop();
-                    pEffect.Particle = null;
+                    if (def.Loop)
+                    {
+                        pEffect.Particle.Stop(false);
+                        pEffect.Particle = null;
+                    }
                     continue;
                 }
 
-                if (effects.LastActiveTick < Tick - 1)
+                if (effects.Restart || effects.LastActiveTick < Tick - 1)
                 {
-                    var matrix = MatrixD.Normalize(pEffect.Dummy.Matrix);
-                    var pos = matrix.Translation;
-                    matrix.Translation += pEffect.Offset;
-                    var renderId = pEffect.Parent.Render.GetRenderObjectID();
-                    MyParticleEffect myParticle;
-                    if (!MyParticlesManager.TryCreateParticleEffect(pEffect.Name, ref matrix, ref pos, renderId, out myParticle))
+                    if (pEffect.Particle != null)
                         continue;
 
-                    if (pEffect.Loop)
+                    var matrix = MatrixD.Normalize(pEffect.Dummy.Matrix);
+                    var pos = matrix.Translation;
+                    matrix.Translation += def.Offset;
+                    var renderId = pEffect.Parent.Render.GetRenderObjectID();
+                    MyParticleEffect myParticle;
+                    if (!MyParticlesManager.TryCreateParticleEffect(def.Name, ref matrix, ref pos, renderId, out myParticle))
+                        continue;
+
+                    if (def.Loop)
                     {
                         pEffect.Particle = myParticle;
                     }
                     continue;
                 }
 
-                if (pEffect.Loop)
+                if (def.Loop && !effects.Expired)
                 {
                     if (pEffect.Particle == null)
                     {
-                        Logs.WriteLine($"MyParticleEffect '{pEffect.Name}' null in particle loop!");
+                        Logs.WriteLine($"MyParticleEffect '{def.Name}' null in particle loop!");
                         continue;
                     }
 
                     var matrix = MatrixD.Normalize(pEffect.Dummy.Matrix);
+                    matrix.Translation += def.Offset;
                     pEffect.Particle.WorldMatrix = matrix;
                 }
 
             }
+            return true;
         }
 
-        internal void RunAnimations(Effects effects)
+        internal bool RunAnimations(Effects effects)
         {
             var animations = effects.Animations;
+            var finished = true;
+            MyAPIGateway.Utilities.ShowNotification($"Running {animations.Count} animations", 16);
             for (int i = 0; i < animations.Count; i++)
             {
                 var anim = animations[i];
@@ -126,18 +144,21 @@ namespace ToolCore
                     Logs.WriteLine($"Subpart null in animation loop!");
                     continue;
                 }
-                var transform = anim.Transform;
+                var transform = anim.Definition.Transform;
 
                 if (effects.Expired)
                 {
-                    if (anim.TransitionState <= 0)
+                    if (!anim.Definition.HasWindup || anim.TransitionState <= 0)
                         continue;
 
+                    anim.Starting = false;
+
+                    finished = false;
                     anim.TransitionState--;
-                    transform *= anim.TransitionState / anim.WindupTime;
+                    transform = Matrix.CreateFromAxisAngle(anim.Definition.Direction, anim.TransitionState * anim.Definition.WindupRadsFraction);
                 }
 
-                if (effects.LastActiveTick < Tick - 1)
+                if (anim.Definition.HasWindup && effects.LastActiveTick < Tick - 1)
                 {
                     anim.Starting = true;
                 }
@@ -145,25 +166,57 @@ namespace ToolCore
                 if (anim.Starting)
                 {
                     anim.TransitionState++;
-                    if (anim.TransitionState >= anim.WindupTime - 1)
+                    if (anim.TransitionState >= anim.Definition.WindupTime - 1)
                         anim.Starting = false;
 
-                    transform *= anim.TransitionState / anim.WindupTime;
+                    transform = Matrix.CreateFromAxisAngle(anim.Definition.Direction, anim.TransitionState * anim.Definition.WindupRadsFraction);
                 }
 
                 var lm = subpart.PositionComp.LocalMatrixRef;
                 var trans = lm.Translation;
-                lm *= transform;
-                //lm.Translation = trans;
+                //lm *= transform;
+                Matrix.MultiplyRotation(ref lm, ref transform, out lm);
+                lm.Translation = trans;
                 subpart.PositionComp.SetLocalMatrix(ref lm);
             }
+
+            return finished;
 
         }
 
         internal void RunSound(Effects effects, ToolComp comp)
         {
+            var emitter = comp.SoundEmitter;
+            if (emitter == null)
+            {
+                Logs.WriteLine("Sound emitter null!");
+                return;
+            }
             var sound = effects.SoundDef;
-            comp.SoundEmitter.PlaySound(sound.SoundPair);
+
+            if (effects.Expired)
+            {
+                if (emitter.IsPlaying)
+                {
+                    emitter.StopSound(true);
+                    Logs.WriteLine("Stopping sound");
+                }
+
+                return;
+            }
+
+            if (effects.LastActiveTick < Tick - 1)
+            {
+                if (emitter.IsPlaying)
+                {
+                    emitter.StopSound(true);
+                    Logs.WriteLine("Stopping sound");
+                }
+
+                emitter.PlaySound(sound.SoundPair);
+                Logs.WriteLine("Playing sound");
+            }
+
         }
 
     }
