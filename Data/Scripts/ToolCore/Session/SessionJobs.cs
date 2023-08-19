@@ -28,7 +28,7 @@ using VRage.Voxels;
 using VRageMath;
 using static ToolCore.Draw;
 
-namespace ToolCore
+namespace ToolCore.Session
 {
     internal partial class ToolSession
     {

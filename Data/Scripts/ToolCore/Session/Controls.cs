@@ -60,6 +60,7 @@ namespace ToolCore.Session
             foreach (var newControl in _customControls)
                 controls.Add(newControl);
 
+            GetMode(block);
             LastTerminal = block;
         }
 
@@ -85,7 +86,7 @@ namespace ToolCore.Session
             _customControls.Add(Separator<T>());
             _customControls.Add(ToolShootSwitch<T>());
             _customControls.Add(SelectMode<T>());
-            _customControls.Add(DebugSwitch<T>());
+            _customControls.Add(DrawSwitch<T>());
 
             _customActions.Add(CreateActivateOnOffAction<T>());
         }
@@ -221,17 +222,17 @@ namespace ToolCore.Session
 
         #endregion
 
-        #region Debug
+        #region Draw
 
-        internal IMyTerminalControlOnOffSwitch DebugSwitch<T>() where T : IMyConveyorSorter
+        internal IMyTerminalControlOnOffSwitch DrawSwitch<T>() where T : IMyConveyorSorter
         {
-            var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlOnOffSwitch, T>("ToolCore_Debug");
-            control.Title = MyStringId.GetOrCompute("Debug");
-            control.Tooltip = MyStringId.GetOrCompute("Enable debug display");
+            var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlOnOffSwitch, T>("ToolCore_Draw");
+            control.Title = MyStringId.GetOrCompute("Draw");
+            control.Tooltip = MyStringId.GetOrCompute("Show tool effect area");
             control.OnText = MyStringId.GetOrCompute("On");
             control.OffText = MyStringId.GetOrCompute("Off");
-            control.Getter = GetActivated;
-            control.Setter = SetActivated;
+            control.Getter = GetDraw;
+            control.Setter = SetDraw;
             control.Visible = IsTrue;
             control.Enabled = IsFunctional;
 
@@ -239,22 +240,22 @@ namespace ToolCore.Session
 
         }
 
-        internal bool GetDebug(IMyTerminalBlock block)
+        internal bool GetDraw(IMyTerminalBlock block)
         {
             ToolComp comp;
             if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
                 return false;
 
-            return comp.Debug;
+            return comp.Draw;
         }
 
-        internal void SetDebug(IMyTerminalBlock block, bool enabled)
+        internal void SetDraw(IMyTerminalBlock block, bool enabled)
         {
             ToolComp comp;
             if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
                 return;
 
-            comp.Debug = enabled;
+            comp.Draw = enabled;
         }
 
         #endregion

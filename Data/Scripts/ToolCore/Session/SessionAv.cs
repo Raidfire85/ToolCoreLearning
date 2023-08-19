@@ -22,7 +22,7 @@ using VRage.Utils;
 using VRageMath;
 using static ToolCore.ToolComp;
 
-namespace ToolCore
+namespace ToolCore.Session
 {
     internal partial class ToolSession
     {

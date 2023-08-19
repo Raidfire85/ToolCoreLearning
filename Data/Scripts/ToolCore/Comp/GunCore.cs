@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using ToolCore.Definitions.Serialised;
 using VRage.Game;
 using VRage.Game.ModAPI;
 using VRage.Game.ModAPI.Interfaces;
@@ -145,6 +146,13 @@ namespace ToolCore
 
             var state = action == MyShootActionEnum.PrimaryAction ? Trigger.LeftClick : Trigger.RightClick;
             UpdateShootState(state);
+
+            //Logs.WriteLine("read: " + _comp.Session.DsUtil.GetValue("read").ToString());
+            //Logs.WriteLine("sort: " + _comp.Session.DsUtil.GetValue("sort").ToString());
+            //Logs.WriteLine("calc: " + _comp.Session.DsUtil.GetValue("calc").ToString());
+            //Logs.WriteLine("write: " + _comp.Session.DsUtil.GetValue("write").ToString());
+            //Logs.WriteLine("notify: " + _comp.Session.DsUtil.GetValue("notify").ToString());
+            //_comp.Session.DsUtil.Clean();
         }
 
         public int GetAmmunitionAmount()

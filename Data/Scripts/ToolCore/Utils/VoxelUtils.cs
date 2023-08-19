@@ -26,6 +26,7 @@ using VRage.ObjectBuilders;
 using VRage.Utils;
 using VRage.Voxels;
 using VRageMath;
+using ToolCore.Definitions.Serialised;
 using static ToolCore.Draw;
 
 namespace ToolCore
@@ -93,7 +94,7 @@ namespace ToolCore
                             {
                                 var oreOb = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>(def.MinedOre);
                                 oreOb.MaterialTypeName = def.Id.SubtypeId;
-                                var yield = (content - newContent) / 255f * def.MinedOreRatio * comp.Definition.VoxelHarvestRatio;
+                                var yield = (content - newContent) / 255f * def.MinedOreRatio * comp.Definition.HarvestRatio;
 
                                 if (_yields.ContainsKey(oreOb))
                                 {

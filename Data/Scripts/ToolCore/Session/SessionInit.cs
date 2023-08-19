@@ -22,8 +22,11 @@ using VRage.ModAPI;
 using VRage.ObjectBuilders;
 using VRage.Utils;
 using VRageMath;
+using ToolCore.Definitions;
+using ToolCore.Definitions.Serialised;
+using static ToolCore.Definitions.Serialised.ToolCoreSettings;
 
-namespace ToolCore
+namespace ToolCore.Session
 {
     internal partial class ToolSession
     {
@@ -32,12 +35,27 @@ namespace ToolCore
         {
             foreach (var def in MyDefinitionManager.Static?.GetAllDefinitions())
             {
-                if (def is MyPhysicalMaterialDefinition && def.Enabled)
-                    LoadMaterial(def as MyPhysicalMaterialDefinition);
+                if (def == null || !def.Enabled)
+                    continue;
+
+                if (def is MyPhysicalMaterialDefinition)
+                    LoadPhysicalMaterial(def as MyPhysicalMaterialDefinition);
+
             }
         }
 
-        internal void LoadMaterial(MyPhysicalMaterialDefinition def)
+        internal void LoadVoxelMaterials()
+        {
+            foreach (var def in MyDefinitionManager.Static?.GetVoxelMaterialDefinitions())
+            {
+                if (def == null || !def.Enabled)
+                    continue;
+
+                LoadVoxelMaterial(def);
+            }
+        }
+
+        internal void LoadPhysicalMaterial(MyPhysicalMaterialDefinition def)
         {
             var start = MyStringId.GetOrCompute("Start");
             Dictionary<MyStringHash, MyPhysicalMaterialDefinition.CollisionProperty> materialProperties;
@@ -55,6 +73,39 @@ namespace ToolCore
             ParticleMap.Add(def.Id.SubtypeId, pMap);
             SoundMap.Add(def.Id.SubtypeId, sMap);
             Logs.WriteLine($"Added {pMap.Count} material properties for material {def.Id.SubtypeName}");
+        }
+
+        internal void LoadVoxelMaterial(MyVoxelMaterialDefinition def)
+        {
+            var materialName = def.MaterialTypeName;
+            var categories = Settings.CategoryModifiers;
+
+            var restitution = def.Restitution;
+            if (restitution != 1 && restitution > 0)
+            {
+                Settings.MaterialModifiers.Add(def, restitution);
+                return;
+            }
+
+            var isOre = !def.MinedOre.Equals("Stone") && !def.MinedOre.Equals("Ice");
+            float hardness;
+            if (isOre && categories.TryGetValue("Ore", out hardness))
+            {
+                Settings.MaterialModifiers.Add(def, hardness);
+                return;
+            }
+
+            foreach (var category in categories.Keys)
+            {
+                if (!materialName.Contains(category))
+                    continue;
+
+                Settings.MaterialModifiers.Add(def, categories[category]);
+                return;
+            }
+
+            if (categories.TryGetValue("Rock", out hardness))
+                Settings.MaterialModifiers.Add(def, hardness);
         }
 
         internal void LoadToolCoreDefs()
@@ -82,7 +133,7 @@ namespace ToolCore
             if (!MyAPIGateway.Utilities.FileExistsInModLocation(path, mod))
                 return;
 
-            Definitions definitions = null;
+            Definitions.Serialised.Definitions definitions = null;
             using (var reader = MyAPIGateway.Utilities.ReadFileInModLocation(path, mod))
             {
                 StringBuilder builder = new StringBuilder();
@@ -99,7 +150,7 @@ namespace ToolCore
                 var data = builder.ToString();
                 try
                 {
-                    definitions = MyAPIGateway.Utilities.SerializeFromXML<Definitions>(data);
+                    definitions = MyAPIGateway.Utilities.SerializeFromXML<Definitions.Serialised.Definitions>(data);
 
                 }
                 catch (Exception ex)

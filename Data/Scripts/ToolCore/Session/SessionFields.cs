@@ -22,12 +22,15 @@ using VRage.ObjectBuilders;
 using VRage.Utils;
 using VRageMath;
 using ToolCore.Session;
+using ToolCore.Definitions;
 
-namespace ToolCore
+namespace ToolCore.Session
 {
     internal partial class ToolSession
     {
         private const string PATH = "Data\\ToolCoreFiles.txt";
+        internal readonly Guid CompDataGuid = new Guid("75BBB4F5-4FB9-4230-AAAA-BB79C9811618");
+        internal readonly float VoxelHarvestRatio = 0.009f;
 
         private readonly MyDefinitionId _electricity = MyResourceDistributorComponent.ElectricityId;
         internal readonly MyDefinitionId SteelPlate = new MyDefinitionId(typeof(MyObjectBuilder_Component), "SteelPlate");
@@ -52,7 +55,6 @@ namespace ToolCore
         internal readonly Dictionary<SerializableDefinitionId, ToolDefinition> DefinitionMap = new Dictionary<SerializableDefinitionId, ToolDefinition>();
         internal readonly Dictionary<MyStringHash, Dictionary<MyStringHash, string>> ParticleMap = new Dictionary<MyStringHash, Dictionary<MyStringHash, string>>();
         internal readonly Dictionary<MyStringHash, Dictionary<MyStringHash, MySoundPair>> SoundMap = new Dictionary<MyStringHash, Dictionary<MyStringHash, MySoundPair>>();
-        internal readonly ConcurrentDictionary<long, IMyPlayer> PlayerMap = new ConcurrentDictionary<long, IMyPlayer>();
 
         internal readonly List<GridComp> GridList = new List<GridComp>();
         internal readonly ConcurrentDictionary<IMyCubeGrid, GridComp> GridMap = new ConcurrentDictionary<IMyCubeGrid, GridComp>();
@@ -60,6 +62,7 @@ namespace ToolCore
         internal readonly ConcurrentCachingList<ToolComp> AvComps = new ConcurrentCachingList<ToolComp>();
         internal readonly Dictionary<long, ToolComp> ToolMap = new Dictionary<long, ToolComp>();
         internal readonly Dictionary<IMySlimBlock, float> WorkMap = new Dictionary<IMySlimBlock, float>();
+        internal readonly ConcurrentDictionary<long, IMyPlayer> PlayerMap = new ConcurrentDictionary<long, IMyPlayer>();
 
         private readonly List<MyEntity> _entities = new List<MyEntity>();
         private readonly List<MyLineSegmentOverlapResult<MyEntity>> _lineOverlaps = new List<MyLineSegmentOverlapResult<MyEntity>>();
@@ -72,6 +75,7 @@ namespace ToolCore
 
         internal readonly GridUtils GridUtils = new GridUtils();
         internal readonly VoxelUtils VoxelUtils = new VoxelUtils();
+        internal readonly Settings Settings = new Settings();
         internal readonly DSUtils DsUtil;
         internal readonly DSUtils DsUtil2;
         internal readonly Controls Controls;

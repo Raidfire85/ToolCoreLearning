@@ -21,7 +21,7 @@ using VRage.Utils;
 using VRageMath;
 using IMyControllableEntity = VRage.Game.ModAPI.Interfaces.IMyControllableEntity;
 
-namespace ToolCore
+namespace ToolCore.Session
 {
     internal partial class ToolSession
     {

@@ -19,6 +19,12 @@ namespace ToolCore
             public double Max;
             public double Median;
             public uint MaxTick;
+
+            public override string ToString()
+            {
+                var separator = " : ";
+                return Min.ToString("F1") + separator + Median.ToString("F1") + separator + Max.ToString("F1");
+            }
         }
 
         internal class Timings

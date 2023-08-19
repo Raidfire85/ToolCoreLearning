@@ -9,8 +9,9 @@ using VRage;
 using VRage.Game;
 using VRage.Utils;
 using VRageMath;
+using ToolCore.Definitions.Serialised;
 
-namespace ToolCore
+namespace ToolCore.Definitions
 {
     /// <summary>
     /// Stored values from cubeblock definitions plus precalculated constants
@@ -43,7 +44,7 @@ namespace ToolCore
         internal BoundingSphereD EffectSphere;
         internal BoundingBox EffectBox;
 
-        internal float VoxelHarvestRatio;
+        internal float HarvestRatio;
 
         internal readonly List<ToolComp.ToolMode> ToolModes = new List<ToolComp.ToolMode>();
         internal readonly List<List<Vector3I>> Layers = new List<List<Vector3I>>();
@@ -161,7 +162,7 @@ namespace ToolCore
             ActivePower = values.ActivePower;
             IdlePower = values.IdlePower;
 
-            VoxelHarvestRatio = 0.009f * MyAPIGateway.Session.SessionSettings.HarvestRatioMultiplier; // * tool multiplier?
+            HarvestRatio = values.HarvestRatio;
 
 
             HalfExtent = values.HalfExtent;

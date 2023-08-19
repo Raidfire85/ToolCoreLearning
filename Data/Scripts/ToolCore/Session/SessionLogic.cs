@@ -24,9 +24,10 @@ using VRage.ObjectBuilders;
 using VRage.Utils;
 using VRage.Voxels;
 using VRageMath;
+using ToolCore.Definitions.Serialised;
 using static ToolCore.Draw;
 
-namespace ToolCore
+namespace ToolCore.Session
 {
     internal partial class ToolSession
     {
@@ -117,9 +118,18 @@ namespace ToolCore
             if (comp.CompTick120 == TickMod120 && comp.Mode != ToolComp.ToolMode.Weld)
                 comp.ManageInventory();
 
-            comp.DrawBoxes.ApplyAdditions();
-            foreach (var tuple in comp.DrawBoxes)
-                DrawBox(tuple.Item1, _colors[tuple.Item2], false, 1, 0.01f);
+            if (comp.Debug)
+            {
+                comp.DrawBoxes.ApplyAdditions();
+                foreach (var tuple in comp.DrawBoxes)
+                    DrawBox(tuple.Item1, tuple.Item2, false, 1, 0.01f);
+
+                if (comp.Hitting)
+                {
+                    DrawScaledPoint(comp.HitInfo.Position, 0.5, Color.Red);
+                    MyAPIGateway.Utilities.ShowNotification(comp.HitInfo.Position.ToString("F0"), 16);
+                }
+            }
 
             var def = comp.Definition;
             var pos = tool.PositionComp;
@@ -259,6 +269,12 @@ namespace ToolCore
                     if (comp.Mode != ToolComp.ToolMode.Drill)
                         continue;
 
+                    if (comp.ActiveDrillThreads > 0)
+                    {
+                        Logs.WriteLine($"Drill thread still running, skipping voxel");
+                        continue;
+                    }
+
                     var voxel = (IMyVoxelBase)entity;
 
                     if ((voxel as MyVoxelBase).GetOrePriority() == 0)
@@ -287,7 +303,7 @@ namespace ToolCore
                             data.Min = min;
                             data.Max = max;
                             data.Origin = localCentre;
-                            MyAPIGateway.Parallel.StartBackground(comp.DrillSphere2, comp.OnDrillComplete);
+                            MyAPIGateway.Parallel.StartBackground(comp.DrillSphere, comp.OnDrillComplete);
                             break;
                         case EffectShape.Cylinder:
                             data = comp.DrillData;
@@ -310,6 +326,7 @@ namespace ToolCore
                         default:
                             break;
                     }
+                    comp.ActiveDrillThreads++;
 
                 }
 
@@ -528,7 +545,19 @@ namespace ToolCore
             }
 
             if (comp.Hitting != comp.WasHitting)
+            {
                 comp.UpdateState(Trigger.Hit, comp.Hitting);
+
+                if (!comp.Hitting)
+                {
+                    Logs.WriteLine("read: " + DsUtil.GetValue("read").ToString());
+                    Logs.WriteLine("sort: " + DsUtil.GetValue("sort").ToString());
+                    Logs.WriteLine("calc: " + DsUtil.GetValue("calc").ToString());
+                    Logs.WriteLine("write: " + DsUtil.GetValue("write").ToString());
+                    Logs.WriteLine("notify: " + DsUtil.GetValue("notify").ToString());
+                    DsUtil.Clean();
+                }
+            }
 
             comp.WasHitting = comp.Hitting;
             comp.Hitting = false;

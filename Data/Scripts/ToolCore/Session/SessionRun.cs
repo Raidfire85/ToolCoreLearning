@@ -21,7 +21,7 @@ using VRage.ObjectBuilders;
 using VRage.Utils;
 using VRageMath;
 
-namespace ToolCore
+namespace ToolCore.Session
 {
     [MySessionComponentDescriptor(MyUpdateOrder.BeforeSimulation | MyUpdateOrder.AfterSimulation)]
     internal partial class ToolSession : MySessionComponentBase
@@ -61,6 +61,9 @@ namespace ToolCore
 
         public override void BeforeStart()
         {
+            Settings.LoadConfig();
+            LoadVoxelMaterials();
+
             MyVisualScriptLogicProvider.PlayerDisconnected += PlayerDisconnected;
             MyVisualScriptLogicProvider.PlayerRespawnRequest += PlayerConnected;
         }
@@ -123,6 +126,7 @@ namespace ToolCore
             MyAPIGateway.TerminalControls.CustomControlGetter -= Controls.CustomControlGetter;
 
             Controls.Clean();
+            Settings.Clean();
 
             Logs.Close();
             Clean();

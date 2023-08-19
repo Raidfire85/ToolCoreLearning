@@ -25,8 +25,11 @@ using VRage.ObjectBuilders;
 using VRage.Utils;
 using VRage.Voxels;
 using VRageMath;
+using ToolCore.Definitions;
+using ToolCore.Definitions.Serialised;
 using static ToolCore.Draw;
-using static ToolCore.ToolDefinition;
+using static ToolCore.Definitions.ToolDefinition;
+using ToolCore.Comp;
 
 namespace ToolCore
 {
@@ -35,7 +38,7 @@ namespace ToolCore
     /// </summary>
     internal partial class ToolComp : MyEntityComponentBase
     {
-        private readonly ToolSession Session;
+        internal readonly ToolSession Session;
 
         internal readonly GunCore ToolGun;
         internal readonly MyInventory Inventory;
@@ -52,6 +55,7 @@ namespace ToolCore
 
         internal MyCubeGrid Grid;
         internal GridComp GridComp;
+        internal ToolRepo Repo;
 
         internal IMyTerminalControlOnOffSwitch ShowInToolbarSwitch;
 
@@ -67,7 +71,7 @@ namespace ToolCore
         internal readonly ConcurrentDictionary<MyObjectBuilder_Ore, float> Yields = new ConcurrentDictionary<MyObjectBuilder_Ore, float>();
 
         internal readonly HashSet<Vector3I> PreviousPositions = new HashSet<Vector3I>();
-        internal readonly ConcurrentCachingList<MyTuple<MyOrientedBoundingBoxD, int>> DrawBoxes = new ConcurrentCachingList<MyTuple<MyOrientedBoundingBoxD, int>>();
+        internal readonly ConcurrentCachingList<MyTuple<MyOrientedBoundingBoxD, Color>> DrawBoxes = new ConcurrentCachingList<MyTuple<MyOrientedBoundingBoxD, Color>>();
 
         internal bool Enabled;
         internal bool Functional;
@@ -75,10 +79,11 @@ namespace ToolCore
         internal bool Dirty;
         internal bool AvActive;
         internal bool UpdatePower;
+        internal bool LastPushSucceeded;
 
         internal bool Hitting;
         internal bool WasHitting;
-        internal Vector3D HitPosition;
+        internal readonly Hit HitInfo = new Hit();
         internal MyStringHash HitMaterial = MyStringHash.GetOrCompute("Metal");
 
         internal bool Activated;
@@ -91,13 +96,25 @@ namespace ToolCore
         internal long CompTick60;
         internal long CompTick120;
         internal int LastPushTick;
-        internal bool LastPushSucceeded;
+        internal int ActiveDrillThreads;
 
         internal enum ToolMode
         {
             Drill = 0,
             Grind = 1,
             Weld = 2,
+        }
+
+        internal class Hit
+        {
+            internal Vector3D Position;
+            internal MyStringHash Material;
+
+            internal void Update(Vector3D pos, MyStringHash material)
+            {
+                Position = pos;
+                Material = material;
+            }
         }
 
         internal class Effects
@@ -429,6 +446,16 @@ namespace ToolCore
             UpdatePower = true;
             if (!Powered) return;
 
+            //if (!Enabled)
+            //{
+            //    Logs.WriteLine("read: " + Session.DsUtil.GetValue("read").ToString());
+            //    Logs.WriteLine("sort: " + Session.DsUtil.GetValue("sort").ToString());
+            //    Logs.WriteLine("calc: " + Session.DsUtil.GetValue("calc").ToString());
+            //    Logs.WriteLine("write: " + Session.DsUtil.GetValue("write").ToString());
+            //    Logs.WriteLine("notify: " + Session.DsUtil.GetValue("notify").ToString());
+            //    Session.DsUtil.Clean();
+            //}
+
             UpdateState(Trigger.Enabled, Enabled);
         }
 
@@ -455,6 +482,12 @@ namespace ToolCore
 
         public override bool IsSerialized()
         {
+            if (Tool.Storage == null || Repo == null) return false;
+
+            Repo.Sync(this);
+
+            Tool.Storage[Session.CompDataGuid] = Convert.ToBase64String(MyAPIGateway.Utilities.SerializeToBinary(Repo));
+
             return false;
         }
 
@@ -463,7 +496,11 @@ namespace ToolCore
             Tool.Components.Add(this);
 
             SinkInit();
+            StorageInit();
             SubpartsInit();
+
+            if (!Session.IsDedicated)
+                GetShowInToolbarSwitch();
         }
 
         private void SinkInit()
@@ -546,203 +583,245 @@ namespace ToolCore
             Dirty = false;
         }
 
+        private void StorageInit()
+        {
+            string rawData;
+            ToolRepo loadRepo = null;
+            if (Tool.Storage == null)
+            {
+                Tool.Storage = new MyModStorageComponent();
+            }
+            else if (Tool.Storage.TryGetValue(Session.CompDataGuid, out rawData))
+            {
+                try
+                {
+                    var base64 = Convert.FromBase64String(rawData);
+                    loadRepo = MyAPIGateway.Utilities.SerializeFromBinary<ToolRepo>(base64);
+                }
+                catch (Exception ex)
+                {
+                    Logs.WriteLine($"DriveComp - Exception at StorageInit() - {ex}");
+                }
+            }
+
+            if (loadRepo != null)
+            {
+                Sync(loadRepo);
+            }
+            else
+            {
+                Repo = new ToolRepo();
+            }
+        }
+
+        private void Sync(ToolRepo repo)
+        {
+            Repo = repo;
+
+            Activated = repo.Activated;
+            Draw = repo.Draw;
+            Mode = (ToolMode)repo.Mode;
+        }
+
         internal void DrillSphere()
         {
+            DrawBoxes.ClearImmediate();
+
+            var centre = DrillData.Origin;
+            var forward = DrillData.Direction;
+            var radius = Definition.Radius;
+            var radiusSqr = radius * radius;
+            var extendedRadius = radius + 0.5f;
+            var extRadiusSqr = extendedRadius * extendedRadius;
+
             var voxel = DrillData.Voxel;
-            var max = DrillData.Max;
             var min = DrillData.Min;
-            var radius = Definition.EffectSphere.Radius;
-            var radiusSqr = Math.Pow(radius, 2);
-            var radiusMinusOneSqr = Math.Pow(Math.Max(radius - 1f, 0), 2);
+            var max = DrillData.Max;
+
             var reduction = (int)(Definition.Speed * 255);
             using ((voxel as MyVoxelBase).Pin())
             {
                 var data = new MyStorageData();
                 data.Resize(min, max);
 
-                try
-                {
-                    voxel.Storage.ReadRange(data, MyStorageDataTypeFlags.ContentAndMaterial, 0, min, max);
-                }
-                catch (Exception ex)
-                {
-                    Logs.WriteLine("ReadRange()");
-                    Logs.LogException(ex);
-                    return;
-                }
+                Session.DsUtil.Start("read");
+                voxel.Storage.ReadRange(data, MyStorageDataTypeFlags.ContentAndMaterial, 0, min, max);
+                Session.DsUtil.Complete("read", true);
 
                 MyFixedPoint amount = 0;
-                Vector3I pos;
+                Vector3I testPos = new Vector3I();
 
-                byte content;
+                int content;
                 byte material;
 
-                switch (Definition.Pattern)
+                Session.DsUtil.Start("sort");
+                var maxLayer = 0;
+                var foundContent = false;
+                for (int i = min.X; i <= max.X; i++)
                 {
-                    case WorkOrder.Uniform:
-                        for (int i = 0; i < data.SizeLinear; i++)
+                    testPos.X = i;
+                    for (int j = min.Y; j <= max.Y; j++)
+                    {
+                        testPos.Y = j;
+                        for (int k = min.Z; k <= max.Z; k++)
                         {
-                            data.ComputePosition(i, out pos);
+                            testPos.Z = k;
 
-                            var localPos = (Vector3D)(min + pos);
-                            var distSqr = Vector3D.DistanceSquared(localPos, DrillData.Origin);
-                            if (distSqr > radiusSqr)
+                            var relativePos = testPos - min;
+                            var index = data.ComputeLinear(ref relativePos);
+                            if (index < 0 || index > data.SizeLinear)
                                 continue;
-                            try
-                            {
-                                content = data.Content(i);
-                                material = data.Material(i);
-                            }
-                            catch (Exception ex)
-                            {
-                                Logs.LogException(ex);
-                                continue;
-                            }
 
+                            content = data.Content(index);
                             if (content == 0)
                                 continue;
 
-                            var removal = reduction;
-                            if (distSqr > radiusMinusOneSqr)
+                            var offset = (Vector3D)testPos - centre;
+                            var distSqr = offset.LengthSquared();
+                            if (distSqr > extRadiusSqr)
+                                continue;
+
+                            foundContent = true;
+
+                            var dist = 0f;
+                            var secondaryDistSqr = 0f;
+                            switch (Definition.Pattern)
                             {
-                                var dist = radius - Vector3D.Distance(localPos, DrillData.Origin);
-                                var density = MathHelper.Clamp(dist, -1, 1) * 0.5 + 0.5;
-                                removal = (byte)(removal * density);
-                                //Logs.WriteLine($"{dist} : {density} : {removal}");
-                            }
-                            Hitting |= removal > 0;
-
-                            var newContent = removal >= content ? MyVoxelConstants.VOXEL_CONTENT_EMPTY : (byte)(content - removal);
-
-                            var def = MyDefinitionManager.Static.GetVoxelMaterialDefinition(material);
-                            if (def != null && def.CanBeHarvested && !string.IsNullOrEmpty(def.MinedOre))
-                            {
-                                var oreOb = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>(def.MinedOre);
-                                oreOb.MaterialTypeName = def.Id.SubtypeId;
-                                var yield = (content - newContent) / 255f * def.MinedOreRatio * Definition.VoxelHarvestRatio;
-
-                                if (!Yields.TryAdd(oreOb, yield))
-                                    Yields[oreOb] += yield;
-                            }
-
-                            data.Content(i, newContent);
-                            if (newContent == 0)
-                                data.Material(i, byte.MaxValue);
-
-                            if (Debug)
-                            {
-                                var matrix = voxel.PositionComp.WorldMatrixRef;
-                                matrix.Translation = voxel.PositionLeftBottomCorner;
-                                var lowerHalf = localPos - 0.5;
-                                var upperHalf = localPos + 0.5;
-                                var bbb = new BoundingBoxD(lowerHalf, upperHalf);
-                                var obb = new MyOrientedBoundingBoxD(bbb, matrix);
-                                DrawBox(obb, Color.BlueViolet, false, 1, 0.01f);
-                            }
-                        }
-                        break;
-                    case WorkOrder.InsideOut:
-                        var midPoint = Vector3I.Round(DrillData.Origin);
-                        var size = data.SizeLinear;
-                        for (int i = 0; i < Definition.Layers.Count; i++)
-                        {
-                            var layer = Definition.Layers[i];
-                            var foundContent = false;
-                            var maxContent = 0;
-                            for (int j = 0; j < layer.Count; j++)
-                            {
-                                pos = midPoint - min + layer[j];
-                                var index = data.ComputeLinear(ref pos);
-                                if (index < 0 || index > size)
-                                    continue;
-
-                                content = data.Content(index);
-                                if (content == 0)
-                                    continue;
-
-                                var localPos = (Vector3D)(min + pos);
-
-                                var distSqr = Vector3D.DistanceSquared(localPos, DrillData.Origin);
-                                if (distSqr > radiusSqr)
-                                    continue;
-
-                                foundContent = true;
-                                if (content > maxContent) maxContent = content;
-
-                                var removal = Math.Min(reduction, 255);
-                                var leftover = reduction - removal;
-
-                                if (distSqr > radiusMinusOneSqr)
-                                {
-                                    var dist = radius - Vector3D.Distance(localPos, DrillData.Origin);
-                                    var density = MathHelper.Clamp(dist, -1, 1) * 0.5 + 0.5;
-                                    removal = (byte)(removal * density);
-                                }
-                                else if (distSqr > Math.Pow(i + 1, 2))
-                                {
-                                    var dist = i - Vector3D.Distance(localPos, DrillData.Origin);
-                                    var density = MathHelper.Clamp(dist, -1, 1) * 0.5 + 0.5;
-                                    removal = (byte)(removal * density + leftover);
-                                }
-                                Hitting |= removal > 0;
-
-                                var newContent = removal >= content ? MyVoxelConstants.VOXEL_CONTENT_EMPTY : (byte)(content - removal);
-                                //Logs.WriteLine($"{content} : {removal} : {newContent} : {leftover} : layer {i}");
-
-                                material = data.Material(index);
-                                var def = MyDefinitionManager.Static.GetVoxelMaterialDefinition(material);
-                                if (def != null && def.CanBeHarvested && !string.IsNullOrEmpty(def.MinedOre))
-                                {
-                                    var oreOb = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>(def.MinedOre);
-                                    oreOb.MaterialTypeName = def.Id.SubtypeId;
-                                    var yield = (content - newContent) / 255f * def.MinedOreRatio * Definition.VoxelHarvestRatio;
-
-                                    if (!Yields.TryAdd(oreOb, yield))
-                                        Yields[oreOb] += yield;
-                                }
-
-                                data.Content(index, newContent);
-                                if (newContent == 0)
-                                    data.Material(index, byte.MaxValue);
-
-
-                                if (Debug)
-                                {
-                                    var matrix = voxel.PositionComp.WorldMatrixRef;
-                                    matrix.Translation = voxel.PositionLeftBottomCorner;
-                                    var lowerHalf = localPos - 0.5;
-                                    var upperHalf = localPos + 0.5;
-                                    var bbb = new BoundingBoxD(lowerHalf, upperHalf);
-                                    var obb = new MyOrientedBoundingBoxD(bbb, matrix);
-                                    MyAPIGateway.Utilities.InvokeOnGameThread(() => DrawBox(obb, Color.BlueViolet, false, 1, 0.01f));
-                                }
-
-                            }
-                            if (foundContent)
-                            {
-                                MyAPIGateway.Utilities.ShowNotification($"found {maxContent} at layer {i}", 160);
-                                reduction -= (byte)maxContent;
-                                if (reduction <= 0)
+                                case WorkOrder.InsideOut:
+                                    dist = (float)offset.Length();
+                                    break;
+                                case WorkOrder.OutsideIn:
+                                    dist = radius - (float)offset.Length();
+                                    break;
+                                case WorkOrder.Forward:
+                                    var displacement = Vector3D.ProjectOnVector(ref offset, ref forward);
+                                    dist = radius + (float)displacement.Length() * Math.Sign(Vector3D.Dot(offset, forward));
+                                    break;
+                                case WorkOrder.Backward:
+                                    displacement = Vector3D.ProjectOnVector(ref offset, ref forward);
+                                    dist = radius - (float)displacement.Length() * Math.Sign(Vector3D.Dot(offset, forward));
+                                    break;
+                                default:
                                     break;
                             }
 
-                        }
-                        break;
-                    default:
-                        break;
-                }
+                            var posData = new PositionData(index, dist, secondaryDistSqr);
 
-                try
-                {
-                    voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
+                            var roundDist = MathHelper.RoundToInt(dist);
+                            if (roundDist > maxLayer) maxLayer = roundDist;
+
+                            List<PositionData> layer;
+                            if (WorkLayers.TryGetValue(roundDist, out layer))
+                                layer.Add(posData);
+                            else WorkLayers[roundDist] = new List<PositionData>() { posData };
+
+                        }
+                    }
                 }
-                catch (Exception ex)
+                if (foundContent) StorageDatas.Add(new StorageInfo(min, max));
+                Session.DsUtil.Complete("sort", true);
+
+                Session.DsUtil.Start("calc");
+                var hit = false;
+                //MyAPIGateway.Utilities.ShowNotification($"{WorkLayers.Count} layers", 160);
+                for (int i = 0; i <= maxLayer; i++)
                 {
-                    Logs.WriteLine("WriteRange()");
-                    Logs.LogException(ex);
+                    List<PositionData> layer;
+                    if (!WorkLayers.TryGetValue(i, out layer))
+                        continue;
+
+                    var maxContent = 0;
+                    //MyAPIGateway.Utilities.ShowNotification($"{layer.Count} items", 160);
+                    for (int j = 0; j < layer.Count; j++)
+                    {
+                        var positionData = layer[j];
+                        var index = positionData.Index;
+                        var distance = positionData.Distance;
+                        var secondaryDistSqr = positionData.SecondaryDistanceSqr;
+
+                        var overlap = radius + 0.5f - distance;
+                        if (overlap <= 0f)
+                            continue;
+
+                        content = data.Content(index);
+                        material = data.Material(index);
+
+                        var removal = Math.Min(reduction, content);
+
+                        if (overlap < 1f)
+                        {
+                            //if (Debug)
+                            //{
+                            //    var matrix = voxel.PositionComp.WorldMatrixRef;
+                            //    matrix.Translation = voxel.PositionLeftBottomCorner;
+                            //    Vector3I pos;
+                            //    data.ComputePosition(index, out pos);
+                            //    pos += min;
+                            //    var lowerHalf = (Vector3D)pos - 0.475;
+                            //    var upperHalf = (Vector3D)pos + 0.475;
+                            //    var bbb = new BoundingBoxD(lowerHalf, upperHalf);
+                            //    var obb = new MyOrientedBoundingBoxD(bbb, matrix);
+                            //    var color = (Color)Vector4.Lerp(Color.Red, Color.Green, overlap);
+                            //    DrawBoxes.Add(new MyTuple<MyOrientedBoundingBoxD, Color>(obb, color));
+                            //}
+
+                            overlap *= 255;
+                            var excluded = 255 - MathHelper.FloorToInt(overlap);
+                            var excess = content - excluded;
+                            if (excess <= 0f)
+                                continue;
+
+                            removal = Math.Min(removal, excess);
+                        }
+
+                        var def = MyDefinitionManager.Static.GetVoxelMaterialDefinition(material);
+                        var hardness = (def != null) ? Session.Settings.MaterialModifiers[def] : 1f;
+                        var effectiveContent = MathHelper.CeilToInt(content * hardness);
+                        maxContent = Math.Max(maxContent, effectiveContent);
+
+                        if (!hit)
+                        {
+                            data.ComputePosition(index, out testPos);
+                            var localPos = (Vector3D)testPos + min;
+                            var voxelMatrix = voxel.PositionComp.WorldMatrixRef;
+                            voxelMatrix.Translation = voxel.PositionLeftBottomCorner;
+                            Vector3D worldPos;
+                            Vector3D.Transform(ref localPos, ref voxelMatrix, out worldPos);
+                            HitInfo.Update(worldPos, def.MaterialTypeNameHash);
+
+                            hit = true;
+                            Hitting = true;
+                        }
+
+                        if (def != null && def.CanBeHarvested && !string.IsNullOrEmpty(def.MinedOre))
+                        {
+                            var oreOb = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>(def.MinedOre);
+                            oreOb.MaterialTypeName = def.Id.SubtypeId;
+                            var yield = (removal / 255f) * def.MinedOreRatio * Definition.HarvestRatio * Session.VoxelHarvestRatio;
+
+                            if (!Yields.TryAdd(oreOb, yield))
+                                Yields[oreOb] += yield;
+                        }
+
+                        var newContent = content - removal;
+                        data.Content(index, (byte)newContent);
+                        if (newContent == 0)
+                            data.Material(index, byte.MaxValue);
+                    }
+
+                    reduction -= maxContent;
+                    if (reduction <= 0)
+                        break;
                 }
+                Session.DsUtil.Complete("calc", true);
+
+                Session.DsUtil.Start("write");
+                voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
+                Session.DsUtil.Complete("write", true);
 
             }
+            WorkLayers.Clear();
+
         }
 
         internal void DrillCylinder()
@@ -769,7 +848,7 @@ namespace ToolCore
 
                 Session.DsUtil.Start("read");
                 voxel.Storage.ReadRange(data, MyStorageDataTypeFlags.ContentAndMaterial, 0, min, max);
-                Session.DsUtil.Complete("read", true, true);
+                Session.DsUtil.Complete("read", true);
 
                 MyFixedPoint amount = 0;
                 Vector3I testPos = new Vector3I();
@@ -856,7 +935,7 @@ namespace ToolCore
                         }
                     }
                 }
-                Session.DsUtil.Complete("sort", true, true);
+                Session.DsUtil.Complete("sort", true);
 
                 Session.DsUtil.Start("calc");
                 //MyAPIGateway.Utilities.ShowNotification($"{WorkLayers.Count} layers", 160);
@@ -917,7 +996,7 @@ namespace ToolCore
                         {
                             var oreOb = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>(def.MinedOre);
                             oreOb.MaterialTypeName = def.Id.SubtypeId;
-                            var yield = (content - newContent) / 255f * def.MinedOreRatio * Definition.VoxelHarvestRatio;
+                            var yield = (content - newContent) / 255f * def.MinedOreRatio * Definition.HarvestRatio * Session.VoxelHarvestRatio;
 
                             if (!Yields.TryAdd(oreOb, yield))
                                 Yields[oreOb] += yield;
@@ -932,11 +1011,11 @@ namespace ToolCore
                     if (reduction <= 0)
                         break;
                 }
-                Session.DsUtil.Complete("calc", true, true);
+                Session.DsUtil.Complete("calc", true);
 
                 Session.DsUtil.Start("write");
                 voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
-                Session.DsUtil.Complete("write", true, true);
+                Session.DsUtil.Complete("write", true);
 
             }
             WorkLayers.Clear();
@@ -1141,7 +1220,7 @@ namespace ToolCore
                             {
                                 var oreOb = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>(def.MinedOre);
                                 oreOb.MaterialTypeName = def.Id.SubtypeId;
-                                var yield = removal / 255f * def.MinedOreRatio * Definition.VoxelHarvestRatio;
+                                var yield = removal / 255f * def.MinedOreRatio * Definition.HarvestRatio * Session.VoxelHarvestRatio;
 
                                 if (!Yields.TryAdd(oreOb, yield))
                                     Yields[oreOb] += yield;
@@ -1175,14 +1254,15 @@ namespace ToolCore
 
         internal void OnDrillComplete()
         {
-            //Session.DsUtil.Start("notify");
+            Session.DsUtil.Start("notify");
             for (int i = StorageDatas.Count - 1; i >= 0; i--)
             {
                 var info = StorageDatas[i];
                 DrillData.Voxel.Storage.NotifyRangeChanged(ref info.Min, ref info.Max, MyStorageDataTypeFlags.ContentAndMaterial);
             }
             StorageDatas.Clear();
-            //Session.DsUtil.Complete("notify", true, true);
+            ActiveDrillThreads--;
+            Session.DsUtil.Complete("notify", true);
         }
         
         internal void ManageInventory()
@@ -1221,6 +1301,34 @@ namespace ToolCore
                 }
             }
 
+        }
+
+        private void GetShowInToolbarSwitch()
+        {
+            List<IMyTerminalControl> items;
+            MyAPIGateway.TerminalControls.GetControls<IMyUpgradeModule>(out items);
+
+            foreach (var item in items)
+            {
+
+                if (item.Id == "ShowInToolbarConfig")
+                {
+                    ShowInToolbarSwitch = (IMyTerminalControlOnOffSwitch)item;
+                    break;
+                }
+            }
+        }
+
+        internal void RefreshTerminal()
+        {
+            Tool.RefreshCustomInfo();
+
+            if (ShowInToolbarSwitch != null)
+            {
+                var originalSetting = ShowInToolbarSwitch.Getter(Tool);
+                ShowInToolbarSwitch.Setter(Tool, !originalSetting);
+                ShowInToolbarSwitch.Setter(Tool, originalSetting);
+            }
         }
 
         internal void UpdateConnections()

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ProtoBuf;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -9,8 +10,10 @@ using VRage.Game;
 using VRage.ObjectBuilders;
 using VRageMath;
 
-namespace ToolCore
+namespace ToolCore.Definitions.Serialised
 {
+    #region Definitions
+
     /// <summary>
     /// Fields which will be deserialised from xml
     /// </summary>
@@ -31,12 +34,15 @@ namespace ToolCore
         public float IdlePower = 0f;
         public float ActivePower = 1f;
         public float Speed = 1f;
+        public float HarvestRatio = 1f;
         public int UpdateInterval = 10;
 
         public bool AffectOwnGrid = false;
         public bool Turret = false;
 
         public Event[] Events;
+
+        public Material[] MaterialSpecificModifiers;
     }
 
     public enum ToolType
@@ -121,6 +127,44 @@ namespace ToolCore
         Hide = 2,
         Unhide = 3,
     }
+
+    public class Material
+    {
+        public string Category;
+        public string SubtypeId;
+        public float Speed;
+        public float HarvestRatio;
+    }
+
+    #endregion
+
+    #region Settings
+
+    [ProtoContract]
+    public class ToolCoreSettings
+    {
+        [ProtoMember(1)] public int Version = 0;
+        [ProtoMember(2)] public MaterialData[] Materials = new MaterialData[]
+        {
+            new MaterialData { Category = "Snow", Hardness = 0.2f },
+            new MaterialData { Category = "Sand", Hardness = 0.4f },
+            new MaterialData { Category = "Soil", Hardness = 0.6f },
+            new MaterialData { Category = "Grass", Hardness = 0.6f },
+            new MaterialData { Category = "Ice", Hardness = 0.8f },
+            new MaterialData { Category = "Rock", Hardness = 1f },
+            new MaterialData { Category = "Ore", Hardness = 1f },
+        };
+
+        [ProtoContract]
+        public class MaterialData
+        {
+            [ProtoMember(1)] public string Category;
+            [ProtoMember(2)] public float Hardness;
+        }
+    }
+
+
+    #endregion
 
     /// <summary>
     /// Skeleton classes for deserialising from xml
