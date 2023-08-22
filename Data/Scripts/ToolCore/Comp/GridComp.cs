@@ -21,18 +21,19 @@ using VRage.ModAPI;
 using VRage.ObjectBuilders;
 using VRage.Utils;
 using VRageMath;
+using ToolCore.Session;
+using ToolCore.Utils;
 
-namespace ToolCore
+namespace ToolCore.Comp
 {
     /// <summary>
     /// Holds all grid specific data
     /// </summary>
     internal class GridComp
     {
-        private ToolSession _session;
+        internal ToolSession Session;
 
         internal MyCubeGrid Grid;
-        internal Control ActiveControl;
         internal MyResourceDistributorComponent Distributor;
         internal MyResourceSinkComponent ElectricSink;
         internal MyConveyorSorter SinkBlock;
@@ -44,8 +45,6 @@ namespace ToolCore
         internal readonly ConcurrentCachingList<ConcurrentCachingList<ToolComp>> ToolGroups = new ConcurrentCachingList<ConcurrentCachingList<ToolComp>>();
         internal readonly ConcurrentCachingList<ConcurrentCachingList<ToolComp>> ToolGroupsSmall = new ConcurrentCachingList<ConcurrentCachingList<ToolComp>>();
 
-
-        internal readonly ConcurrentDictionary<IMyShipController, Control> Controllers = new ConcurrentDictionary<IMyShipController, Control>();
 
         internal readonly List<ToolComp> ToolComps = new List<ToolComp>();
 
@@ -65,7 +64,7 @@ namespace ToolCore
 
         internal void Init(MyCubeGrid grid, ToolSession session)
         {
-            _session = session;
+            Session = session;
 
             Grid = grid;
 
@@ -98,7 +97,6 @@ namespace ToolCore
             Grid.OnFatBlockRemoved -= FatBlockRemoved;
 
             Grid = null;
-            ActiveControl = null;
             Distributor = null;
             ElectricSink = null;
             SinkBlock = null;
@@ -106,7 +104,6 @@ namespace ToolCore
 
             Inventories.ClearImmediate();
             InventoryMap.Clear();
-            Controllers.Clear();
             ToolComps.Clear();
         }
 
@@ -133,7 +130,7 @@ namespace ToolCore
 
                 if (inventory != null)
                 {
-                    var data = new InventoryData(inventory, _session);
+                    var data = new InventoryData(inventory, Session);
                     if (InventoryMap.TryAdd(block, data))
                     {
                         Inventories.Add(data);
@@ -147,7 +144,7 @@ namespace ToolCore
                 if (block is IMyConveyorSorter)
                 {
                     ToolComp comp;
-                    if (_session.ToolMap.TryGetValue(block.EntityId, out comp) && !ToolComps.Contains(comp))
+                    if (Session.ToolMap.TryGetValue(block.EntityId, out comp) && !ToolComps.Contains(comp))
                     {
                         ToolComps.Add(comp);
 
@@ -164,7 +161,7 @@ namespace ToolCore
                             {
                                 var group = ToolGroups[i];
                                 var firstTool = group[0];
-                                if ((inventory as IMyInventory).CanTransferItemTo(firstTool.Inventory, _session.SteelPlate))
+                                if ((inventory as IMyInventory).CanTransferItemTo(firstTool.Inventory, Session.SteelPlate))
                                 {
                                     comp.ToolGroup = group;
                                     group.Add(comp);
@@ -183,7 +180,7 @@ namespace ToolCore
             if (block is IMyConveyorSorter)
             {
                 ToolComp comp;
-                if (_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                if (Session.ToolMap.TryGetValue(block.EntityId, out comp))
                 {
                     ToolComps.Remove(comp);
                 }

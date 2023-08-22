@@ -21,8 +21,9 @@ using VRage.ModAPI;
 using VRage.ObjectBuilders;
 using VRage.Utils;
 using VRageMath;
-using ToolCore.Session;
+using ToolCore.Comp;
 using ToolCore.Definitions;
+using ToolCore.Utils;
 
 namespace ToolCore.Session
 {
@@ -74,7 +75,6 @@ namespace ToolCore.Session
         private readonly Dictionary<string, int> _missingComponents = new Dictionary<string, int>();
 
         internal readonly GridUtils GridUtils = new GridUtils();
-        internal readonly VoxelUtils VoxelUtils = new VoxelUtils();
         internal readonly Settings Settings = new Settings();
         internal readonly DSUtils DsUtil;
         internal readonly DSUtils DsUtil2;

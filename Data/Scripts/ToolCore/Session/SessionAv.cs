@@ -20,7 +20,9 @@ using VRage.ModAPI;
 using VRage.ObjectBuilders;
 using VRage.Utils;
 using VRageMath;
-using static ToolCore.ToolComp;
+using ToolCore.Comp;
+using ToolCore.Utils;
+using static ToolCore.Comp.ToolComp;
 
 namespace ToolCore.Session
 {

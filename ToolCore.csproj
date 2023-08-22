@@ -156,9 +156,6 @@
     <Compile Include="Data\Scripts\ToolCore\Comp\InventoryData.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>
-    <Compile Include="Data\Scripts\ToolCore\Comp\Control.cs">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Compile>
     <Compile Include="Data\Scripts\ToolCore\Comp\GunCore.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>
@@ -174,7 +171,9 @@
     <Compile Include="Data\Scripts\ToolCore\Definitions\ToolDefinition.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>
-    <Compile Include="Data\Scripts\ToolCore\Session\Networking.cs" />
+    <Compile Include="Data\Scripts\ToolCore\Session\Networking.cs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Compile>
     <Compile Include="Data\Scripts\ToolCore\Session\SessionAv.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>
@@ -187,7 +186,6 @@
     <Compile Include="Data\Scripts\ToolCore\Session\SessionFields.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>
-    <Compile Include="Data\Scripts\ToolCore\Session\SessionJobs.cs" />
     <Compile Include="Data\Scripts\ToolCore\Session\SessionLogic.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>

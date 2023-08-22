@@ -7,7 +7,7 @@ using VRage.Game;
 using VRage.Utils;
 using VRageMath;
 
-namespace ToolCore
+namespace ToolCore.Utils
 {
     internal class Draw
     {

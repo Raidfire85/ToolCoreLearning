@@ -6,8 +6,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using VRage.Game.ModAPI;
+using ToolCore.Session;
 
-namespace ToolCore
+namespace ToolCore.Utils
 {
     internal static class Logs
     {

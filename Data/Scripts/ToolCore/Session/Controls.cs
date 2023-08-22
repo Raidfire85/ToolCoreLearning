@@ -4,6 +4,9 @@ using System.Collections.Generic;
 using Sandbox.ModAPI.Interfaces.Terminal;
 using System.Text;
 using VRage.ModAPI;
+using ToolCore.Session;
+using ToolCore.Comp;
+using ToolCore.Utils;
 
 namespace ToolCore.Session
 {
@@ -25,6 +28,7 @@ namespace ToolCore.Session
         };
 
         private readonly List<MyTerminalControlComboBoxItem> _modeList = new List<MyTerminalControlComboBoxItem>();
+        private readonly List<MyTerminalControlComboBoxItem> _actionList = new List<MyTerminalControlComboBoxItem>();
 
         internal IMyTerminalBlock LastTerminal;
 
@@ -61,6 +65,7 @@ namespace ToolCore.Session
                 controls.Add(newControl);
 
             GetMode(block);
+            GetAction(block);
             LastTerminal = block;
         }
 
@@ -86,6 +91,7 @@ namespace ToolCore.Session
             _customControls.Add(Separator<T>());
             _customControls.Add(ToolShootSwitch<T>());
             _customControls.Add(SelectMode<T>());
+            _customControls.Add(SelectAction<T>());
             _customControls.Add(DrawSwitch<T>());
 
             _customActions.Add(CreateActivateOnOffAction<T>());
@@ -218,6 +224,69 @@ namespace ToolCore.Session
                 return false;
 
             return comp.Definition.ToolModes.Count > 1;
+        }
+
+        #endregion
+
+        #region Action
+
+        internal IMyTerminalControlCombobox SelectAction<T>() where T : IMyConveyorSorter
+        {
+            var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlCombobox, T>("ToolCore_Action");
+            control.Title = MyStringId.GetOrCompute("Action");
+            control.Tooltip = MyStringId.GetOrCompute("Select tool action (primary/secondary)");
+            control.ComboBoxContent = ActionSelectContent;
+            control.Getter = GetAction;
+            control.Setter = SetAction;
+            control.Visible = HasActionSelect;
+            control.Enabled = IsFunctional;
+
+            return control;
+        }
+
+        internal void ActionSelectContent(List<MyTerminalControlComboBoxItem> actions)
+        {
+            actions.AddList(_actionList);
+        }
+
+        internal long GetAction(IMyTerminalBlock block)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return 0;
+
+            var id = 0;
+            _actionList.Clear();
+            var actions = comp.Definition.ToolActions;
+            for (int i = 0; i < actions.Count; i++)
+            {
+                var action = actions[i];
+                if (action == comp.Action)
+                    id = i;
+
+                var item = new MyTerminalControlComboBoxItem { Key = i, Value = MyStringId.GetOrCompute(action.ToString()) };
+                _actionList.Add(item);
+            }
+
+            return id;
+        }
+
+        internal void SetAction(IMyTerminalBlock block, long id)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return;
+
+            comp.Action = comp.Definition.ToolActions[(int)id];
+        }
+
+        internal bool HasActionSelect(IMyTerminalBlock block)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return false;
+
+            return comp.Definition.ToolActions.Count > 1;
         }
 
         #endregion

@@ -10,8 +10,9 @@ using VRage.Game;
 using VRage.Game.ModAPI;
 using VRage.Game.ModAPI.Interfaces;
 using VRageMath;
+using ToolCore.Utils;
 
-namespace ToolCore
+namespace ToolCore.Comp
 {
     internal class GunCore : IMyGunObject<MyToolBase>
     {

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using ToolCore.Utils;
 
 namespace ToolCore.Session
 {
@@ -13,7 +14,7 @@ namespace ToolCore.Session
         internal const ushort ServerPacketId = 65351;
         internal const ushort ClientPacketId = 65352;
 
-        internal ToolSession Session;
+        internal readonly ToolSession Session;
 
         internal Networking(ToolSession session)
         {
@@ -40,6 +41,7 @@ namespace ToolCore.Session
                 MyModAPIHelper.MyMultiplayer.Static.SendMessageTo(ClientPacketId, rawData, client, true);
         }
 
+        /*
         internal void ProcessPacket(ushort id, byte[] rawData, ulong sender, bool reliable)
         {
             try
@@ -86,6 +88,7 @@ namespace ToolCore.Session
             }
 
         }
+        */
 
     }
 
@@ -122,7 +125,7 @@ namespace ToolCore.Session
     [ProtoContract]
     public class SettingsPacket : Packet
     {
-        [ProtoMember(1)] internal StealthSettings Settings;
+        //[ProtoMember(1)] internal StealthSettings Settings;
     }
 
     public enum PacketType

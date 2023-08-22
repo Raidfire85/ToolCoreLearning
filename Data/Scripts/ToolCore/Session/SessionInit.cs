@@ -24,6 +24,7 @@ using VRage.Utils;
 using VRageMath;
 using ToolCore.Definitions;
 using ToolCore.Definitions.Serialised;
+using ToolCore.Utils;
 using static ToolCore.Definitions.Serialised.ToolCoreSettings;
 
 namespace ToolCore.Session

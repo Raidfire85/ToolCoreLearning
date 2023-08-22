@@ -9,8 +9,10 @@ using System.Threading.Tasks;
 using VRage;
 using VRage.Game;
 using VRage.Game.Entity;
+using ToolCore.Session;
+using ToolCore.Utils;
 
-namespace ToolCore
+namespace ToolCore.Comp
 {
     internal class InventoryData
     {

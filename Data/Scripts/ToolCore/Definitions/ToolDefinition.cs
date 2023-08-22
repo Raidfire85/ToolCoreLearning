@@ -9,6 +9,9 @@ using VRage;
 using VRage.Game;
 using VRage.Utils;
 using VRageMath;
+using ToolCore.Session;
+using ToolCore.Comp;
+using ToolCore.Utils;
 using ToolCore.Definitions.Serialised;
 
 namespace ToolCore.Definitions
@@ -47,6 +50,7 @@ namespace ToolCore.Definitions
         internal float HarvestRatio;
 
         internal readonly List<ToolComp.ToolMode> ToolModes = new List<ToolComp.ToolMode>();
+        internal readonly List<ToolComp.ToolAction> ToolActions = new List<ToolComp.ToolAction>();
         internal readonly List<List<Vector3I>> Layers = new List<List<Vector3I>>();
 
         internal readonly Trigger EventFlags;
@@ -179,6 +183,8 @@ namespace ToolCore.Definitions
             if (ToolModes.Count == 0)
                 Logs.WriteLine($"No valid tool modes!");
 
+            ToolActions.Add(ToolComp.ToolAction.Primary);
+            ToolActions.Add(ToolComp.ToolAction.Secondary);
 
 
             try

@@ -19,6 +19,8 @@ using VRage.ModAPI;
 using VRage.ObjectBuilders;
 using VRage.Utils;
 using VRageMath;
+using ToolCore.Comp;
+using ToolCore.Utils;
 using IMyControllableEntity = VRage.Game.ModAPI.Interfaces.IMyControllableEntity;
 
 namespace ToolCore.Session
@@ -141,7 +143,7 @@ namespace ToolCore.Session
                         {
                             Logs.WriteLine("OnPlayerController() success");
                             gridComp.UnderControl = true;
-                            gridComp.ActiveControl = gridComp.Controllers[controller];
+                            //gridComp.ActiveControl = gridComp.Controllers[controller];
                         }
                     }
                 }

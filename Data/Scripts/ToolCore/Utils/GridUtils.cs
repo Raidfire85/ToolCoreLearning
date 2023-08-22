@@ -24,7 +24,7 @@ using VRage.ModAPI;
 using VRage.ObjectBuilders;
 using VRage.Utils;
 using VRageMath;
-using static ToolCore.Draw;
+using static ToolCore.Utils.Draw;
 
 namespace ToolCore
 {

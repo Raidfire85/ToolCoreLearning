@@ -25,7 +25,9 @@ using VRage.Utils;
 using VRage.Voxels;
 using VRageMath;
 using ToolCore.Definitions.Serialised;
-using static ToolCore.Draw;
+using ToolCore.Comp;
+using ToolCore.Utils;
+using static ToolCore.Utils.Draw;
 
 namespace ToolCore.Session
 {
@@ -624,12 +626,12 @@ namespace ToolCore.Session
                         continue;
                     }
 
-                    var controller = block as MyShipController;
-                    if (controller != null)
-                    {
-                        var control = new Control(controller);
-                        gridComp.Controllers.TryAdd(controller, control);
-                    }
+                    //var controller = block as MyShipController;
+                    //if (controller != null)
+                    //{
+                    //    var control = new Control(controller);
+                    //    gridComp.Controllers.TryAdd(controller, control);
+                    //}
 
                 }
                 _startBlocks.ClearImmediate();
