@@ -70,6 +70,7 @@ namespace ToolCore.Comp
         internal readonly List<byte> MaxContent = new List<byte>();
         internal readonly List<StorageInfo> StorageDatas = new List<StorageInfo>();
         internal readonly ConcurrentDictionary<MyObjectBuilder_Ore, float> Yields = new ConcurrentDictionary<MyObjectBuilder_Ore, float>();
+        internal List<ulong> ReplicatedClients = new List<ulong>();
 
         internal readonly HashSet<Vector3I> PreviousPositions = new HashSet<Vector3I>();
         internal readonly ConcurrentCachingList<MyTuple<MyOrientedBoundingBoxD, Color>> DrawBoxes = new ConcurrentCachingList<MyTuple<MyOrientedBoundingBoxD, Color>>();
@@ -87,8 +88,6 @@ namespace ToolCore.Comp
         internal readonly Hit HitInfo = new Hit();
         internal MyStringHash HitMaterial = MyStringHash.GetOrCompute("Metal");
 
-        internal bool Activated;
-
         internal bool NoEmitter;
         internal bool Draw = true;
         internal bool Debug = true;
@@ -98,6 +97,19 @@ namespace ToolCore.Comp
         internal long CompTick120;
         internal int LastPushTick;
         internal int ActiveDrillThreads;
+
+        internal bool Activated
+        {
+            get { return _activated; }
+            set
+            {
+                _activated = value;
+                if (Functional && Powered && Enabled)
+                    UpdateState(Trigger.Activated, value);
+            }
+        }
+
+        private bool _activated;
 
         internal enum ToolMode
         {
@@ -338,12 +350,17 @@ namespace ToolCore.Comp
                     if (add && !Enabled) break;
                     UpdateState(Trigger.Enabled, add);
                     break;
+                case Trigger.Enabled:
+                    UpdateEffects(Trigger.Enabled, add);
+                    if (add && !Activated) break;
+                    UpdateState(Trigger.Activated, add);
+                    break;
                 case Trigger.LeftClick:
                 case Trigger.RightClick:
                     UpdateEffects(state, add);
                     UpdateState(Trigger.Click, add, true);
                     break;
-                case Trigger.Enabled:
+                case Trigger.Activated:
                 case Trigger.Click:
                     UpdateEffects(state, add);
                     if (!add && (State & Trigger.Active) > 0) break;
@@ -431,6 +448,9 @@ namespace ToolCore.Comp
         public override void OnAddedToScene()
         {
             base.OnAddedToScene();
+
+            if (!MyAPIGateway.Session.IsServer)
+                Session.Networking.SendPacketToServer(new ReplicationPacket { EntityId = Tool.EntityId, Add = true, Type = (byte)PacketType.Replicate });
         }
 
         public override void OnBeforeRemovedFromContainer()
@@ -461,6 +481,9 @@ namespace ToolCore.Comp
 
             if (!Session.IsDedicated)
                 GetShowInToolbarSwitch();
+
+            if (!MyAPIGateway.Session.IsServer)
+                Session.Networking.SendPacketToServer(new ReplicationPacket { EntityId = Tool.EntityId, Add = true, Type = (byte)PacketType.Replicate });
         }
 
         private void SinkInit()
@@ -671,6 +694,9 @@ namespace ToolCore.Comp
         {
             Tool.EnabledChanged -= EnabledChanged;
             Tool.IsWorkingChanged -= IsWorkingChanged;
+
+            if (!MyAPIGateway.Session.IsServer)
+                Session.Networking.SendPacketToServer(new ReplicationPacket { EntityId = Tool.EntityId, Add = false, Type = (byte)PacketType.Replicate });
 
             Clean();
         }

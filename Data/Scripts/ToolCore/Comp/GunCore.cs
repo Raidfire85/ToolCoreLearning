@@ -142,7 +142,7 @@ namespace ToolCore.Comp
             //Logs.WriteLine($"EndShoot : {action}");
             WantsToShoot = false;
 
-            if (!_comp.Functional || _comp.Enabled || !Shooting)
+            if (!_comp.Functional || _comp.Activated || !Shooting)
                 return;
 
             var state = action == MyShootActionEnum.PrimaryAction ? Trigger.LeftClick : Trigger.RightClick;
@@ -217,7 +217,7 @@ namespace ToolCore.Comp
             WantsToShoot = true;
             Primary = action == MyShootActionEnum.PrimaryAction;
 
-            var happy = _comp.Functional && _comp.Powered && !_comp.Enabled;
+            var happy = _comp.Functional && _comp.Powered && _comp.Enabled && !_comp.Activated;
             if (Shooting == happy)
                 return;
 
@@ -237,7 +237,7 @@ namespace ToolCore.Comp
 
         internal void UpdateShootState(Trigger state)
         {
-            Shooting = WantsToShoot && _comp.Functional && _comp.Powered && !_comp.Enabled;
+            Shooting = WantsToShoot && _comp.Functional && _comp.Powered && _comp.Enabled && !_comp.Activated;
             Logs.WriteLine($"Setting Shooting to {Shooting}");
 
             _comp.UpdateState(state, Shooting);

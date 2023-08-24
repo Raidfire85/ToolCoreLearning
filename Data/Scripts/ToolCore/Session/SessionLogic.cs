@@ -110,7 +110,10 @@ namespace ToolCore.Session
             if (gridComp.ConveyorsDirty)
                 comp.UpdateConnections();
 
-            if (!tool.Enabled && !comp.ToolGun.Shooting)
+            if (!tool.Enabled)
+                return;
+
+            if (!comp.Activated && !comp.ToolGun.Shooting)
                 return;
 
             // Replace with fallback

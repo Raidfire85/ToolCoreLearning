@@ -90,11 +90,12 @@ namespace ToolCore.Definitions.Serialised
         Functional = 1,
         Powered = 2,
         Enabled = 4,
-        LeftClick = 8,
-        RightClick = 16,
-        Click = 24,
-        Active = 28,
-        Hit = 32,
+        Activated = 8,
+        LeftClick = 16,
+        RightClick = 32,
+        Click = 48,
+        Active = 56,
+        Hit = 64,
 
     }
 

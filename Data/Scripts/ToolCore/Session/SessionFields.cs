@@ -79,6 +79,7 @@ namespace ToolCore.Session
         internal readonly DSUtils DsUtil;
         internal readonly DSUtils DsUtil2;
         internal readonly Controls Controls;
+        internal readonly Networking Networking;
 
 
         public ToolSession()
@@ -86,6 +87,7 @@ namespace ToolCore.Session
             DsUtil = new DSUtils(this);
             DsUtil2 = new DSUtils(this);
             Controls = new Controls(this);
+            Networking = new Networking(this);
         }
 
         private void Clean()

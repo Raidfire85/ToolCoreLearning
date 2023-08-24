@@ -131,6 +131,8 @@ namespace ToolCore.Session
                 return;
 
             comp.Activated = activated;
+
+            _session.Networking.SendPacketToServer(new UpdatePacket(FieldType.Activated, activated ? 1 : 0));
         }
 
         internal IMyTerminalAction CreateActivateOnOffAction<T>() where T : IMyConveyorSorter
@@ -152,6 +154,8 @@ namespace ToolCore.Session
                 return;
 
             comp.Activated = !comp.Activated;
+
+            _session.Networking.SendPacketToServer(new UpdatePacket(FieldType.Activated, comp.Activated ? 1 : 0));
         }
 
         internal void ToggleActivatedWriter(IMyTerminalBlock block, StringBuilder builder)
@@ -215,6 +219,8 @@ namespace ToolCore.Session
                 return;
 
             comp.Mode = comp.Definition.ToolModes[(int)id];
+
+            _session.Networking.SendPacketToServer(new UpdatePacket(FieldType.Mode, (int)comp.Mode));
         }
 
         internal bool HasModeSelect(IMyTerminalBlock block)
@@ -278,6 +284,8 @@ namespace ToolCore.Session
                 return;
 
             comp.Action = comp.Definition.ToolActions[(int)id];
+
+            _session.Networking.SendPacketToServer(new UpdatePacket(FieldType.Action, (int)comp.Action));
         }
 
         internal bool HasActionSelect(IMyTerminalBlock block)
@@ -325,6 +333,40 @@ namespace ToolCore.Session
                 return;
 
             comp.Draw = enabled;
+
+            _session.Networking.SendPacketToServer(new UpdatePacket(FieldType.Draw, enabled ? 1 : 0));
+        }
+
+        internal IMyTerminalAction CreateDrawAction<T>() where T : IMyConveyorSorter
+        {
+            var action = MyAPIGateway.TerminalControls.CreateAction<T>("ToolCore_Draw_Action");
+            action.Icon = @"Textures\GUI\Icons\Actions\Toggle.dds";
+            action.Name = new StringBuilder("Draw On/Off");
+            action.Action = ToggleDraw;
+            action.Writer = ToggleDrawWriter;
+            action.Enabled = IsTrue;
+
+            return action;
+        }
+
+        internal void ToggleDraw(IMyTerminalBlock block)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return;
+
+            comp.Draw = !comp.Draw;
+
+            _session.Networking.SendPacketToServer(new UpdatePacket(FieldType.Draw, comp.Draw ? 1 : 0));
+        }
+
+        internal void ToggleDrawWriter(IMyTerminalBlock block, StringBuilder builder)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return;
+
+            builder.Append(comp.Draw ? "On" : "Off");
         }
 
         #endregion

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using ToolCore.Comp;
 using ToolCore.Utils;
 
 namespace ToolCore.Session
@@ -21,19 +22,21 @@ namespace ToolCore.Session
             Session = session;
         }
 
-        public static void SendPacketToServer(Packet packet)
+        public void SendPacketToServer(Packet packet)
         {
+            if (!Session.IsClient) return;
+
             var rawData = MyAPIGateway.Utilities.SerializeToBinary(packet);
             MyModAPIHelper.MyMultiplayer.Static.SendMessageToServer(ServerPacketId, rawData, true);
         }
 
-        public static void SendPacketToClient(Packet packet, ulong client)
+        public void SendPacketToClient(Packet packet, ulong client)
         {
             var rawData = MyAPIGateway.Utilities.SerializeToBinary(packet);
             MyModAPIHelper.MyMultiplayer.Static.SendMessageTo(ClientPacketId, rawData, client, true);
         }
 
-        public static void SendPacketToClients(Packet packet, List<ulong> clients)
+        public void SendPacketToClients(Packet packet, List<ulong> clients)
         {
             var rawData = MyAPIGateway.Utilities.SerializeToBinary(packet);
 
@@ -41,7 +44,6 @@ namespace ToolCore.Session
                 MyModAPIHelper.MyMultiplayer.Static.SendMessageTo(ClientPacketId, rawData, client, true);
         }
 
-        /*
         internal void ProcessPacket(ushort id, byte[] rawData, ulong sender, bool reliable)
         {
             try
@@ -54,28 +56,22 @@ namespace ToolCore.Session
                 }
 
                 var comp = packet.EntityId == 0 ? null : Session.ToolMap[packet.EntityId];
-                switch (packet.Type)
+                switch ((PacketType)packet.Type)
                 {
-                    case PacketType.UpdateState:
-                        var uPacket = packet as UpdateStatePacket;
-                        comp.EnterStealth = uPacket.EnterStealth && !comp.StealthActive;
-                        comp.ExitStealth = uPacket.ExitStealth && comp.StealthActive;
-                        break;
-                    case PacketType.UpdateDuration:
-                        var dPacket = packet as UpdateDurationPacket;
-                        //comp.RemainingDuration += dPacket.DurationChange;
-                        comp.TotalTime += dPacket.DurationChange;
+                    case PacketType.Update:
+                        var uPacket = packet as UpdatePacket;
+                        UpdateComp(uPacket, comp);
                         break;
                     case PacketType.Replicate:
                         var rPacket = packet as ReplicationPacket;
-                        if (rPacket.Fresh)
+                        if (rPacket.Add)
                             comp.ReplicatedClients.Add(sender);
                         else
                             comp.ReplicatedClients.Remove(sender);
                         break;
                     case PacketType.Settings:
                         var sPacket = packet as SettingsPacket;
-                        UpdateEnforcement(sPacket.Settings);
+                        //UpdateEnforcement(sPacket.Settings);
                         break;
                     default:
                         Logs.WriteLine($"Invalid packet type - {packet.GetType()}");
@@ -88,38 +84,58 @@ namespace ToolCore.Session
             }
 
         }
-        */
+
+        internal void UpdateComp(UpdatePacket packet, ToolComp comp)
+        {
+            switch ((FieldType)packet.Field)
+            {
+                case FieldType.Activated:
+                    comp.Activated = packet.Value == 1 ? true : false;
+                    break;
+                case FieldType.Mode:
+                    comp.Mode = (ToolComp.ToolMode)packet.Value;
+                    break;
+                case FieldType.Action:
+                    comp.Action = (ToolComp.ToolAction)packet.Value;
+                    break;
+                case FieldType.Draw:
+                    comp.Draw = packet.Value == 1 ? true : false;
+                    break;
+                default:
+                    Logs.WriteLine($"Invalid packet value: {packet.Value} for field: {packet.Field}");
+                    break;
+            }
+        }
 
     }
 
     [ProtoContract]
-    [ProtoInclude(4, typeof(UpdateStatePacket))]
-    [ProtoInclude(5, typeof(UpdateDurationPacket))]
+    [ProtoInclude(4, typeof(UpdatePacket))]
     [ProtoInclude(6, typeof(ReplicationPacket))]
     [ProtoInclude(7, typeof(SettingsPacket))]
     public class Packet
     {
         [ProtoMember(1)] internal long EntityId;
-        [ProtoMember(2)] internal PacketType Type;
+        [ProtoMember(2)] internal byte Type;
     }
 
     [ProtoContract]
-    public class UpdateStatePacket : Packet
+    public class UpdatePacket : Packet
     {
-        [ProtoMember(1)] internal bool EnterStealth;
-        [ProtoMember(2)] internal bool ExitStealth;
-    }
+        [ProtoMember(1)] internal byte Field;
+        [ProtoMember(2)] internal byte Value;
 
-    [ProtoContract]
-    public class UpdateDurationPacket : Packet
-    {
-        [ProtoMember(1)] internal int DurationChange;
+        public UpdatePacket(FieldType field, int value)
+        {
+            Field = (byte)field;
+            Value = (byte)value;
+        }
     }
 
     [ProtoContract]
     public class ReplicationPacket : Packet
     {
-        [ProtoMember(1)] internal bool Fresh;
+        [ProtoMember(1)] internal bool Add;
     }
 
     [ProtoContract]
@@ -128,11 +144,20 @@ namespace ToolCore.Session
         //[ProtoMember(1)] internal StealthSettings Settings;
     }
 
-    public enum PacketType
+    public enum PacketType : byte
     {
-        UpdateState,
-        UpdateDuration,
+        Update,
         Replicate,
         Settings
     }
+
+    public enum FieldType : byte
+    {
+        Invalid = 0,
+        Activated = 1,
+        Mode = 2,
+        Action = 3,
+        Draw = 4,
+    }
+
 }
