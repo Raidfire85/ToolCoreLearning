@@ -229,6 +229,7 @@ namespace ToolCore.Definitions
                         }
                     }
                     BoundingRadius = Radius;
+                    Length = Radius;
                     break;
                 case EffectShape.Cylinder:
                     HalfExtent = new Vector3(Radius, Radius, Length * 0.5f);
@@ -238,8 +239,10 @@ namespace ToolCore.Definitions
                     break;
                 case EffectShape.Cuboid:
                     EffectBox = new BoundingBox(-HalfExtent, HalfExtent);
-                    EffectSphere = new BoundingSphereD(Vector3D.Zero, HalfExtent.Length());
-                    BoundingRadius = (float)HalfExtent.Length();
+                    var halfExtentLength = (float)HalfExtent.Length();
+                    EffectSphere = new BoundingSphereD(Vector3D.Zero, halfExtentLength);
+                    BoundingRadius = halfExtentLength;
+                    Length = halfExtentLength;
                     break;
                 case EffectShape.Line:
                     BoundingRadius = Length * 0.5f; //mm

@@ -46,7 +46,6 @@ namespace ToolCore.Session
                     {
                         effects.Expired = true;
                         effects.Dirty = true;
-                        Logs.WriteLine("Caught effects on block marked for close");
                     }
 
 

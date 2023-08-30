@@ -95,6 +95,9 @@ namespace ToolCore.Session
             _customControls.Add(DrawSwitch<T>());
 
             _customActions.Add(CreateActivateOnOffAction<T>());
+            _customActions.Add(CreateModeAction<T>());
+            _customActions.Add(CreateActionAction<T>());
+            _customActions.Add(CreateDrawAction<T>());
         }
 
         #region ShootOnOff
@@ -232,6 +235,42 @@ namespace ToolCore.Session
             return comp.Definition.ToolModes.Count > 1;
         }
 
+        internal IMyTerminalAction CreateModeAction<T>() where T : IMyConveyorSorter
+        {
+            var action = MyAPIGateway.TerminalControls.CreateAction<T>("ToolCore_Mode_Action");
+            action.Icon = @"Textures\GUI\Icons\Actions\Toggle.dds";
+            action.Name = new StringBuilder("Mode Select");
+            action.Action = SwitchMode;
+            action.Writer = SwitchModeWriter;
+            action.Enabled = IsTrue;
+
+            return action;
+        }
+
+        internal void SwitchMode(IMyTerminalBlock block)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return;
+
+            var modes = comp.Definition.ToolModes;
+            var index = modes.IndexOf(comp.Mode);
+            var next = index + 1;
+            var newIndex = next < modes.Count ? next : 0;
+            comp.Mode = comp.Definition.ToolModes[newIndex];
+
+            _session.Networking.SendPacketToServer(new UpdatePacket(FieldType.Mode, (int)comp.Mode));
+        }
+
+        internal void SwitchModeWriter(IMyTerminalBlock block, StringBuilder builder)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return;
+
+            builder.Append(comp.Mode.ToString());
+        }
+
         #endregion
 
         #region Action
@@ -295,6 +334,42 @@ namespace ToolCore.Session
                 return false;
 
             return comp.Definition.ToolActions.Count > 1;
+        }
+
+        internal IMyTerminalAction CreateActionAction<T>() where T : IMyConveyorSorter
+        {
+            var action = MyAPIGateway.TerminalControls.CreateAction<T>("ToolCore_Action_Action");
+            action.Icon = @"Textures\GUI\Icons\Actions\Toggle.dds";
+            action.Name = new StringBuilder("Action Select");
+            action.Action = SwitchAction;
+            action.Writer = SwitchActionWriter;
+            action.Enabled = IsTrue;
+
+            return action;
+        }
+
+        internal void SwitchAction(IMyTerminalBlock block)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return;
+
+            var actions = comp.Definition.ToolActions;
+            var index = actions.IndexOf(comp.Action);
+            var next = index + 1;
+            var newIndex = next < actions.Count ? next : 0;
+            comp.Action = comp.Definition.ToolActions[newIndex];
+
+            _session.Networking.SendPacketToServer(new UpdatePacket(FieldType.Action, (int)comp.Action));
+        }
+
+        internal void SwitchActionWriter(IMyTerminalBlock block, StringBuilder builder)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return;
+
+            builder.Append(comp.Action.ToString());
         }
 
         #endregion

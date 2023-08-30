@@ -159,6 +159,33 @@ namespace ToolCore.Session
             Vector3D.TransformNormal(ref muzzleForward, ref partMatrix, out worldForward);
             Vector3D.TransformNormal(ref muzzleUp, ref partMatrix, out worldUp);
 
+            // Initial raycast?
+            IHitInfo hitInfo = null;
+            if (!IsDedicated || def.EffectShape == EffectShape.Ray)
+            {
+                MyAPIGateway.Physics.CastRay(worldPos, worldPos + worldForward * def.Length, out hitInfo);
+                if (hitInfo?.HitEntity != null)
+                {
+                    MyStringHash material;
+                    var entity = hitInfo.HitEntity;
+                    if (entity is MyVoxelBase)
+                    {
+                        var hitPos = hitInfo.Position;
+                        var voxelMatDef = ((MyVoxelBase)entity).GetMaterialAt(ref hitPos);
+                        material = voxelMatDef?.MaterialTypeNameHash ?? MyStringHash.GetOrCompute("Rock");
+                    }
+                    else if (entity is IMyCharacter)
+                        material = MyStringHash.GetOrCompute("Character");
+                    else if (entity is MyEnvironmentSector)
+                        material = MyStringHash.GetOrCompute("Tree");
+                    else
+                        material = MyStringHash.GetOrCompute("Metal");
+
+                    comp.UpdateHitInfo(true, hitInfo.Position, material);
+                }
+                else comp.UpdateHitInfo(false);
+            }
+
             var line = false;
             var rayLength = def.Length;
             switch (def.EffectShape)
@@ -192,8 +219,6 @@ namespace ToolCore.Session
                     }
                     break;
                 case EffectShape.Ray:
-                    IHitInfo hitInfo;
-                    MyAPIGateway.Physics.CastRay(worldPos, worldPos + worldForward * def.Length, out hitInfo);
                     if (hitInfo?.HitEntity != null)
                     {
                         _entities.Add((MyEntity)hitInfo.HitEntity);

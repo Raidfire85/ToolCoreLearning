@@ -120,20 +120,34 @@ namespace ToolCore.Comp
 
         internal enum ToolAction
         {
-            Primary = 1,
-            Secondary = 2,
+            Primary = 0,
+            Secondary = 1,
         }
 
         internal class Hit
         {
             internal Vector3D Position;
             internal MyStringHash Material;
+            internal bool IsValid;
+        }
 
-            internal void Update(Vector3D pos, MyStringHash material)
+        internal void UpdateHitInfo(bool valid, Vector3D? pos = null, MyStringHash? material = null)
+        {
+            if (valid)
             {
-                Position = pos;
-                Material = material;
+                HitInfo.Position = pos.Value;
+                HitInfo.Material = material.Value;
+
+                if (HitInfo.IsValid)
+                    return;
+
+                UpdateState(Trigger.RayHit, true);
+                HitInfo.IsValid = true;
+                return;
             }
+
+            UpdateState(Trigger.RayHit, false);
+            HitInfo.IsValid = false;
         }
 
         internal class Effects
@@ -373,6 +387,9 @@ namespace ToolCore.Comp
                     break;
                 case Trigger.Hit:
                     UpdateEffects(Trigger.Hit, add);
+                    break;
+                case Trigger.RayHit:
+                    UpdateEffects(Trigger.RayHit, add);
                     break;
                 default:
                     break;

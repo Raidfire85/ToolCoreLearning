@@ -96,7 +96,7 @@ namespace ToolCore.Definitions.Serialised
         Click = 48,
         Active = 56,
         Hit = 64,
-
+        RayHit = 128,
     }
 
     public class Animation
@@ -110,8 +110,8 @@ namespace ToolCore.Definitions.Serialised
 
     public class ParticleEffect
     {
-        public string Dummy;
         public string Name;
+        public string Dummy;
         public SerializableVector3 Offset = Vector3.Zero;
         public bool Loop;
     }

@@ -61,6 +61,7 @@ namespace ToolCore.Session
                     case PacketType.Update:
                         var uPacket = packet as UpdatePacket;
                         UpdateComp(uPacket, comp);
+                        SendPacketToClients(uPacket, comp.ReplicatedClients);
                         break;
                     case PacketType.Replicate:
                         var rPacket = packet as ReplicationPacket;
@@ -80,7 +81,7 @@ namespace ToolCore.Session
             }
             catch (Exception ex)
             {
-                Logs.WriteLine($"Exception in ProcessPacket: {ex}");
+                Logs.LogException(ex);
             }
 
         }
