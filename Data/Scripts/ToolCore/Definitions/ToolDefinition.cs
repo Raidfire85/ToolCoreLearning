@@ -101,8 +101,9 @@ namespace ToolCore.Definitions
 
         internal class ParticleEffectDef
         {
-            internal readonly string Dummy;
             internal readonly string Name;
+            internal readonly Location Location;
+            internal readonly string Dummy;
             internal readonly Vector3 Offset;
             internal readonly bool Loop;
             internal readonly bool Lookup;
@@ -111,8 +112,9 @@ namespace ToolCore.Definitions
 
             public ParticleEffectDef(ParticleEffect particleEffect, ToolSession session)
             {
-                Dummy = particleEffect.Dummy;
                 Name = particleEffect.Name;
+                Location = particleEffect.Location;
+                Dummy = particleEffect.Dummy;
                 Offset = particleEffect.Offset;
                 Loop = particleEffect.Loop;
 

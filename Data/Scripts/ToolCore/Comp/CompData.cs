@@ -14,13 +14,15 @@ namespace ToolCore.Comp
     {
         [ProtoMember(1)] public bool Activated;
         [ProtoMember(2)] public bool Draw;
-        [ProtoMember(3)] public int Mode;
+        [ProtoMember(3)] public byte Mode;
+        [ProtoMember(4)] public byte Action;
 
         internal void Sync(ToolComp comp)
         {
             Activated = comp.Activated;
             Draw = comp.Draw;
-            Mode = (int)comp.Mode;
+            Mode = (byte)comp.Mode;
+            Action = (byte)comp.Action;
         }
     }
 }

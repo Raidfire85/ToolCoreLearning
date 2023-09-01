@@ -200,13 +200,13 @@ namespace ToolCore
 
                         if (!hit)
                         {
-                            data.ComputePosition(index, out testPos);
-                            var localPos = (Vector3D)testPos + min;
-                            var voxelMatrix = voxel.PositionComp.WorldMatrixRef;
-                            voxelMatrix.Translation = voxel.PositionLeftBottomCorner;
-                            Vector3D worldPos;
-                            Vector3D.Transform(ref localPos, ref voxelMatrix, out worldPos);
-                            comp.HitInfo.Update(worldPos, voxelDef.MaterialTypeNameHash);
+                            //data.ComputePosition(index, out testPos);
+                            //var localPos = (Vector3D)testPos + min;
+                            //var voxelMatrix = voxel.PositionComp.WorldMatrixRef;
+                            //voxelMatrix.Translation = voxel.PositionLeftBottomCorner;
+                            //Vector3D worldPos;
+                            //Vector3D.Transform(ref localPos, ref voxelMatrix, out worldPos);
+                            //comp.HitInfo.Update(worldPos, voxelDef.MaterialTypeNameHash);
 
                             hit = true;
                             comp.Hitting = true;

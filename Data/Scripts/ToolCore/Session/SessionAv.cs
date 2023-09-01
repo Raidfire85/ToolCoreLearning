@@ -22,7 +22,7 @@ using VRage.Utils;
 using VRageMath;
 using ToolCore.Comp;
 using ToolCore.Utils;
-using static ToolCore.Comp.ToolComp;
+using static ToolCore.Definitions.Serialised.Location;
 
 namespace ToolCore.Session
 {
@@ -49,7 +49,7 @@ namespace ToolCore.Session
                     }
 
 
-                    var particlesFinished = !effects.HasParticles || RunParticles(effects);
+                    var particlesFinished = !effects.HasParticles || RunParticles(effects, comp.HitInfo);
 
                     var animationsFinished = !effects.HasAnimations || RunAnimations(effects);
                     
@@ -74,7 +74,7 @@ namespace ToolCore.Session
             AvComps.ApplyRemovals();
         }
 
-        internal bool RunParticles(Effects effects)
+        internal bool RunParticles(ToolComp.Effects effects, ToolComp.Hit hit)
         {
             var particles = effects.ParticleEffects;
             MyAPIGateway.Utilities.ShowNotification($"Running {particles.Count} particles", 16);
@@ -83,9 +83,9 @@ namespace ToolCore.Session
                 var pEffect = particles[i];
                 var def = pEffect.Definition;
 
-                if (effects.Expired && pEffect.Particle != null)
+                if (effects.Expired)
                 {
-                    if (def.Loop)
+                    if (def.Loop && pEffect.Particle != null)
                     {
                         pEffect.Particle.Stop(false);
                         pEffect.Particle = null;
@@ -93,17 +93,42 @@ namespace ToolCore.Session
                     continue;
                 }
 
-                if (effects.Restart || effects.LastActiveTick < Tick - 1)
+                var create = effects.Restart || effects.LastActiveTick < Tick - 1;
+                if (!create && !def.Loop)
+                    continue;
+
+                MatrixD matrix;
+                Vector3D position;
+                var parent = pEffect.Parent;
+                switch (def.Location)
+                {
+                    case Centre:
+                        matrix = parent.PositionComp.LocalMatrixRef;
+                        position = def.Offset;
+                        break;
+                    case Dummy:
+                        matrix = MatrixD.Normalize(pEffect.Dummy.Matrix);
+                        position = matrix.Translation + def.Offset;
+                        break;
+                    case Hit:
+                        matrix = MatrixD.Rescale(parent.PositionComp.LocalMatrixRef, -1);
+                        position = Vector3D.Transform(hit.Position, parent.PositionComp.WorldMatrixNormalizedInv);
+                        break;
+                    default:
+                        matrix = MatrixD.Identity;
+                        position = Vector3D.Zero;
+                        break;
+                }
+                matrix.Translation = position;
+
+                if (create)
                 {
                     if (pEffect.Particle != null)
                         continue;
 
-                    var matrix = MatrixD.Normalize(pEffect.Dummy.Matrix);
-                    var pos = matrix.Translation;
-                    matrix.Translation += def.Offset;
                     var renderId = pEffect.Parent.Render.GetRenderObjectID();
                     MyParticleEffect myParticle;
-                    if (!MyParticlesManager.TryCreateParticleEffect(def.Name, ref matrix, ref pos, renderId, out myParticle))
+                    if (!MyParticlesManager.TryCreateParticleEffect(def.Name, ref matrix, ref position, renderId, out myParticle))
                         continue;
 
                     if (def.Loop)
@@ -113,7 +138,7 @@ namespace ToolCore.Session
                     continue;
                 }
 
-                if (def.Loop && !effects.Expired)
+                if (def.Loop)
                 {
                     if (pEffect.Particle == null)
                     {
@@ -121,8 +146,6 @@ namespace ToolCore.Session
                         continue;
                     }
 
-                    var matrix = MatrixD.Normalize(pEffect.Dummy.Matrix);
-                    matrix.Translation += def.Offset;
                     pEffect.Particle.WorldMatrix = matrix;
                 }
 
@@ -130,7 +153,7 @@ namespace ToolCore.Session
             return true;
         }
 
-        internal bool RunAnimations(Effects effects)
+        internal bool RunAnimations(ToolComp.Effects effects)
         {
             var animations = effects.Animations;
             var finished = true;
@@ -185,7 +208,7 @@ namespace ToolCore.Session
 
         }
 
-        internal void RunSound(Effects effects, ToolComp comp)
+        internal void RunSound(ToolComp.Effects effects, ToolComp comp)
         {
             var emitter = comp.SoundEmitter;
             if (emitter == null)

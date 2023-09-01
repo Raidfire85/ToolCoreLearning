@@ -111,6 +111,7 @@ namespace ToolCore.Definitions.Serialised
     public class ParticleEffect
     {
         public string Name;
+        public Location Location;
         public string Dummy;
         public SerializableVector3 Offset = Vector3.Zero;
         public bool Loop;
@@ -127,6 +128,13 @@ namespace ToolCore.Definitions.Serialised
         Linear = 1,
         Hide = 2,
         Unhide = 3,
+    }
+
+    public enum Location
+    {
+        Centre = 0,
+        Dummy = 1,
+        Hit = 2,
     }
 
     public class Material

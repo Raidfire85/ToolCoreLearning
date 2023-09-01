@@ -324,7 +324,6 @@ namespace ToolCore.Comp
             CompTick60 = Tool.EntityId % 60;
             CompTick120 = Tool.EntityId % 120;
 
-            Tool.Enabled = false;
             Tool.EnabledChanged += EnabledChanged;
             Tool.IsWorkingChanged += IsWorkingChanged;
 
@@ -621,6 +620,7 @@ namespace ToolCore.Comp
             Activated = repo.Activated;
             Draw = repo.Draw;
             Mode = (ToolMode)repo.Mode;
+            Action = (ToolAction)repo.Action;
         }
 
         internal void OnDrillComplete()
@@ -634,6 +634,23 @@ namespace ToolCore.Comp
             StorageDatas.Clear();
             ActiveDrillThreads--;
             Session.DsUtil.Complete("notify", true);
+
+            if (Hitting != WasHitting)
+            {
+                UpdateState(Trigger.Hit, Hitting);
+                WasHitting = Hitting;
+
+                if (!Hitting)
+                {
+                    Logs.WriteLine("read: " + Session.DsUtil.GetValue("read").ToString());
+                    Logs.WriteLine("sort: " + Session.DsUtil.GetValue("sort").ToString());
+                    Logs.WriteLine("calc: " + Session.DsUtil.GetValue("calc").ToString());
+                    Logs.WriteLine("write: " + Session.DsUtil.GetValue("write").ToString());
+                    Logs.WriteLine("notify: " + Session.DsUtil.GetValue("notify").ToString());
+                    Session.DsUtil.Clean();
+                }
+            }
+            Hitting = false;
         }
         
         internal void ManageInventory()

@@ -574,22 +574,11 @@ namespace ToolCore.Session
                     break;
             }
 
-            if (comp.Hitting != comp.WasHitting)
+            if (comp.Mode != ToolComp.ToolMode.Drill && comp.Hitting != comp.WasHitting)
             {
                 comp.UpdateState(Trigger.Hit, comp.Hitting);
-
-                if (!comp.Hitting)
-                {
-                    Logs.WriteLine("read: " + DsUtil.GetValue("read").ToString());
-                    Logs.WriteLine("sort: " + DsUtil.GetValue("sort").ToString());
-                    Logs.WriteLine("calc: " + DsUtil.GetValue("calc").ToString());
-                    Logs.WriteLine("write: " + DsUtil.GetValue("write").ToString());
-                    Logs.WriteLine("notify: " + DsUtil.GetValue("notify").ToString());
-                    DsUtil.Clean();
-                }
+                comp.WasHitting = comp.Hitting;
             }
-
-            comp.WasHitting = comp.Hitting;
             comp.Hitting = false;
 
 
