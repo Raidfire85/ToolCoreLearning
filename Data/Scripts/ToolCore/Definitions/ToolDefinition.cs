@@ -24,6 +24,7 @@ namespace ToolCore.Definitions
         internal readonly ToolType ToolType;
         internal readonly EffectShape EffectShape;
         internal WorkOrder Pattern;
+        internal Location Location;
         internal string EmitterName;
         internal bool Turret;
         internal bool AffectOwnGrid;
@@ -39,7 +40,6 @@ namespace ToolCore.Definitions
 
         //BoundingSphere Dimensions
         internal float SegmentLength;
-        internal float SegmentRadius;
         internal float BoundingRadius;
         internal float SegmentBoundingRadius;
         internal float SegmentRatio = 1f;
@@ -54,10 +54,8 @@ namespace ToolCore.Definitions
         internal readonly List<List<Vector3I>> Layers = new List<List<Vector3I>>();
 
         internal readonly Trigger EventFlags;
-        internal readonly Dictionary<Trigger, MyTuple<List<AnimationDef>, List<ParticleEffectDef>, SoundDef>> EventEffectDefs = new Dictionary<Trigger, MyTuple<List<AnimationDef>, List<ParticleEffectDef>, SoundDef>>();
-        internal readonly List<Animation> AnimationDefs = new List<Animation>();
-        internal readonly List<ParticleEffect> ParticleEffectDefs = new List<ParticleEffect>();
-
+        internal readonly Dictionary<Trigger, MyTuple<List<AnimationDef>, List<ParticleEffectDef>, List<BeamDef>, SoundDef>> EventEffectDefs = new Dictionary<Trigger, MyTuple<List<AnimationDef>, List<ParticleEffectDef>, List<BeamDef>, SoundDef>>();
+        
         internal class AnimationDef
         {
             internal readonly string Subpart;
@@ -129,6 +127,26 @@ namespace ToolCore.Definitions
             }
         }
 
+        internal class BeamDef
+        {
+            internal readonly string Start;
+            internal readonly string End;
+            internal readonly bool EndAtHit;
+            internal readonly MyStringId Material;
+            internal readonly float Width;
+            internal readonly Vector4 Color;
+
+            internal BeamDef(Beam beam)
+            {
+                Start = beam.Start;
+                End = beam.End;
+                EndAtHit = End.Equals("Hit");
+                Material = MyStringId.GetOrCompute(beam.Material);
+                Width = beam.Width;
+                Color = beam.Color;
+            }
+        }
+
         internal class SoundDef
         {
             internal readonly MySoundPair SoundPair;
@@ -160,6 +178,7 @@ namespace ToolCore.Definitions
             ToolType = values.ToolType;
             EffectShape = values.EffectShape;
             Pattern = values.WorkOrder;
+            Location = values.WorkOrigin;
             EmitterName = values.Emitter;
             Turret = values.Turret;
             AffectOwnGrid = values.AffectOwnGrid;
@@ -231,7 +250,7 @@ namespace ToolCore.Definitions
                         }
                     }
                     BoundingRadius = Radius;
-                    Length = Radius;
+                    Length = Location == Location.Hit ? Length : Radius;
                     break;
                 case EffectShape.Cylinder:
                     HalfExtent = new Vector3(Radius, Radius, Length * 0.5f);
@@ -273,9 +292,9 @@ namespace ToolCore.Definitions
             {
                 var hasAnimations = eventDef.Animations != null && eventDef.Animations.Length > 0;
                 var hasParticleEffects = eventDef.ParticleEffects != null && eventDef.ParticleEffects.Length > 0;
-                Logs.WriteLine($"event def has particles: {hasParticleEffects}");
+                var hasBeams = eventDef.Beams != null && eventDef.Beams.Length > 0;
                 var hasSound = !string.IsNullOrEmpty(eventDef.Sound?.Name);
-                if (!hasAnimations && !hasParticleEffects && !hasSound)
+                if (!hasAnimations && !hasParticleEffects && !hasBeams && !hasSound)
                     continue;
 
                 var animationDefs = new List<AnimationDef>();
@@ -296,11 +315,20 @@ namespace ToolCore.Definitions
                     }
                 }
 
+                var beamDefs = new List<BeamDef>();
+                if (hasBeams)
+                {
+                    foreach (var beam in eventDef.Beams)
+                    {
+                        beamDefs.Add(new BeamDef(beam));
+                    }
+                }
+
                 SoundDef soundDef = null;
                 if (hasSound)
                     soundDef = new SoundDef(eventDef.Sound, session);
 
-                EventEffectDefs[eventDef.Trigger] = new MyTuple<List<AnimationDef>, List<ParticleEffectDef>, SoundDef>(animationDefs, particleEffectDefs, soundDef);
+                EventEffectDefs[eventDef.Trigger] = new MyTuple<List<AnimationDef>, List<ParticleEffectDef>, List<BeamDef>, SoundDef>(animationDefs, particleEffectDefs, beamDefs, soundDef);
                 EventFlags |= eventDef.Trigger;
             }
 

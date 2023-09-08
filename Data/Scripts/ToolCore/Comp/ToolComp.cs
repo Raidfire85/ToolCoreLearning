@@ -88,7 +88,7 @@ namespace ToolCore.Comp
         internal readonly Hit HitInfo = new Hit();
         internal MyStringHash HitMaterial = MyStringHash.GetOrCompute("Metal");
 
-        internal bool NoEmitter;
+        internal bool HasEmitter;
         internal bool Draw = true;
         internal bool Debug = true;
 
@@ -105,7 +105,10 @@ namespace ToolCore.Comp
             {
                 _activated = value;
                 if (Functional && Powered && Enabled)
+                {
                     UpdateState(Trigger.Activated, value);
+                    WasHitting &= value;
+                }
             }
         }
 
@@ -154,9 +157,11 @@ namespace ToolCore.Comp
         {
             internal readonly bool HasAnimations;
             internal readonly bool HasParticles;
+            internal readonly bool HasBeams;
             internal readonly bool HasSound;
             internal readonly List<Animation> Animations;
             internal readonly List<ParticleEffect> ParticleEffects;
+            internal readonly List<Beam> Beams;
             internal readonly SoundDef SoundDef;
 
             internal bool Active;
@@ -165,14 +170,15 @@ namespace ToolCore.Comp
             internal bool Restart;
             internal int LastActiveTick;
 
-            internal Effects(List<AnimationDef> animationDefs, List<ParticleEffectDef> particleEffectDefs, SoundDef soundDef, ToolComp comp)
+            internal Effects(List<AnimationDef> animationDefs, List<ParticleEffectDef> particleEffectDefs, List<BeamDef> beamDefs, SoundDef soundDef, ToolComp comp)
             {
+                var entity = (MyEntity)comp.Tool;
+
                 if (animationDefs?.Count > 0)
                 {
                     Animations = new List<Animation>();
                     foreach (var aDef in animationDefs)
                     {
-                        var entity = (MyEntity)comp.Tool;
                         MyEntitySubpart subpart;
                         if (!entity.TryGetSubpartRecursive(aDef.Subpart, out subpart))
                         {
@@ -191,7 +197,6 @@ namespace ToolCore.Comp
                     ParticleEffects = new List<ParticleEffect>();
                     foreach (var pDef in particleEffectDefs)
                     {
-                        var entity = (MyEntity)comp.Tool;
                         IMyModelDummy dummy;
                         MyEntity parent;
                         if (!entity.TryGetDummy(pDef.Dummy, out dummy, out parent))
@@ -204,6 +209,33 @@ namespace ToolCore.Comp
                         ParticleEffects.Add(effect);
                     }
                     HasParticles = ParticleEffects.Count > 0;
+                }
+
+                if (beamDefs?.Count > 0)
+                {
+                    Beams = new List<Beam>();
+                    foreach (var beamDef in beamDefs)
+                    {
+                        IMyModelDummy start;
+                        MyEntity startParent;
+                        if (!entity.TryGetDummy(beamDef.Start, out start, out startParent))
+                        {
+                            Logs.WriteLine($"Dummy '{beamDef.Start}' not found!");
+                            continue;
+                        }
+
+                        IMyModelDummy end = null;
+                        MyEntity endParent = null;
+                        if (!beamDef.EndAtHit && !entity.TryGetDummy(beamDef.End, out end, out endParent))
+                        {
+                            Logs.WriteLine($"Dummy '{beamDef.End}' not found!");
+                            continue;
+                        }
+
+                        var beam = new Beam(beamDef, start, end, startParent, endParent);
+                        Beams.Add(beam);
+                    }
+                    HasBeams = Beams.Count > 0;
                 }
 
                 HasSound = (SoundDef = soundDef) != null;
@@ -221,6 +253,7 @@ namespace ToolCore.Comp
             internal class Animation
             {
                 internal readonly AnimationDef Definition;
+
                 internal MyEntitySubpart Subpart;
 
                 internal bool Starting;
@@ -235,13 +268,11 @@ namespace ToolCore.Comp
 
             internal class ParticleEffect
             {
+                internal readonly ParticleEffectDef Definition;
+
                 internal IMyModelDummy Dummy;
                 internal MyEntity Parent;
-
-                internal ParticleEffectDef Definition;
-
                 internal MyParticleEffect Particle;
-                internal bool Looping;
 
                 public ParticleEffect(ParticleEffectDef def, IMyModelDummy dummy, MyEntity parent)
                 {
@@ -249,6 +280,26 @@ namespace ToolCore.Comp
                     Parent = parent;
                     Definition = def;
                 }
+            }
+
+            internal class Beam
+            {
+                internal readonly BeamDef Definition;
+
+                internal IMyModelDummy Start;
+                internal IMyModelDummy End;
+                internal MyEntity StartParent;
+                internal MyEntity EndParent;
+
+                public Beam(BeamDef def, IMyModelDummy start, IMyModelDummy end, MyEntity startParent, MyEntity endParent)
+                {
+                    Definition = def;
+                    Start = start;
+                    End = end;
+                    StartParent = startParent;
+                    EndParent = endParent;
+                }
+
             }
         }
 
@@ -313,7 +364,7 @@ namespace ToolCore.Comp
             foreach (var pair in def.EventEffectDefs)
             {
                 var myTuple = pair.Value;
-                EventEffects[pair.Key] = new Effects(myTuple.Item1, myTuple.Item2, myTuple.Item3, this);
+                EventEffects[pair.Key] = new Effects(myTuple.Item1, myTuple.Item2, myTuple.Item3, myTuple.Item4, this);
                 hasSound = myTuple.Item3 != null;
             }
 
@@ -335,7 +386,7 @@ namespace ToolCore.Comp
         internal void UpdateState(Trigger state, bool add, bool force = false)
         {
             var isActive = (State & state) > 0;
-            //Logs.WriteLine($"UpdateState : {state} : {add} : {isActive}");
+            Logs.WriteLine($"UpdateState : {state} : {add} : {isActive}");
 
             if (!force)
             {
@@ -376,11 +427,11 @@ namespace ToolCore.Comp
                 case Trigger.Activated:
                 case Trigger.Click:
                     UpdateEffects(state, add);
-                    if (!add && (State & Trigger.Active) > 0) break;
-                    UpdateState(Trigger.Active, add, true);
+                    if (!add && (State & Trigger.Firing) > 0) break;
+                    UpdateState(Trigger.Firing, add, true);
                     break;
-                case Trigger.Active:
-                    UpdateEffects(Trigger.Active, add);
+                case Trigger.Firing:
+                    UpdateEffects(Trigger.Firing, add);
                     if (add) break;
                     UpdateState(Trigger.Hit, false);
                     break;
@@ -552,11 +603,15 @@ namespace ToolCore.Comp
             HashSet<IMyEntity> entities = new HashSet<IMyEntity>() { Tool };
             Tool.Hierarchy.GetChildrenRecursive(entities);
 
+            var noEmitter = string.IsNullOrEmpty(Definition.EmitterName);
             Dictionary<string, IMyModelDummy> dummies = new Dictionary<string, IMyModelDummy>();
             foreach (var entity in entities)
             {
                 if (entity != Tool)
                     entity.OnClose += (ent) => Dirty = true;
+
+                if (noEmitter)
+                    continue;
 
                 entity.Model.GetDummies(dummies);
 
@@ -566,18 +621,15 @@ namespace ToolCore.Comp
                     {
                         Muzzle = dummy.Value;
                         MuzzlePart = (MyEntity)entity;
-                        Logs.WriteLine("SubpartsInit() : Emitter found");
                     }
                 }
 
                 dummies.Clear();
             }
 
-            if (Muzzle == null)
-            {
-                NoEmitter = true;
+            HasEmitter = Muzzle != null;
+            if (!HasEmitter && !noEmitter)
                 Logs.WriteLine($"Failed to find emitter dummy '{Definition.EmitterName}'!");
-            }
 
             Dirty = false;
         }
@@ -632,15 +684,19 @@ namespace ToolCore.Comp
                 DrillData.Voxel.Storage.NotifyRangeChanged(ref info.Min, ref info.Max, MyStorageDataTypeFlags.ContentAndMaterial);
             }
             StorageDatas.Clear();
-            ActiveDrillThreads--;
             Session.DsUtil.Complete("notify", true);
 
-            if (Hitting != WasHitting)
-            {
-                UpdateState(Trigger.Hit, Hitting);
-                WasHitting = Hitting;
+            ActiveDrillThreads--;
+            if (ActiveDrillThreads > 0) return;
 
-                if (!Hitting)
+            var isHitting = Hitting && (Activated || ToolGun.Shooting);
+            Logs.WriteLine($"Callback: {isHitting} : {Hitting} : {WasHitting}");
+            if (isHitting != WasHitting)
+            {
+                UpdateState(Trigger.Hit, isHitting);
+                WasHitting = isHitting && Activated;
+
+                if (!isHitting)
                 {
                     Logs.WriteLine("read: " + Session.DsUtil.GetValue("read").ToString());
                     Logs.WriteLine("sort: " + Session.DsUtil.GetValue("sort").ToString());

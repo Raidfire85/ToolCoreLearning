@@ -1,6 +1,5 @@
 ﻿using Sandbox.Common.ObjectBuilders;
 using Sandbox.Game.Entities;
-using Sandbox.Game.EntityComponents;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -23,7 +22,6 @@ namespace ToolCore.Session
         internal readonly Guid CompDataGuid = new Guid("75BBB4F5-4FB9-4230-AAAA-BB79C9811618");
         internal readonly float VoxelHarvestRatio = 0.009f;
 
-        private readonly MyDefinitionId _electricity = MyResourceDistributorComponent.ElectricityId;
         internal readonly MyDefinitionId SteelPlate = new MyDefinitionId(typeof(MyObjectBuilder_Component), "SteelPlate");
 
         private readonly HashSet<MyObjectBuilderType> _toolTypes = new HashSet<MyObjectBuilderType>()

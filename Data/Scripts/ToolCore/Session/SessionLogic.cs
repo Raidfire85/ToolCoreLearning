@@ -116,10 +116,6 @@ namespace ToolCore.Session
             if (!comp.Activated && !comp.ToolGun.Shooting)
                 return;
 
-            // Replace with fallback
-            if (comp.NoEmitter)
-                return;
-
             if (comp.CompTick120 == TickMod120 && comp.Mode != ToolComp.ToolMode.Weld)
                 comp.ManageInventory();
 
@@ -129,35 +125,49 @@ namespace ToolCore.Session
                 foreach (var tuple in comp.DrawBoxes)
                     DrawBox(tuple.Item1, tuple.Item2, false, 1, 0.01f);
 
-                if (comp.Hitting)
-                {
-                    DrawScaledPoint(comp.HitInfo.Position, 0.5, Color.Red);
-                    MyAPIGateway.Utilities.ShowNotification(comp.HitInfo.Position.ToString("F0"), 16);
-                }
+                //if (comp.Hitting)
+                //{
+                //    DrawScaledPoint(comp.HitInfo.Position, 0.5, Color.Red);
+                //    MyAPIGateway.Utilities.ShowNotification(comp.HitInfo.Position.ToString("F0"), 16);
+                //}
             }
 
             var def = comp.Definition;
             var pos = tool.PositionComp;
+            var toolMatrix = pos.WorldMatrixRef;
 
-            var muzzleMatrix = (MatrixD)comp.Muzzle.Matrix;
-            var partMatrix = comp.MuzzlePart.PositionComp.WorldMatrixRef;
-            var localPos = muzzleMatrix.Translation;
+            Vector3D worldPos = pos.WorldAABB.Center;
+            Vector3D worldForward = toolMatrix.Forward;
+            Vector3D worldUp = toolMatrix.Up;
 
-            if (!Vector3D.IsZero(def.Offset))
+            if (comp.HasEmitter)
+            {
+                var muzzleMatrix = (MatrixD)comp.Muzzle.Matrix;
+                var partMatrix = comp.MuzzlePart.PositionComp.WorldMatrixRef;
+
+                var localPos = muzzleMatrix.Translation;
+
+                if (!Vector3D.IsZero(def.Offset))
+                {
+                    Vector3D offset;
+                    Vector3D.Rotate(ref def.Offset, ref muzzleMatrix, out offset);
+                    localPos += offset;
+                }
+                var muzzleForward = Vector3D.Normalize(muzzleMatrix.Forward);
+                var muzzleUp = Vector3D.Normalize(muzzleMatrix.Up);
+
+                Vector3D.Transform(ref localPos, ref partMatrix, out worldPos);
+                Vector3D.TransformNormal(ref muzzleForward, ref partMatrix, out worldForward);
+                Vector3D.TransformNormal(ref muzzleUp, ref partMatrix, out worldUp);
+            }
+            else if (!Vector3D.IsZero(def.Offset))
             {
                 Vector3D offset;
-                Vector3D.Rotate(ref def.Offset, ref muzzleMatrix, out offset);
-                localPos += offset;
+                Vector3D.Rotate(ref def.Offset, ref toolMatrix, out offset);
+                worldPos += offset;
             }
-            var muzzleForward = Vector3D.Normalize(muzzleMatrix.Forward);
-            var muzzleUp = Vector3D.Normalize(muzzleMatrix.Up);
 
-            Vector3D worldPos;
-            Vector3D worldForward;
-            Vector3D worldUp;
-            Vector3D.Transform(ref localPos, ref partMatrix, out worldPos);
-            Vector3D.TransformNormal(ref muzzleForward, ref partMatrix, out worldForward);
-            Vector3D.TransformNormal(ref muzzleUp, ref partMatrix, out worldUp);
+
 
             // Initial raycast?
             IHitInfo hitInfo = null;
@@ -168,9 +178,9 @@ namespace ToolCore.Session
                 {
                     MyStringHash material;
                     var entity = hitInfo.HitEntity;
+                    var hitPos = hitInfo.Position;
                     if (entity is MyVoxelBase)
                     {
-                        var hitPos = hitInfo.Position;
                         var voxelMatDef = ((MyVoxelBase)entity).GetMaterialAt(ref hitPos);
                         material = voxelMatDef?.MaterialTypeNameHash ?? MyStringHash.GetOrCompute("Rock");
                     }
@@ -180,6 +190,9 @@ namespace ToolCore.Session
                         material = MyStringHash.GetOrCompute("Tree");
                     else
                         material = MyStringHash.GetOrCompute("Metal");
+
+                    if (def.Location == Location.Hit)
+                        worldPos = hitPos;
 
                     comp.UpdateHitInfo(true, hitInfo.Position, material);
                 }
@@ -200,7 +213,7 @@ namespace ToolCore.Session
                     {
                         var drawMatrix = MatrixD.CreateWorld(worldPos, worldForward, worldUp);
                         var color = def.EffectShape == EffectShape.Sphere ? Color.AliceBlue : Color.ForestGreen;
-                        DrawSphere(drawMatrix, def.EffectSphere.Radius, color, false, 20, 0.01f);
+                        //DrawSphere(drawMatrix, def.EffectSphere.Radius, color, false, 20, 0.01f);
                     }
                     if (comp.Draw && def.EffectShape == EffectShape.Cylinder)
                     {
@@ -574,12 +587,15 @@ namespace ToolCore.Session
                     break;
             }
 
-            if (comp.Mode != ToolComp.ToolMode.Drill && comp.Hitting != comp.WasHitting)
+            if (comp.Mode != ToolComp.ToolMode.Drill)
             {
-                comp.UpdateState(Trigger.Hit, comp.Hitting);
-                comp.WasHitting = comp.Hitting;
+                if (comp.Hitting != comp.WasHitting)
+                {
+                    comp.UpdateState(Trigger.Hit, comp.Hitting);
+                    comp.WasHitting = comp.Hitting;
+                }
+                comp.Hitting = false;
             }
-            comp.Hitting = false;
 
 
 

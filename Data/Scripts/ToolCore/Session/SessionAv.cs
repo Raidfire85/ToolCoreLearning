@@ -22,6 +22,7 @@ using VRage.Utils;
 using VRageMath;
 using ToolCore.Comp;
 using ToolCore.Utils;
+using static ToolCore.Utils.Draw;
 using static ToolCore.Definitions.Serialised.Location;
 
 namespace ToolCore.Session
@@ -37,7 +38,7 @@ namespace ToolCore.Session
                 var tool = comp.Tool;
                 var def = comp.Definition;
 
-                MyAPIGateway.Utilities.ShowNotification($"Running {comp.ActiveEffects.Count} effects", 16);
+                //MyAPIGateway.Utilities.ShowNotification($"Running {comp.ActiveEffects.Count} effects", 16);
                 for (int j = comp.ActiveEffects.Count - 1; j >= 0; j--)
                 {
                     var effects = comp.ActiveEffects[j];
@@ -52,6 +53,8 @@ namespace ToolCore.Session
                     var particlesFinished = !effects.HasParticles || RunParticles(effects, comp.HitInfo);
 
                     var animationsFinished = !effects.HasAnimations || RunAnimations(effects);
+
+                    if (effects.HasBeams) RunBeams(effects, comp.HitInfo);
                     
                     if (effects.HasSound) RunSound(effects, comp);
 
@@ -74,10 +77,24 @@ namespace ToolCore.Session
             AvComps.ApplyRemovals();
         }
 
+        internal void RunBeams(ToolComp.Effects effects, ToolComp.Hit hit)
+        {
+            var beams = effects.Beams;
+            for (int i = 0; i < beams.Count; i++)
+            {
+                var beam = beams[i];
+                var def = beam.Definition;
+
+                var startPos = Vector3D.Transform(beam.Start.Matrix.Translation, beam.StartParent.PositionComp.WorldMatrixRef);
+                var endPos = def.EndAtHit ? hit.Position : Vector3D.Transform(beam.End.Matrix.Translation, beam.EndParent.PositionComp.WorldMatrixRef);
+                DrawLine(startPos, endPos, def.Color, def.Width, def.Material);
+            }
+        }
+
         internal bool RunParticles(ToolComp.Effects effects, ToolComp.Hit hit)
         {
             var particles = effects.ParticleEffects;
-            MyAPIGateway.Utilities.ShowNotification($"Running {particles.Count} particles", 16);
+            //MyAPIGateway.Utilities.ShowNotification($"Running {particles.Count} particles", 16);
             for (int i = 0; i < particles.Count; i++)
             {
                 var pEffect = particles[i];
@@ -157,7 +174,7 @@ namespace ToolCore.Session
         {
             var animations = effects.Animations;
             var finished = true;
-            MyAPIGateway.Utilities.ShowNotification($"Running {animations.Count} animations", 16);
+            //MyAPIGateway.Utilities.ShowNotification($"Running {animations.Count} animations", 16);
             for (int i = 0; i < animations.Count; i++)
             {
                 var anim = animations[i];

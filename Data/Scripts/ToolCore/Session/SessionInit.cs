@@ -156,7 +156,7 @@ namespace ToolCore.Session
                 }
                 catch (Exception ex)
                 {
-                    MyLog.Default.WriteLineAndConsole(ex.ToString());
+                    Logs.LogException(ex);
                 }
             }
 

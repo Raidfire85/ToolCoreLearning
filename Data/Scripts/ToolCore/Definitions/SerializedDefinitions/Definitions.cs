@@ -22,6 +22,7 @@ namespace ToolCore.Definitions.Serialised
         public ToolType ToolType;
         public EffectShape EffectShape;
         public WorkOrder WorkOrder;
+        public Location WorkOrigin;
 
         public string Emitter;
 
@@ -74,11 +75,19 @@ namespace ToolCore.Definitions.Serialised
         Backward = 4,
     }
 
+    public enum Location
+    {
+        Centre = 0,
+        Dummy = 1,
+        Hit = 2,
+    }
+
     public class Event
     {
         public Trigger Trigger;
         public Animation[] Animations;
         public ParticleEffect[] ParticleEffects;
+        public Beam[] Beams;
         public Sound Sound;
 
     }
@@ -94,7 +103,7 @@ namespace ToolCore.Definitions.Serialised
         LeftClick = 16,
         RightClick = 32,
         Click = 48,
-        Active = 56,
+        Firing = 56,
         Hit = 64,
         RayHit = 128,
     }
@@ -117,6 +126,15 @@ namespace ToolCore.Definitions.Serialised
         public bool Loop;
     }
 
+    public class Beam
+    {
+        public string Start;
+        public string End;
+        public string Material;
+        public float Width = 1f;
+        public Vector4 Color = Vector4.One * 255;
+    }
+
     public class Sound
     {
         public string Name;
@@ -128,13 +146,6 @@ namespace ToolCore.Definitions.Serialised
         Linear = 1,
         Hide = 2,
         Unhide = 3,
-    }
-
-    public enum Location
-    {
-        Centre = 0,
-        Dummy = 1,
-        Hit = 2,
     }
 
     public class Material

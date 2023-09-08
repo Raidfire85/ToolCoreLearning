@@ -58,5 +58,11 @@ namespace ToolCore.Utils
             var c = (Vector4)color;
             MySimpleObjectDraw.DrawLine(start, start + (dir * length), _square, ref c, width);
         }
+
+        internal static void DrawLine(Vector3D start, Vector3D end, Vector4 color, float width, MyStringId material)
+        {
+            var c = (Vector4)color;
+            MySimpleObjectDraw.DrawLine(start, end, material, ref c, width);
+        }
     }
 }
