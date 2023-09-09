@@ -40,7 +40,7 @@ namespace ToolCore.Comp
     {
         internal readonly ToolSession Session;
 
-        internal readonly GunCore ToolGun;
+        internal readonly GunCore GunBase;
         internal readonly MyInventory Inventory;
 
         internal ToolDefinition Definition;
@@ -104,10 +104,14 @@ namespace ToolCore.Comp
             set
             {
                 _activated = value;
-                if (Functional && Powered && Enabled)
+                if (!Functional || !Powered || !Enabled)
+                    return;
+
+                UpdateState(Trigger.Activated, value);
+                if (!value)
                 {
-                    UpdateState(Trigger.Activated, value);
-                    WasHitting &= value;
+                    WasHitting = false;
+                    UpdateHitInfo(false);
                 }
             }
         }
@@ -344,7 +348,7 @@ namespace ToolCore.Comp
 
             Definition = def;
             Tool = block;
-            ToolGun = new GunCore(this);
+            GunBase = new GunCore(this);
             Inventory = (MyInventory)(Tool as MyEntity).GetInventoryBase();
 
             Grid = Tool.CubeGrid as MyCubeGrid;
@@ -434,6 +438,7 @@ namespace ToolCore.Comp
                     UpdateEffects(Trigger.Firing, add);
                     if (add) break;
                     UpdateState(Trigger.Hit, false);
+                    UpdateState(Trigger.RayHit, false);
                     break;
                 case Trigger.Hit:
                     UpdateEffects(Trigger.Hit, add);
@@ -472,7 +477,7 @@ namespace ToolCore.Comp
             }
         }
 
-        internal bool IsPowered(bool log = false)
+        internal bool IsPowered()
         {
             Sink.Update();
             var required = RequiredInput();
@@ -488,17 +493,14 @@ namespace ToolCore.Comp
 
             Sink.Update();
             UpdatePower = true;
-            if (!Powered) return;
 
-            //if (!Enabled)
-            //{
-            //    Logs.WriteLine("read: " + Session.DsUtil.GetValue("read").ToString());
-            //    Logs.WriteLine("sort: " + Session.DsUtil.GetValue("sort").ToString());
-            //    Logs.WriteLine("calc: " + Session.DsUtil.GetValue("calc").ToString());
-            //    Logs.WriteLine("write: " + Session.DsUtil.GetValue("write").ToString());
-            //    Logs.WriteLine("notify: " + Session.DsUtil.GetValue("notify").ToString());
-            //    Session.DsUtil.Clean();
-            //}
+            if (!Enabled)
+            {
+                WasHitting = false;
+                UpdateHitInfo(false);
+            }
+
+            if (!Powered) return;
 
             UpdateState(Trigger.Enabled, Enabled);
         }
@@ -592,7 +594,7 @@ namespace ToolCore.Comp
             if (!Functional)
                 return 0f;
 
-            if (Enabled || ToolGun.WantsToShoot)
+            if (Enabled || GunBase.WantsToShoot)
                 return Definition.ActivePower;
 
             return Definition.IdlePower;
@@ -651,7 +653,7 @@ namespace ToolCore.Comp
                 }
                 catch (Exception ex)
                 {
-                    Logs.WriteLine($"DriveComp - Exception at StorageInit() - {ex}");
+                    Logs.LogException(ex);
                 }
             }
 
@@ -689,12 +691,12 @@ namespace ToolCore.Comp
             ActiveDrillThreads--;
             if (ActiveDrillThreads > 0) return;
 
-            var isHitting = Hitting && (Activated || ToolGun.Shooting);
+            var isHitting = Functional && Powered && Enabled && Hitting && (Activated || GunBase.Shooting);
             Logs.WriteLine($"Callback: {isHitting} : {Hitting} : {WasHitting}");
             if (isHitting != WasHitting)
             {
                 UpdateState(Trigger.Hit, isHitting);
-                WasHitting = isHitting && Activated;
+                WasHitting = isHitting;
 
                 if (!isHitting)
                 {

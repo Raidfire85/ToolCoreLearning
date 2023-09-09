@@ -33,21 +33,12 @@ namespace ToolCore.Session
 {
     internal partial class ToolSession
     {
-        private readonly List<Color> _colors = new List<Color>()
-        {
-            Color.BlueViolet,
-            Color.GreenYellow,
-            Color.OrangeRed,
-            Color.Aqua,
-        };
-
         internal void CompLoop()
         {
 
             for (int i = 0; i < GridList.Count; i++)
             {
                 var gridComp = GridList[i];
-                var parentGrid = gridComp.Grid;
 
                 for (int j = 0; j < gridComp.ToolComps.Count; j++)
                 {
@@ -63,6 +54,8 @@ namespace ToolCore.Session
                         comp.AvActive = true;
                     }
 
+                    if (comp.Mode != ToolComp.ToolMode.Drill)
+                        UpdateHitState(comp);
 
 
                 } //Tools loop
@@ -73,6 +66,34 @@ namespace ToolCore.Session
 
         }
 
+        private void UpdateHitState(ToolComp comp, bool drillDebug = false)
+        {
+            if (comp.Mode == ToolComp.ToolMode.Drill && comp.ActiveDrillThreads > 0)
+                return;
+
+            var operational = comp.Functional && comp.Powered && comp.Enabled;
+            var firing = comp.Activated || comp.GunBase.Shooting;
+
+            var hitting = comp.Hitting && operational && firing;
+            if (hitting != comp.WasHitting)
+            {
+                comp.WasHitting = hitting;
+                comp.UpdateState(Trigger.Hit, hitting);
+
+                if (drillDebug && !hitting)
+                {
+                    Logs.WriteLine("read: " + DsUtil.GetValue("read").ToString());
+                    Logs.WriteLine("sort: " + DsUtil.GetValue("sort").ToString());
+                    Logs.WriteLine("calc: " + DsUtil.GetValue("calc").ToString());
+                    Logs.WriteLine("write: " + DsUtil.GetValue("write").ToString());
+                    Logs.WriteLine("notify: " + DsUtil.GetValue("notify").ToString());
+                    DsUtil.Clean();
+                }
+            }
+
+            comp.Hitting = false;
+        }
+
         private void UpdateTool(ToolComp comp, GridComp gridComp)
         {
             //if (!Tick10) continue;
@@ -81,22 +102,34 @@ namespace ToolCore.Session
             var parentGrid = gridComp.Grid;
 
             if (comp.Functional != tool.IsFunctional)
-                comp.UpdateState(Trigger.Functional, tool.IsFunctional);
-
-            comp.Functional = tool.IsFunctional;
-            if (!comp.Functional)
             {
-                comp.Dirty = true;
-                return;
+                comp.UpdateState(Trigger.Functional, tool.IsFunctional);
+                comp.Functional = tool.IsFunctional;
+                if (!comp.Functional)
+                {
+                    comp.Dirty = true;
+                    comp.WasHitting = false;
+                    return;
+                }
             }
+
+
+            MyAPIGateway.Utilities.ShowNotification(comp.Hitting.ToString() + " " + comp.WasHitting.ToString(), 16);
 
             if (comp.UpdatePower || comp.CompTick20 == TickMod20)
             {
                 var wasPowered = comp.Powered;
-                if (comp.UpdatePower) Logs.WriteLine($"UpdatePower: {wasPowered} : {comp.IsPowered(comp.UpdatePower)}");
-                if (wasPowered != comp.IsPowered())
+                var isPowered = comp.IsPowered();
+                if (comp.UpdatePower) Logs.WriteLine($"UpdatePower: {wasPowered} : {isPowered}");
+                if (wasPowered != isPowered)
                 {
                     comp.UpdateState(Trigger.Powered, comp.Powered);
+
+                    if (!isPowered)
+                    {
+                        comp.WasHitting = false;
+                        comp.UpdateHitInfo(false);
+                    }
                 }
                 comp.UpdatePower = false;
             }
@@ -113,7 +146,7 @@ namespace ToolCore.Session
             if (!tool.Enabled)
                 return;
 
-            if (!comp.Activated && !comp.ToolGun.Shooting)
+            if (!comp.Activated && !comp.GunBase.Shooting)
                 return;
 
             if (comp.CompTick120 == TickMod120 && comp.Mode != ToolComp.ToolMode.Weld)
@@ -199,6 +232,22 @@ namespace ToolCore.Session
                 else comp.UpdateHitInfo(false);
             }
 
+            //
+            if (!Tick10)
+            {
+                _entities.Clear();
+                _lineOverlaps.Clear();
+                return;
+            }
+            //
+
+            if (comp.Mode == ToolComp.ToolMode.Drill)
+            {
+                if (comp.ActiveDrillThreads > 0) return;
+
+                //UpdateHitState(comp, comp.Debug);
+            }
+
             var line = false;
             var rayLength = def.Length;
             switch (def.EffectShape)
@@ -246,14 +295,6 @@ namespace ToolCore.Session
                 default:
                     break;
             }
-            //
-            if (!Tick10)
-            {
-                _entities.Clear();
-                _lineOverlaps.Clear();
-                return;
-            }
-            //
 
             var damageType = (int)def.ToolType < 2 ? MyDamageType.Drill : (int)def.ToolType < 4 ? MyDamageType.Grind : MyDamageType.Weld;
 
@@ -312,11 +353,11 @@ namespace ToolCore.Session
                     if (comp.Mode != ToolComp.ToolMode.Drill)
                         continue;
 
-                    if (comp.ActiveDrillThreads > 0)
-                    {
-                        Logs.WriteLine($"Drill thread still running, skipping voxel");
-                        continue;
-                    }
+                    //if (comp.ActiveDrillThreads > 0)
+                    //{
+                    //    Logs.WriteLine($"Drill thread still running, skipping voxel");
+                    //    continue;
+                    //}
 
                     var voxel = (IMyVoxelBase)entity;
 
@@ -587,15 +628,15 @@ namespace ToolCore.Session
                     break;
             }
 
-            if (comp.Mode != ToolComp.ToolMode.Drill)
-            {
-                if (comp.Hitting != comp.WasHitting)
-                {
-                    comp.UpdateState(Trigger.Hit, comp.Hitting);
-                    comp.WasHitting = comp.Hitting;
-                }
-                comp.Hitting = false;
-            }
+            //if (comp.Mode != ToolComp.ToolMode.Drill)
+            //{
+            //    if (comp.Hitting != comp.WasHitting)
+            //    {
+            //        comp.UpdateState(Trigger.Hit, comp.Hitting);
+            //        comp.WasHitting = comp.Hitting;
+            //    }
+            //    comp.Hitting = false;
+            //}
 
 
 
@@ -653,7 +694,7 @@ namespace ToolCore.Session
                         var comp = new ToolComp(tool, def, this);
                         ToolMap[block.EntityId] = comp;
                         comp.Init();
-                        ((IMyCubeGrid)gridComp.Grid).WeaponSystem.Register(comp.ToolGun);
+                        ((IMyCubeGrid)gridComp.Grid).WeaponSystem.Register(comp.GunBase);
                         gridComp.FatBlockAdded(tool as MyCubeBlock);
 
                         continue;
