@@ -49,7 +49,6 @@ namespace ToolCore
             var centre = drillData.Origin;
             var forward = drillData.Direction;
             var radius = def.Radius;
-            var radiusSqr = radius * radius;
             var extendedRadius = radius + 0.5f;
             var extRadiusSqr = extendedRadius * extendedRadius;
 
@@ -254,7 +253,6 @@ namespace ToolCore
             var radius = def.Radius;
             var length = def.Length;
             var endOffset = forward * (length / 2f);
-            var endOffsetAbs = Vector3D.Abs(endOffset);
 
             var voxel = drillData.Voxel;
             var min = drillData.Min;
@@ -262,7 +260,6 @@ namespace ToolCore
 
             var halfLenSqr = Math.Pow(length / 2f, 2);
             var radiusSqr = (float)Math.Pow(radius, 2);
-            var radiusMinusOneSqr = (float)Math.Pow(Math.Max(radius - 1f, 0), 2);
             var reduction = (int)(def.Speed * 255);
             using ((voxel as MyVoxelBase).Pin())
             {
@@ -334,16 +331,16 @@ namespace ToolCore
                                     break;
                             }
 
-                            //if (Debug)
-                            //{
-                            //    var matrix = voxel.PositionComp.WorldMatrixRef;
-                            //    matrix.Translation = voxel.PositionLeftBottomCorner;
-                            //    var lowerHalf = (Vector3D)testPos - 0.5;
-                            //    var upperHalf = (Vector3D)testPos + 0.5;
-                            //    var bbb = new BoundingBoxD(lowerHalf, upperHalf);
-                            //    var obb = new MyOrientedBoundingBoxD(bbb, matrix);
-                            //    MyAPIGateway.Utilities.InvokeOnGameThread(() => DrawBox(obb, Color.BlueViolet, false, 1, 0.01f));
-                            //}
+                            if (comp.Debug)
+                            {
+                                var matrix = voxel.PositionComp.WorldMatrixRef;
+                                matrix.Translation = voxel.PositionLeftBottomCorner;
+                                var lowerHalf = (Vector3D)testPos - 0.5;
+                                var upperHalf = (Vector3D)testPos + 0.5;
+                                var bbb = new BoundingBoxD(lowerHalf, upperHalf);
+                                var obb = new MyOrientedBoundingBoxD(bbb, matrix);
+                                MyAPIGateway.Utilities.InvokeOnGameThread(() => DrawBox(obb, Color.BlueViolet, false, 1, 0.01f));
+                            }
 
                             var posData = new PositionData(index, dist, secondaryDistSqr);
 
@@ -361,6 +358,7 @@ namespace ToolCore
                 session.DsUtil.Complete("sort", true);
 
                 session.DsUtil.Start("calc");
+                var foundContent = false;
                 //MyAPIGateway.Utilities.ShowNotification($"{WorkLayers.Count} layers", 160);
                 for (int i = 0; i <= maxLayer; i++)
                 {
@@ -411,7 +409,7 @@ namespace ToolCore
                             var leftover = reduction - removal;
                             removal = (int)(removal * density) + leftover;
                         }
-                        comp.Hitting |= removal > 0;
+                        foundContent |= removal > 0;
                         var newContent = removal >= content ? 0 : content - removal;
 
                         var voxelDef = MyDefinitionManager.Static.GetVoxelMaterialDefinition(material);
@@ -437,7 +435,12 @@ namespace ToolCore
                 session.DsUtil.Complete("calc", true);
 
                 session.DsUtil.Start("write");
-                voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
+                if (foundContent)
+                {
+                    comp.Hitting = true;
+                    comp.StorageDatas.Add(new StorageInfo(min, max));
+                    voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
+                }
                 session.DsUtil.Complete("write", true);
 
             }

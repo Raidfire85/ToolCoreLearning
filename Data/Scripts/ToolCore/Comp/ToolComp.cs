@@ -1,15 +1,9 @@
-﻿using ObjectBuilders.SafeZone;
-using Sandbox.Common.ObjectBuilders;
-using Sandbox.Definitions;
+﻿using Sandbox.Definitions;
 using Sandbox.Game;
 using Sandbox.Game.Entities;
-using Sandbox.Game.Entities.Cube;
 using Sandbox.Game.EntityComponents;
-using Sandbox.Game.GameSystems;
-using Sandbox.Game.Weapons;
 using Sandbox.ModAPI;
 using Sandbox.ModAPI.Interfaces.Terminal;
-using SpaceEngineers.Game.ModAPI;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -19,17 +13,15 @@ using VRage.Game;
 using VRage.Game.Components;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
-using VRage.Input;
 using VRage.ModAPI;
-using VRage.ObjectBuilders;
 using VRage.Utils;
 using VRage.Voxels;
 using VRageMath;
 using ToolCore.Definitions;
 using ToolCore.Definitions.Serialised;
-using static ToolCore.Definitions.ToolDefinition;
 using ToolCore.Session;
 using ToolCore.Utils;
+using static ToolCore.Definitions.ToolDefinition;
 
 namespace ToolCore.Comp
 {
@@ -92,9 +84,10 @@ namespace ToolCore.Comp
         internal bool Draw = true;
         internal bool Debug = true;
 
-        internal long CompTick20;
-        internal long CompTick60;
-        internal long CompTick120;
+        internal int CompTick10;
+        internal int CompTick20;
+        internal int CompTick60;
+        internal int CompTick120;
         internal int LastPushTick;
         internal int ActiveDrillThreads;
 
@@ -375,9 +368,10 @@ namespace ToolCore.Comp
             if (hasSound)
                 SoundEmitter = new MyEntity3DSoundEmitter(Tool as MyEntity);
 
-            CompTick20 = Tool.EntityId % 20;
-            CompTick60 = Tool.EntityId % 60;
-            CompTick120 = Tool.EntityId % 120;
+            CompTick10 = (int)Tool.EntityId % 10;
+            CompTick20 = (int)Tool.EntityId % 20;
+            CompTick60 = (int)Tool.EntityId % 60;
+            CompTick120 = (int)Tool.EntityId % 120;
 
             Tool.EnabledChanged += EnabledChanged;
             Tool.IsWorkingChanged += IsWorkingChanged;
@@ -442,9 +436,11 @@ namespace ToolCore.Comp
                     break;
                 case Trigger.Hit:
                     UpdateEffects(Trigger.Hit, add);
+                    if (!add) WasHitting = false;
                     break;
                 case Trigger.RayHit:
                     UpdateEffects(Trigger.RayHit, add);
+                    if (!add) HitInfo.IsValid = false;
                     break;
                 default:
                     break;
@@ -692,7 +688,6 @@ namespace ToolCore.Comp
             if (ActiveDrillThreads > 0) return;
 
             var isHitting = Functional && Powered && Enabled && Hitting && (Activated || GunBase.Shooting);
-            Logs.WriteLine($"Callback: {isHitting} : {Hitting} : {WasHitting}");
             if (isHitting != WasHitting)
             {
                 UpdateState(Trigger.Hit, isHitting);

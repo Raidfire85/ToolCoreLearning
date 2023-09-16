@@ -78,7 +78,7 @@ namespace ToolCore.Definitions.Serialised
     public enum Location
     {
         Centre = 0,
-        Dummy = 1,
+        Emitter = 1,
         Hit = 2,
     }
 

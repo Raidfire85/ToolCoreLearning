@@ -189,7 +189,6 @@ namespace ToolCore.Definitions
 
             HarvestRatio = values.HarvestRatio;
 
-
             HalfExtent = values.HalfExtent;
             Radius = values.Radius;
             Length = values.Length;
@@ -207,21 +206,6 @@ namespace ToolCore.Definitions
             ToolActions.Add(ToolComp.ToolAction.Primary);
             ToolActions.Add(ToolComp.ToolAction.Secondary);
 
-
-            try
-            {
-                Logs.WriteLine($"{ToolType}");
-                Logs.WriteLine($"{EffectShape}");
-                Logs.WriteLine($"{Pattern}");
-                Logs.WriteLine($"{Offset}");
-                Logs.WriteLine($"{Radius}");
-                Logs.WriteLine($"{Length}");
-
-            }
-            catch (Exception ex)
-            {
-                Logs.WriteLine($"Exception in ToolDefinition() - {ex}");
-            }
 
             int radius = 0;
             Vector3I pos = new Vector3I();

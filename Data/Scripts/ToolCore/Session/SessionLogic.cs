@@ -57,6 +57,9 @@ namespace ToolCore.Session
                     if (comp.Mode != ToolComp.ToolMode.Drill)
                         UpdateHitState(comp);
 
+                    if (!IsDedicated && comp.Draw)
+                        DrawComp(comp);
+
 
                 } //Tools loop
 
@@ -64,6 +67,72 @@ namespace ToolCore.Session
 
             } //Grids loop
 
+        }
+
+        private void DrawComp(ToolComp comp)
+        {
+            var def = comp.Definition;
+            var tool = comp.Tool;
+            var pos = tool.PositionComp;
+            var toolMatrix = pos.WorldMatrixRef;
+
+            Vector3D worldPos = pos.WorldAABB.Center;
+            Vector3D worldForward = toolMatrix.Forward;
+            Vector3D worldUp = toolMatrix.Up;
+
+            if (comp.HasEmitter)
+            {
+                var muzzleMatrix = (MatrixD)comp.Muzzle.Matrix;
+                var partMatrix = comp.MuzzlePart.PositionComp.WorldMatrixRef;
+
+                var localPos = muzzleMatrix.Translation;
+
+                if (!Vector3D.IsZero(def.Offset))
+                {
+                    Vector3D offset;
+                    Vector3D.Rotate(ref def.Offset, ref muzzleMatrix, out offset);
+                    localPos += offset;
+                }
+                var muzzleForward = Vector3D.Normalize(muzzleMatrix.Forward);
+                var muzzleUp = Vector3D.Normalize(muzzleMatrix.Up);
+
+                Vector3D.Transform(ref localPos, ref partMatrix, out worldPos);
+                Vector3D.TransformNormal(ref muzzleForward, ref partMatrix, out worldForward);
+                Vector3D.TransformNormal(ref muzzleUp, ref partMatrix, out worldUp);
+            }
+            else if (!Vector3D.IsZero(def.Offset))
+            {
+                Vector3D offset;
+                Vector3D.Rotate(ref def.Offset, ref toolMatrix, out offset);
+                worldPos += offset;
+            }
+            def.EffectSphere.Center = worldPos;
+
+            MatrixD drawMatrix;
+            switch (def.EffectShape)
+            {
+                case EffectShape.Sphere:
+                    drawMatrix = MatrixD.CreateWorld(worldPos, worldForward, worldUp);
+                    DrawSphere(drawMatrix, def.EffectSphere.Radius, Color.LawnGreen, false, 20, 0.01f);
+                    break;
+                case EffectShape.Cylinder:
+                    drawMatrix = MatrixD.CreateWorld(worldPos, worldUp, worldForward);
+                    DrawCylinder(drawMatrix, def.Radius, def.Length, Color.LawnGreen);
+                    break;
+                case EffectShape.Cuboid:
+                    drawMatrix = MatrixD.CreateWorld(worldPos, worldForward, worldUp);
+                    var obb = new MyOrientedBoundingBoxD(def.EffectBox, drawMatrix);
+                    DrawBox(obb, Color.LawnGreen, false, 20, 0.01f);
+                    break;
+                case EffectShape.Line:
+                    DrawLine(worldPos, worldForward, Color.AliceBlue, 0.02f, def.Length);
+                    break;
+                case EffectShape.Ray:
+                    DrawLine(worldPos, worldForward, Color.AliceBlue, 0.02f, def.Length);
+                    break;
+                default:
+                    return;
+            }
         }
 
         private void UpdateHitState(ToolComp comp, bool drillDebug = false)
@@ -97,6 +166,7 @@ namespace ToolCore.Session
         private void UpdateTool(ToolComp comp, GridComp gridComp)
         {
             //if (!Tick10) continue;
+            var compTick10 = comp.CompTick10 == TickMod10;
 
             var tool = comp.Tool;
             var parentGrid = gridComp.Grid;
@@ -113,8 +183,7 @@ namespace ToolCore.Session
                 }
             }
 
-
-            MyAPIGateway.Utilities.ShowNotification(comp.Hitting.ToString() + " " + comp.WasHitting.ToString(), 16);
+            //MyAPIGateway.Utilities.ShowNotification(comp.Hitting.ToString() + " " + comp.WasHitting.ToString(), 16);
 
             if (comp.UpdatePower || comp.CompTick20 == TickMod20)
             {
@@ -232,21 +301,14 @@ namespace ToolCore.Session
                 else comp.UpdateHitInfo(false);
             }
 
-            //
-            if (!Tick10)
-            {
-                _entities.Clear();
-                _lineOverlaps.Clear();
+            if (!compTick10)
                 return;
-            }
-            //
 
-            if (comp.Mode == ToolComp.ToolMode.Drill)
-            {
-                if (comp.ActiveDrillThreads > 0) return;
+            if (comp.Mode == ToolComp.ToolMode.Drill && comp.ActiveDrillThreads > 0)
+                return;
 
-                //UpdateHitState(comp, comp.Debug);
-            }
+            _entities.Clear();
+            _lineOverlaps.Clear();
 
             var line = false;
             var rayLength = def.Length;
@@ -257,28 +319,11 @@ namespace ToolCore.Session
                 case EffectShape.Cuboid:
                     def.EffectSphere.Center = worldPos;
                     MyGamePruningStructure.GetAllTopMostEntitiesInSphere(ref def.EffectSphere, _entities);
-
-                    if (comp.Debug || comp.Draw && def.EffectShape == EffectShape.Sphere)
-                    {
-                        var drawMatrix = MatrixD.CreateWorld(worldPos, worldForward, worldUp);
-                        var color = def.EffectShape == EffectShape.Sphere ? Color.AliceBlue : Color.ForestGreen;
-                        //DrawSphere(drawMatrix, def.EffectSphere.Radius, color, false, 20, 0.01f);
-                    }
-                    if (comp.Draw && def.EffectShape == EffectShape.Cylinder)
-                    {
-                        var cylMatrix = MatrixD.CreateWorld(worldPos, worldUp, worldForward);
-                        DrawCylinder(cylMatrix, def.Radius, def.Length, Color.AliceBlue);
-                    }
                     break;
                 case EffectShape.Line:
-                    line = true;
                     var effectLine = new LineD(worldPos, worldPos + worldForward * def.Length);
+                    line = true;
                     MyGamePruningStructure.GetTopmostEntitiesOverlappingRay(ref effectLine, _lineOverlaps);
-
-                    if (comp.Draw)
-                    {
-                        DrawLine(effectLine.From, effectLine.To, Color.AliceBlue, 0.02f);
-                    }
                     break;
                 case EffectShape.Ray:
                     if (hitInfo?.HitEntity != null)
@@ -286,14 +331,9 @@ namespace ToolCore.Session
                         _entities.Add((MyEntity)hitInfo.HitEntity);
                         rayLength *= hitInfo.Fraction;
                     }
-
-                    if (comp.Draw)
-                    {
-                        DrawLine(worldPos, worldForward, Color.AliceBlue, 0.02f, rayLength);
-                    }
                     break;
                 default:
-                    break;
+                    return;
             }
 
             var damageType = (int)def.ToolType < 2 ? MyDamageType.Drill : (int)def.ToolType < 4 ? MyDamageType.Grind : MyDamageType.Weld;
@@ -478,20 +518,9 @@ namespace ToolCore.Session
                             break;
                         case EffectShape.Cylinder:
                             GridUtils.GetBlocksInCylinder(grid, min, max, localCentre, localForward, def.Radius * gridSizeR, def.Length * gridSizeR, _hitBlocks, comp.Debug);
-                            if (comp.Draw)
-                            {
-                                var cylMatrix = MatrixD.CreateWorld(worldPos, worldUp, worldForward);
-                                DrawCylinder(cylMatrix, def.Radius, def.Length, Color.AliceBlue);
-                            }
                             break;
                         case EffectShape.Cuboid:
                             GridUtils.GetBlocksInCuboid(grid, min, max, comp.Obb, _hitBlocks);
-                            if (comp.Draw)
-                            {
-                                var worldMatrix = MatrixD.CreateWorld(worldPos, worldForward, worldUp);
-                                var obb = new MyOrientedBoundingBoxD(def.EffectBox, worldMatrix);
-                                DrawBox(obb, Color.AliceBlue, false, 4, 0.005f);
-                            }
                             break;
                         case EffectShape.Line:
                             GridUtils.GetBlocksOverlappingLine(grid, worldPos, worldPos + worldForward * def.Length, _hitBlocks);

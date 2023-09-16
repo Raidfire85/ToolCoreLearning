@@ -219,10 +219,11 @@
     <WCFMetadata Include="Connected Services\" />
   </ItemGroup>
   <ItemGroup>
-    <Analyzer Include="..\..\..\Documents\SE\SEWhitelistChecker.dll" />
+    <Analyzer Include="packages\Mal.Mdk2.Analyzers.2.0.7\analyzers\dotnet\cs\Mal.Mdk2.Analyzers.dll" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".editorconfig" />
+    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Data\Scripts\ToolCore\API\" />

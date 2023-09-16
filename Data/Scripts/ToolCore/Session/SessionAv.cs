@@ -123,7 +123,7 @@ namespace ToolCore.Session
                         matrix = parent.PositionComp.LocalMatrixRef;
                         position = def.Offset;
                         break;
-                    case Dummy:
+                    case Emitter:
                         matrix = MatrixD.Normalize(pEffect.Dummy.Matrix);
                         position = matrix.Translation + def.Offset;
                         break;

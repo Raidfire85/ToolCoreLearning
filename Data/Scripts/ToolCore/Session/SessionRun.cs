@@ -28,6 +28,7 @@ namespace ToolCore.Session
     internal partial class ToolSession : MySessionComponentBase
     {
         internal static int Tick;
+        internal int TickMod10;
         internal int TickMod20;
         internal int TickMod60;
         internal int TickMod120;
@@ -72,7 +73,7 @@ namespace ToolCore.Session
         public override void UpdateBeforeSimulation()
         {
             Tick++;
-
+            TickMod10 = Tick % 10;
             TickMod20 = Tick % 20;
             TickMod60 = Tick % 60;
             TickMod120 = Tick % 120;
