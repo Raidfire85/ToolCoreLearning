@@ -207,6 +207,9 @@
     <Compile Include="Data\Scripts\ToolCore\Utils\GridUtils.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>
+    <Compile Include="Data\Scripts\ToolCore\Utils\Utils.cs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Compile>
     <Compile Include="Data\Scripts\ToolCore\Utils\VoxelUtils.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>

@@ -126,10 +126,17 @@ namespace ToolCore.Session
         [ProtoMember(1)] internal byte Field;
         [ProtoMember(2)] internal byte Value;
 
-        public UpdatePacket(FieldType field, int value)
+        public UpdatePacket(long entityId, FieldType field, int value)
         {
+            EntityId = entityId;
+            Type = (byte)PacketType.Update;
             Field = (byte)field;
             Value = (byte)value;
+        }
+
+        public UpdatePacket()
+        {
+
         }
     }
 

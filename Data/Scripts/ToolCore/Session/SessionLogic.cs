@@ -28,6 +28,7 @@ using ToolCore.Definitions.Serialised;
 using ToolCore.Comp;
 using ToolCore.Utils;
 using static ToolCore.Utils.Draw;
+using static ToolCore.Utils.Utils;
 
 namespace ToolCore.Session
 {
@@ -175,13 +176,11 @@ namespace ToolCore.Session
             {
                 comp.UpdateState(Trigger.Functional, tool.IsFunctional);
                 comp.Functional = tool.IsFunctional;
-                if (!comp.Functional)
-                {
-                    comp.Dirty = true;
-                    comp.WasHitting = false;
-                    return;
-                }
+                comp.Dirty = true;
             }
+
+            if (!comp.Functional)
+                return;
 
             //MyAPIGateway.Utilities.ShowNotification(comp.Hitting.ToString() + " " + comp.WasHitting.ToString(), 16);
 
@@ -215,8 +214,18 @@ namespace ToolCore.Session
             if (!tool.Enabled)
                 return;
 
-            if (!comp.Activated && !comp.GunBase.Shooting)
+            var activated = comp.Activated;
+            if (!activated && !comp.GunBase.Shooting)
                 return;
+
+            if (activated)
+            {
+                if (!MySessionComponentSafeZones.IsActionAllowed(comp.Grid, CastHax(MySessionComponentSafeZones.AllowedActions, (int)comp.Mode)))
+                {
+                    comp.Activated = false;
+                    return;
+                }
+            }
 
             if (comp.CompTick120 == TickMod120 && comp.Mode != ToolComp.ToolMode.Weld)
                 comp.ManageInventory();
@@ -273,7 +282,7 @@ namespace ToolCore.Session
 
             // Initial raycast?
             IHitInfo hitInfo = null;
-            if (!IsDedicated || def.EffectShape == EffectShape.Ray)
+            if (!IsDedicated || compTick10 && def.EffectShape == EffectShape.Ray)
             {
                 MyAPIGateway.Physics.CastRay(worldPos, worldPos + worldForward * def.Length, out hitInfo);
                 if (hitInfo?.HitEntity != null)
@@ -301,14 +310,11 @@ namespace ToolCore.Session
                 else comp.UpdateHitInfo(false);
             }
 
-            if (!compTick10)
+            if (!compTick10 || !IsServer)
                 return;
 
             if (comp.Mode == ToolComp.ToolMode.Drill && comp.ActiveDrillThreads > 0)
                 return;
-
-            _entities.Clear();
-            _lineOverlaps.Clear();
 
             var line = false;
             var rayLength = def.Length;
@@ -461,6 +467,9 @@ namespace ToolCore.Session
                     if (!def.AffectOwnGrid && grid == parentGrid)
                         continue;
 
+                    var exit = (comp.Mode != ToolComp.ToolMode.Weld && (grid.Immune || !grid.DestructibleBlocks)) || !grid.Editable;
+                    if (exit) continue;
+
                     var gridMatrixNI = grid.PositionComp.WorldMatrixNormalizedInv;
                     var localCentre = grid.WorldToGridScaledLocal(worldPos);
                     Vector3D localForward;
@@ -538,10 +547,12 @@ namespace ToolCore.Session
             } //Hits loop
 
             _entities.Clear();
+            _lineOverlaps.Clear();
             _missingComponents.Clear();
             _hitBlocks.ApplyAdditions();
 
             comp.Hitting |= _hitBlocks.Count > 0;
+            Logs.WriteLine($"{count} : {_hitBlocks.Count} {(int)comp.Mode}");
 
             var inventory = comp.Inventory;
             switch (comp.Mode)
@@ -559,12 +570,20 @@ namespace ToolCore.Session
                     for (int a = 0; a < _hitBlocks.Count; a++)
                     {
                         var slim = _hitBlocks[a];
+                        Logs.WriteLine($"aaaa");
 
-                        if (!(slim.CubeGrid as MyCubeGrid).Editable)
+                        var hitGrid = slim.CubeGrid as MyCubeGrid;
+                        if (!hitGrid.Editable || hitGrid.Immune)
                             continue;
 
-                        slim.DecreaseMountLevel(grindAmount, inventory, false);
+
+                        MyDamageInformation damageInfo = new MyDamageInformation(false, grindAmount, MyDamageType.Grind, tool.EntityId);
+                        if (slim.UseDamageSystem) Session.DamageSystem.RaiseBeforeDamageApplied(slim, ref damageInfo);
+
+                        slim.DecreaseMountLevel(damageInfo.Amount, inventory, false);
                         slim.MoveItemsFromConstructionStockpile(inventory, MyItemFlags.None);
+
+                        if (slim.UseDamageSystem) Session.DamageSystem.RaiseAfterDamageApplied(slim, damageInfo);
 
                         if (slim.IsFullyDismounted)
                         {
@@ -657,30 +676,20 @@ namespace ToolCore.Session
                     break;
             }
 
-            //if (comp.Mode != ToolComp.ToolMode.Drill)
+
+
+            //for (int a = 0; a < _hitBlocks.Count; a++)
             //{
-            //    if (comp.Hitting != comp.WasHitting)
-            //    {
-            //        comp.UpdateState(Trigger.Hit, comp.Hitting);
-            //        comp.WasHitting = comp.Hitting;
-            //    }
-            //    comp.Hitting = false;
+            //    var slim = _hitBlocks[a];
+
+            //    if (!_debugBlocks.Remove(slim)) //wasn't there last tick
+            //        slim.Dithering = -0.1f;
             //}
 
-
-
-            for (int a = 0; a < _hitBlocks.Count; a++)
-            {
-                var slim = _hitBlocks[a];
-
-                if (!_debugBlocks.Remove(slim)) //wasn't there last tick
-                    slim.Dithering = -0.1f;
-            }
-
-            foreach (var slim in _debugBlocks)
-            {
-                slim.Dithering = 0;
-            }
+            //foreach (var slim in _debugBlocks)
+            //{
+            //    slim.Dithering = 0;
+            //}
         }
 
         internal void StartComps()

@@ -75,6 +75,12 @@ namespace ToolCore
                 session.DsUtil.Start("sort");
                 var maxLayer = 0;
                 var foundContent = false;
+                //for (int i = 0 i < data.SizeLinear; i++)
+                //{
+                //    Vector3I pos;
+                //    data.ComputePosition(i, out pos);
+                //    //etc.
+                //}
                 for (int i = min.X; i <= max.X; i++)
                 {
                     testPos.X = i;

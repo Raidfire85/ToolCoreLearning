@@ -63,6 +63,13 @@ namespace ToolCore.Session
 
         public override void BeforeStart()
         {
+            if (IsClient)
+                MyAPIGateway.Multiplayer.RegisterSecureMessageHandler(Networking.ClientPacketId, Networking.ProcessPacket);
+            else if (IsServer)
+            {
+                MyAPIGateway.Multiplayer.RegisterSecureMessageHandler(Networking.ServerPacketId, Networking.ProcessPacket);
+            }
+
             Settings.LoadConfig();
             LoadVoxelMaterials();
 
@@ -119,6 +126,13 @@ namespace ToolCore.Session
 
         protected override void UnloadData()
         {
+            if (IsClient)
+                MyAPIGateway.Multiplayer.UnregisterSecureMessageHandler(Networking.ClientPacketId, Networking.ProcessPacket);
+            else if (IsServer)
+            {
+                MyAPIGateway.Multiplayer.UnregisterSecureMessageHandler(Networking.ServerPacketId, Networking.ProcessPacket);
+            }
+
             MyEntities.OnEntityCreate -= OnEntityCreate;
 
             MyVisualScriptLogicProvider.PlayerDisconnected -= PlayerDisconnected;

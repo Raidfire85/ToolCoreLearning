@@ -135,7 +135,9 @@ namespace ToolCore.Session
 
             comp.Activated = activated;
 
-            _session.Networking.SendPacketToServer(new UpdatePacket(FieldType.Activated, activated ? 1 : 0));
+            if (_session.IsServer) return;
+
+            _session.Networking.SendPacketToServer(new UpdatePacket(comp.Tool.EntityId, FieldType.Activated, activated ? 1 : 0));
         }
 
         internal IMyTerminalAction CreateActivateOnOffAction<T>() where T : IMyConveyorSorter
@@ -158,7 +160,7 @@ namespace ToolCore.Session
 
             comp.Activated = !comp.Activated;
 
-            _session.Networking.SendPacketToServer(new UpdatePacket(FieldType.Activated, comp.Activated ? 1 : 0));
+            _session.Networking.SendPacketToServer(new UpdatePacket(comp.Tool.EntityId, FieldType.Activated, comp.Activated ? 1 : 0));
         }
 
         internal void ToggleActivatedWriter(IMyTerminalBlock block, StringBuilder builder)
@@ -202,13 +204,12 @@ namespace ToolCore.Session
             var id = 0;
             _modeList.Clear();
             var modes = comp.Definition.ToolModes;
-            for (int i = 0; i < modes.Count; i++)
+            foreach (var mode in modes)
             {
-                var mode = modes[i];
                 if (mode == comp.Mode)
-                    id = i;
+                    id = (int)mode;
 
-                var item = new MyTerminalControlComboBoxItem { Key = i, Value = MyStringId.GetOrCompute(mode.ToString())};
+                var item = new MyTerminalControlComboBoxItem { Key = id, Value = MyStringId.GetOrCompute(mode.ToString())};
                 _modeList.Add(item);
             }
 
@@ -221,9 +222,9 @@ namespace ToolCore.Session
             if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
                 return;
 
-            comp.Mode = comp.Definition.ToolModes[(int)id];
+            comp.Mode = (ToolComp.ToolMode)id;
 
-            _session.Networking.SendPacketToServer(new UpdatePacket(FieldType.Mode, (int)comp.Mode));
+            _session.Networking.SendPacketToServer(new UpdatePacket(comp.Tool.EntityId, FieldType.Mode, (int)comp.Mode));
         }
 
         internal bool HasModeSelect(IMyTerminalBlock block)
@@ -258,8 +259,9 @@ namespace ToolCore.Session
             var next = index + 1;
             var newIndex = next < modes.Count ? next : 0;
             comp.Mode = comp.Definition.ToolModes[newIndex];
+            Logs.WriteLine(comp.Mode.ToString());
 
-            _session.Networking.SendPacketToServer(new UpdatePacket(FieldType.Mode, (int)comp.Mode));
+            _session.Networking.SendPacketToServer(new UpdatePacket(comp.Tool.EntityId, FieldType.Mode, (int)comp.Mode));
         }
 
         internal void SwitchModeWriter(IMyTerminalBlock block, StringBuilder builder)
@@ -324,7 +326,7 @@ namespace ToolCore.Session
 
             comp.Action = comp.Definition.ToolActions[(int)id];
 
-            _session.Networking.SendPacketToServer(new UpdatePacket(FieldType.Action, (int)comp.Action));
+            _session.Networking.SendPacketToServer(new UpdatePacket(comp.Tool.EntityId, FieldType.Action, (int)comp.Action));
         }
 
         internal bool HasActionSelect(IMyTerminalBlock block)
@@ -360,7 +362,7 @@ namespace ToolCore.Session
             var newIndex = next < actions.Count ? next : 0;
             comp.Action = comp.Definition.ToolActions[newIndex];
 
-            _session.Networking.SendPacketToServer(new UpdatePacket(FieldType.Action, (int)comp.Action));
+            _session.Networking.SendPacketToServer(new UpdatePacket(comp.Tool.EntityId, FieldType.Action, (int)comp.Action));
         }
 
         internal void SwitchActionWriter(IMyTerminalBlock block, StringBuilder builder)
@@ -409,7 +411,7 @@ namespace ToolCore.Session
 
             comp.Draw = enabled;
 
-            _session.Networking.SendPacketToServer(new UpdatePacket(FieldType.Draw, enabled ? 1 : 0));
+            _session.Networking.SendPacketToServer(new UpdatePacket(comp.Tool.EntityId, FieldType.Draw, enabled ? 1 : 0));
         }
 
         internal IMyTerminalAction CreateDrawAction<T>() where T : IMyConveyorSorter
@@ -432,7 +434,7 @@ namespace ToolCore.Session
 
             comp.Draw = !comp.Draw;
 
-            _session.Networking.SendPacketToServer(new UpdatePacket(FieldType.Draw, comp.Draw ? 1 : 0));
+            _session.Networking.SendPacketToServer(new UpdatePacket(comp.Tool.EntityId, FieldType.Draw, comp.Draw ? 1 : 0));
         }
 
         internal void ToggleDrawWriter(IMyTerminalBlock block, StringBuilder builder)

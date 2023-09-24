@@ -240,7 +240,7 @@ namespace ToolCore.Session
                 if (emitter.IsPlaying)
                 {
                     emitter.StopSound(true);
-                    Logs.WriteLine("Stopping sound");
+                    //Logs.WriteLine("Stopping sound");
                 }
 
                 return;
@@ -251,11 +251,11 @@ namespace ToolCore.Session
                 if (emitter.IsPlaying)
                 {
                     emitter.StopSound(true);
-                    Logs.WriteLine("Stopping sound");
+                    //Logs.WriteLine("Stopping sound");
                 }
 
                 emitter.PlaySound(sound.SoundPair);
-                Logs.WriteLine("Playing sound");
+                //Logs.WriteLine("Playing sound");
             }
 
         }

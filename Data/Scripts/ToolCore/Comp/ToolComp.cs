@@ -96,14 +96,18 @@ namespace ToolCore.Comp
             get { return _activated; }
             set
             {
-                _activated = value;
-                if (!Functional || !Powered || !Enabled)
+                if (_activated == value)
                     return;
+
+                if (value && !(Functional && Powered && Enabled))
+                    return;
+
+                _activated = value;
 
                 UpdateState(Trigger.Activated, value);
                 if (!value)
                 {
-                    WasHitting = false;
+                    //WasHitting = false;
                     UpdateHitInfo(false);
                 }
             }
@@ -113,9 +117,9 @@ namespace ToolCore.Comp
 
         internal enum ToolMode
         {
-            Drill = 0,
-            Grind = 1,
-            Weld = 2,
+            Drill = 4,
+            Weld = 8,
+            Grind = 16,
         }
 
         internal enum ToolAction
@@ -368,10 +372,11 @@ namespace ToolCore.Comp
             if (hasSound)
                 SoundEmitter = new MyEntity3DSoundEmitter(Tool as MyEntity);
 
-            CompTick10 = (int)Tool.EntityId % 10;
-            CompTick20 = (int)Tool.EntityId % 20;
-            CompTick60 = (int)Tool.EntityId % 60;
-            CompTick120 = (int)Tool.EntityId % 120;
+            CompTick10 = (int)(Tool.EntityId % 10);
+            CompTick20 = (int)(Tool.EntityId % 20);
+            CompTick60 = (int)(Tool.EntityId % 60);
+            CompTick120 = (int)(Tool.EntityId % 120);
+            Logs.WriteLine($"{CompTick10} {CompTick20} {CompTick60} {CompTick120}");
 
             Tool.EnabledChanged += EnabledChanged;
             Tool.IsWorkingChanged += IsWorkingChanged;
@@ -384,7 +389,7 @@ namespace ToolCore.Comp
         internal void UpdateState(Trigger state, bool add, bool force = false)
         {
             var isActive = (State & state) > 0;
-            Logs.WriteLine($"UpdateState : {state} : {add} : {isActive}");
+            //Logs.WriteLine($"UpdateState : {state} : {add} : {isActive}");
 
             if (!force)
             {
@@ -449,6 +454,8 @@ namespace ToolCore.Comp
 
         internal void UpdateEffects(Trigger state, bool add)
         {
+            if (Session.IsDedicated) return; //TEMPORARY!!!
+
             Effects effects;
             if (!EventEffects.TryGetValue(state, out effects))
                 return;

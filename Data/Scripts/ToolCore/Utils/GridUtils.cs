@@ -108,6 +108,8 @@ namespace ToolCore
                     }
                 }
             }
+
+            _hitBlocksHash.Clear();
         }
 
         internal void GetBlocksInCylinder(MyCubeGrid grid, Vector3I min, Vector3I max, Vector3D centre, Vector3D forward, double radius, double length, ConcurrentCachingList<IMySlimBlock> hitBlocks, bool debug = false)
@@ -178,6 +180,7 @@ namespace ToolCore
                 }
             }
 
+            _hitBlocksHash.Clear();
         }
 
         internal void GetBlocksInCuboid(MyCubeGrid grid, Vector3I min, Vector3I max, MyOrientedBoundingBoxD obb, ConcurrentCachingList<IMySlimBlock> hitBlocks)
@@ -211,6 +214,8 @@ namespace ToolCore
                     }
                 }
             }
+
+            _hitBlocksHash.Clear();
         }
 
         internal void GetBlocksOverlappingLine(MyCubeGrid grid, Vector3D start, Vector3D end, ConcurrentCachingList<IMySlimBlock> hitBlocks)
@@ -232,6 +237,8 @@ namespace ToolCore
                 hitBlocks.Add(slim);
                 _hitBlocksHash.Add(slim);
             }
+
+            _hitBlocksHash.Clear();
         }
 
         internal void GetBlockInRayPath(MyCubeGrid grid, Vector3D pos, ConcurrentCachingList<IMySlimBlock> hitBlocks, bool debug = false)
@@ -247,11 +254,11 @@ namespace ToolCore
                 return;
 
             var slim = (IMySlimBlock)cube.CubeBlock;
-            if (_hitBlocksHash.Contains(slim))
-                return;
+            //if (_hitBlocksHash.Contains(slim))
+            //    return;
 
             hitBlocks.Add(slim);
-            _hitBlocksHash.Add(slim);
+            //_hitBlocksHash.Add(slim);
         }
     }
 

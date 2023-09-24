@@ -11,6 +11,9 @@ using VRage.Game.ModAPI;
 using VRage.Game.ModAPI.Interfaces;
 using VRageMath;
 using ToolCore.Utils;
+using Sandbox.Game.Entities;
+using VRage.Game.ObjectBuilders.Components;
+using static ToolCore.Utils.Utils;
 
 namespace ToolCore.Comp
 {
@@ -114,6 +117,11 @@ namespace ToolCore.Comp
             if (!_comp.Tool.HasPlayerAccess(shooter, MyRelationsBetweenPlayerAndBlock.NoOwnership))
             {
                 status = MyGunStatusEnum.AccessDenied;
+                return false;
+            }
+            if (!MySessionComponentSafeZones.IsActionAllowed(_comp.Grid, CastHax(MySessionComponentSafeZones.AllowedActions, (int)_comp.Mode), shooter))
+            {
+                status = MyGunStatusEnum.Failed;
                 return false;
             }
             //if (MySandboxGame.TotalGamePlayTimeInMilliseconds - this.m_lastTimeActivate < 250)
