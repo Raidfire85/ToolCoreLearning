@@ -37,16 +37,17 @@ namespace ToolCore.Session
         internal bool Tick60;
         internal bool Tick120;
         internal bool Tick600;
+
         internal bool IsServer;
-        internal bool IsClient;
         internal bool IsDedicated;
+        internal bool IsMultiPlayer;
 
         private bool FirstRun = true;
 
         public override void LoadData()
         {
-            IsServer = MyAPIGateway.Multiplayer.MultiplayerActive && MyAPIGateway.Session.IsServer;
-            IsClient = MyAPIGateway.Multiplayer.MultiplayerActive && !MyAPIGateway.Session.IsServer;
+            IsServer = MyAPIGateway.Session.IsServer;
+            IsMultiPlayer = MyAPIGateway.Multiplayer.MultiplayerActive;
             IsDedicated = MyAPIGateway.Utilities.IsDedicated;
 
             MyEntities.OnEntityCreate += OnEntityCreate;
@@ -63,11 +64,12 @@ namespace ToolCore.Session
 
         public override void BeforeStart()
         {
-            if (IsClient)
-                MyAPIGateway.Multiplayer.RegisterSecureMessageHandler(Networking.ClientPacketId, Networking.ProcessPacket);
-            else if (IsServer)
+            if (IsMultiPlayer)
             {
-                MyAPIGateway.Multiplayer.RegisterSecureMessageHandler(Networking.ServerPacketId, Networking.ProcessPacket);
+                if (IsServer)
+                    MyAPIGateway.Multiplayer.RegisterSecureMessageHandler(Networking.ServerPacketId, Networking.ProcessPacket);
+                else
+                    MyAPIGateway.Multiplayer.RegisterSecureMessageHandler(Networking.ClientPacketId, Networking.ProcessPacket);
             }
 
             Settings.LoadConfig();
@@ -126,11 +128,12 @@ namespace ToolCore.Session
 
         protected override void UnloadData()
         {
-            if (IsClient)
-                MyAPIGateway.Multiplayer.UnregisterSecureMessageHandler(Networking.ClientPacketId, Networking.ProcessPacket);
-            else if (IsServer)
+            if (IsMultiPlayer)
             {
-                MyAPIGateway.Multiplayer.UnregisterSecureMessageHandler(Networking.ServerPacketId, Networking.ProcessPacket);
+                if (IsServer)
+                    MyAPIGateway.Multiplayer.UnregisterSecureMessageHandler(Networking.ServerPacketId, Networking.ProcessPacket);
+                else
+                    MyAPIGateway.Multiplayer.UnregisterSecureMessageHandler(Networking.ClientPacketId, Networking.ProcessPacket);
             }
 
             MyEntities.OnEntityCreate -= OnEntityCreate;

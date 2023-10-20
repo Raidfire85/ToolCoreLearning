@@ -227,13 +227,14 @@ namespace ToolCore.Session
                 }
             }
 
-            if (comp.CompTick120 == TickMod120 && comp.Mode != ToolComp.ToolMode.Weld)
+            if (IsServer && comp.CompTick120 == TickMod120 && comp.Mode != ToolComp.ToolMode.Weld)
                 comp.ManageInventory();
 
-            if (comp.Debug)
+            if (comp.Definition.Debug)
             {
-                comp.DrawBoxes.ApplyAdditions();
-                foreach (var tuple in comp.DrawBoxes)
+                DrawBoxes.ApplyAdditions();
+                MyAPIGateway.Utilities.ShowNotification(DrawBoxes.Count.ToString(), 16);
+                foreach (var tuple in DrawBoxes)
                     DrawBox(tuple.Item1, tuple.Item2, false, 1, 0.01f);
 
                 //if (comp.Hitting)
@@ -310,7 +311,7 @@ namespace ToolCore.Session
                 else comp.UpdateHitInfo(false);
             }
 
-            if (!compTick10 || !IsServer)
+            if (!compTick10)// || !IsServer)
                 return;
 
             if (comp.Mode == ToolComp.ToolMode.Drill && comp.ActiveDrillThreads > 0)
@@ -495,7 +496,7 @@ namespace ToolCore.Session
                         minExtent = localCentre - box.HalfExtents;
                         maxExtent = localCentre + box.HalfExtents;
 
-                        if (comp.Debug)
+                        if (comp.Definition.Debug)
                         {
                             var obb = comp.Obb;
                             obb.Center = localCentre * grid.GridSize;
@@ -526,7 +527,7 @@ namespace ToolCore.Session
                             GridUtils.GetBlocksInSphere(grid, min, max, localCentre, radius, _hitBlocks);
                             break;
                         case EffectShape.Cylinder:
-                            GridUtils.GetBlocksInCylinder(grid, min, max, localCentre, localForward, def.Radius * gridSizeR, def.Length * gridSizeR, _hitBlocks, comp.Debug);
+                            GridUtils.GetBlocksInCylinder(grid, min, max, localCentre, localForward, def.Radius * gridSizeR, def.Length * gridSizeR, _hitBlocks, comp.Definition.Debug);
                             break;
                         case EffectShape.Cuboid:
                             GridUtils.GetBlocksInCuboid(grid, min, max, comp.Obb, _hitBlocks);
@@ -535,7 +536,7 @@ namespace ToolCore.Session
                             GridUtils.GetBlocksOverlappingLine(grid, worldPos, worldPos + worldForward * def.Length, _hitBlocks);
                             break;
                         case EffectShape.Ray:
-                            GridUtils.GetBlockInRayPath(grid, worldPos + worldForward * (rayLength + 0.01), _hitBlocks, comp.Debug);
+                            GridUtils.GetBlockInRayPath(grid, worldPos + worldForward * (rayLength + 0.01), _hitBlocks, comp.Definition.Debug);
                             break;
                         default:
                             break;
@@ -552,7 +553,7 @@ namespace ToolCore.Session
             _hitBlocks.ApplyAdditions();
 
             comp.Hitting |= _hitBlocks.Count > 0;
-            Logs.WriteLine($"{count} : {_hitBlocks.Count} {(int)comp.Mode}");
+            //Logs.WriteLine($"{count} : {_hitBlocks.Count} {(int)comp.Mode}");
 
             var inventory = comp.Inventory;
             switch (comp.Mode)

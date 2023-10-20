@@ -40,6 +40,7 @@ namespace ToolCore.Definitions.Serialised
 
         public bool AffectOwnGrid = false;
         public bool Turret = false;
+        public bool Debug = false;
 
         public Event[] Events;
 

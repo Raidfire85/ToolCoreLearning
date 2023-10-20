@@ -41,12 +41,9 @@ namespace ToolCore
 
         internal static void DrillSphere(this ToolComp comp)
         {
-            comp.DrawBoxes.ClearImmediate();
-
             var session = comp.Session;
             var def = comp.Definition;
             var drillData = comp.DrillData;
-            var centre = drillData.Origin;
             var forward = drillData.Direction;
             var radius = def.Radius;
             var extendedRadius = radius + 0.5f;
@@ -55,6 +52,9 @@ namespace ToolCore
             var voxel = drillData.Voxel;
             var min = drillData.Min;
             var max = drillData.Max;
+            var centre = drillData.Origin - (Vector3D)min;
+
+            if (def.Debug) session.DrawBoxes.ClearImmediate();
 
             var reduction = (int)(def.Speed * 255);
             using ((voxel as MyVoxelBase).Pin())
@@ -66,8 +66,8 @@ namespace ToolCore
                 voxel.Storage.ReadRange(data, MyStorageDataTypeFlags.ContentAndMaterial, 0, min, max);
                 session.DsUtil.Complete("read", true);
 
+                Vector3I pos;
                 MyFixedPoint amount = 0;
-                Vector3I testPos = new Vector3I();
 
                 int content;
                 byte material;
@@ -75,79 +75,58 @@ namespace ToolCore
                 session.DsUtil.Start("sort");
                 var maxLayer = 0;
                 var foundContent = false;
-                //for (int i = 0 i < data.SizeLinear; i++)
-                //{
-                //    Vector3I pos;
-                //    data.ComputePosition(i, out pos);
-                //    //etc.
-                //}
-                for (int i = min.X; i <= max.X; i++)
+                for (int i = 0; i < data.SizeLinear; i++)
                 {
-                    testPos.X = i;
-                    for (int j = min.Y; j <= max.Y; j++)
+                    data.ComputePosition(i, out pos);
+
+                    content = data.Content(i);
+                    if (content == 0)
+                        continue;
+
+                    var offset = (Vector3D)pos - centre;
+                    var distSqr = offset.LengthSquared();
+                    if (distSqr > extRadiusSqr)
+                        continue;
+
+                    foundContent = true;
+
+                    var dist = 0f;
+                    switch (def.Pattern)
                     {
-                        testPos.Y = j;
-                        for (int k = min.Z; k <= max.Z; k++)
-                        {
-                            testPos.Z = k;
-
-                            var relativePos = testPos - min;
-                            var index = data.ComputeLinear(ref relativePos);
-                            if (index < 0 || index > data.SizeLinear)
-                                continue;
-
-                            content = data.Content(index);
-                            if (content == 0)
-                                continue;
-
-                            var offset = (Vector3D)testPos - centre;
-                            var distSqr = offset.LengthSquared();
-                            if (distSqr > extRadiusSqr)
-                                continue;
-
-                            foundContent = true;
-
-                            var dist = 0f;
-                            var secondaryDistSqr = 0f;
-                            switch (def.Pattern)
-                            {
-                                case WorkOrder.InsideOut:
-                                    dist = (float)offset.Length();
-                                    break;
-                                case WorkOrder.OutsideIn:
-                                    dist = radius - (float)offset.Length();
-                                    break;
-                                case WorkOrder.Forward:
-                                    var displacement = Vector3D.ProjectOnVector(ref offset, ref forward);
-                                    dist = radius + (float)displacement.Length() * Math.Sign(Vector3D.Dot(offset, forward));
-                                    break;
-                                case WorkOrder.Backward:
-                                    displacement = Vector3D.ProjectOnVector(ref offset, ref forward);
-                                    dist = radius - (float)displacement.Length() * Math.Sign(Vector3D.Dot(offset, forward));
-                                    break;
-                                default:
-                                    break;
-                            }
-
-                            var posData = new PositionData(index, dist, secondaryDistSqr);
-
-                            var roundDist = MathHelper.RoundToInt(dist);
-                            if (roundDist > maxLayer) maxLayer = roundDist;
-
-                            List<PositionData> layer;
-                            if (comp.WorkLayers.TryGetValue(roundDist, out layer))
-                                layer.Add(posData);
-                            else comp.WorkLayers[roundDist] = new List<PositionData>() { posData };
-
-                        }
+                        case WorkOrder.InsideOut:
+                            dist = (float)offset.Length();
+                            break;
+                        case WorkOrder.OutsideIn:
+                            dist = radius - (float)offset.Length();
+                            break;
+                        case WorkOrder.Forward:
+                            var displacement = Vector3D.ProjectOnVector(ref offset, ref forward);
+                            dist = radius + (float)displacement.Length() * Math.Sign(Vector3D.Dot(offset, forward));
+                            break;
+                        case WorkOrder.Backward:
+                            displacement = Vector3D.ProjectOnVector(ref offset, ref forward);
+                            dist = radius - (float)displacement.Length() * Math.Sign(Vector3D.Dot(offset, forward));
+                            break;
+                        default:
+                            break;
                     }
+
+                    var posData = new PositionData(i, dist, 0f);
+
+                    var roundDist = MathHelper.RoundToInt(dist);
+                    if (roundDist > maxLayer) maxLayer = roundDist;
+
+                    List<PositionData> layer;
+                    if (comp.WorkLayers.TryGetValue(roundDist, out layer))
+                        layer.Add(posData);
+                    else comp.WorkLayers[roundDist] = new List<PositionData>() { posData };
                 }
+
                 if (foundContent) comp.StorageDatas.Add(new StorageInfo(min, max));
                 session.DsUtil.Complete("sort", true);
 
                 session.DsUtil.Start("calc");
                 var hit = false;
-                //MyAPIGateway.Utilities.ShowNotification($"{WorkLayers.Count} layers", 160);
                 for (int i = 0; i <= maxLayer; i++)
                 {
                     List<PositionData> layer;
@@ -155,7 +134,6 @@ namespace ToolCore
                         continue;
 
                     var maxContent = 0;
-                    //MyAPIGateway.Utilities.ShowNotification($"{layer.Count} items", 160);
                     for (int j = 0; j < layer.Count; j++)
                     {
                         var positionData = layer[j];
@@ -172,23 +150,22 @@ namespace ToolCore
 
                         var removal = Math.Min(reduction, content);
 
+                        if (comp.Definition.Debug && comp.Session.DrawBoxes.Count < 100)
+                        {
+                            var matrix = voxel.PositionComp.WorldMatrixRef;
+                            matrix.Translation = voxel.PositionLeftBottomCorner;
+                            data.ComputePosition(index, out pos);
+                            pos += min;
+                            var lowerHalf = (Vector3D)pos - 0.475;
+                            var upperHalf = (Vector3D)pos + 0.475;
+                            var bbb = new BoundingBoxD(lowerHalf, upperHalf);
+                            var obb = new MyOrientedBoundingBoxD(bbb, matrix);
+                            var color = (Color)Vector4.Lerp(Color.Red, Color.Green, overlap);
+                            comp.Session.DrawBoxes.Add(new MyTuple<MyOrientedBoundingBoxD, Color>(obb, color));
+                        }
+
                         if (overlap < 1f)
                         {
-                            //if (Debug)
-                            //{
-                            //    var matrix = voxel.PositionComp.WorldMatrixRef;
-                            //    matrix.Translation = voxel.PositionLeftBottomCorner;
-                            //    Vector3I pos;
-                            //    data.ComputePosition(index, out pos);
-                            //    pos += min;
-                            //    var lowerHalf = (Vector3D)pos - 0.475;
-                            //    var upperHalf = (Vector3D)pos + 0.475;
-                            //    var bbb = new BoundingBoxD(lowerHalf, upperHalf);
-                            //    var obb = new MyOrientedBoundingBoxD(bbb, matrix);
-                            //    var color = (Color)Vector4.Lerp(Color.Red, Color.Green, overlap);
-                            //    DrawBoxes.Add(new MyTuple<MyOrientedBoundingBoxD, Color>(obb, color));
-                            //}
-
                             overlap *= 255;
                             var excluded = 255 - MathHelper.FloorToInt(overlap);
                             var excess = content - excluded;
@@ -217,7 +194,7 @@ namespace ToolCore
                             comp.Hitting = true;
                         }
 
-                        if (voxelDef != null && voxelDef.CanBeHarvested && !string.IsNullOrEmpty(voxelDef.MinedOre))
+                        if (comp.Session.IsServer && voxelDef != null && voxelDef.CanBeHarvested && !string.IsNullOrEmpty(voxelDef.MinedOre))
                         {
                             var oreOb = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>(voxelDef.MinedOre);
                             oreOb.MaterialTypeName = voxelDef.Id.SubtypeId;
@@ -337,7 +314,7 @@ namespace ToolCore
                                     break;
                             }
 
-                            if (comp.Debug)
+                            if (comp.Definition.Debug)
                             {
                                 var matrix = voxel.PositionComp.WorldMatrixRef;
                                 matrix.Translation = voxel.PositionLeftBottomCorner;
@@ -476,7 +453,7 @@ namespace ToolCore
             var totalLen = 0f;
             var segmentLen = 2f * radius;
 
-            comp.DrawBoxes.ClearImmediate();
+            comp.Session.DrawBoxes.ClearImmediate();
 
             Vector3I testPos = new Vector3I();
 

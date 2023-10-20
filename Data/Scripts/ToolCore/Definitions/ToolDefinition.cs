@@ -28,6 +28,7 @@ namespace ToolCore.Definitions
         internal string EmitterName;
         internal bool Turret;
         internal bool AffectOwnGrid;
+        internal bool Debug;
         internal Vector3D Offset;
         internal float Speed;
         internal float ActivePower;
@@ -182,6 +183,7 @@ namespace ToolCore.Definitions
             EmitterName = values.Emitter;
             Turret = values.Turret;
             AffectOwnGrid = values.AffectOwnGrid;
+            Debug = !session.IsDedicated && values.Debug;
             Offset = values.Offset;
             Speed = values.Speed;
             ActivePower = values.ActivePower;

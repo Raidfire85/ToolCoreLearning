@@ -13,6 +13,7 @@ using VRageMath;
 using ToolCore.Comp;
 using ToolCore.Definitions;
 using ToolCore.Utils;
+using VRage;
 
 namespace ToolCore.Session
 {
@@ -59,6 +60,8 @@ namespace ToolCore.Session
         private readonly ConcurrentCachingList<IMySlimBlock> _hitBlocks = new ConcurrentCachingList<IMySlimBlock>();
 
         private readonly HashSet<IMySlimBlock> _debugBlocks = new HashSet<IMySlimBlock>();
+        internal readonly ConcurrentCachingList<MyTuple<MyOrientedBoundingBoxD, Color>> DrawBoxes = new ConcurrentCachingList<MyTuple<MyOrientedBoundingBoxD, Color>>();
+
 
         private readonly Dictionary<string, int> _missingComponents = new Dictionary<string, int>();
 

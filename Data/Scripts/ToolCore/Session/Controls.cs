@@ -206,10 +206,11 @@ namespace ToolCore.Session
             var modes = comp.Definition.ToolModes;
             foreach (var mode in modes)
             {
+                var key = (int)mode;
                 if (mode == comp.Mode)
-                    id = (int)mode;
+                    id = key;
 
-                var item = new MyTerminalControlComboBoxItem { Key = id, Value = MyStringId.GetOrCompute(mode.ToString())};
+                var item = new MyTerminalControlComboBoxItem { Key = key, Value = MyStringId.GetOrCompute(mode.ToString())};
                 _modeList.Add(item);
             }
 

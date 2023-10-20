@@ -24,8 +24,6 @@ namespace ToolCore.Session
 
         public void SendPacketToServer(Packet packet)
         {
-            if (!Session.IsClient) return;
-
             var rawData = MyAPIGateway.Utilities.SerializeToBinary(packet);
             MyModAPIHelper.MyMultiplayer.Static.SendMessageToServer(ServerPacketId, rawData, true);
         }
