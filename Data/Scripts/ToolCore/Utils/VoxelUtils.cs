@@ -46,6 +46,8 @@ namespace ToolCore
             var drillData = comp.DrillData;
             var forward = drillData.Direction;
             var radius = def.Radius;
+            var secondary = (!comp.GunBase.Shooting && comp.Action == ToolComp.ToolAction.Secondary) || !comp.GunBase.Primary;
+            if (secondary) radius *= 2;
             var extendedRadius = radius + 0.5f;
             var extRadiusSqr = extendedRadius * extendedRadius;
 
@@ -150,7 +152,7 @@ namespace ToolCore
 
                         var removal = Math.Min(reduction, content);
 
-                        if (comp.Definition.Debug && comp.Session.DrawBoxes.Count < 100)
+                        if (def.Debug && session.DrawBoxes.Count < 100)
                         {
                             var matrix = voxel.PositionComp.WorldMatrixRef;
                             matrix.Translation = voxel.PositionLeftBottomCorner;
@@ -161,7 +163,7 @@ namespace ToolCore
                             var bbb = new BoundingBoxD(lowerHalf, upperHalf);
                             var obb = new MyOrientedBoundingBoxD(bbb, matrix);
                             var color = (Color)Vector4.Lerp(Color.Red, Color.Green, overlap);
-                            comp.Session.DrawBoxes.Add(new MyTuple<MyOrientedBoundingBoxD, Color>(obb, color));
+                            session.DrawBoxes.Add(new MyTuple<MyOrientedBoundingBoxD, Color>(obb, color));
                         }
 
                         if (overlap < 1f)
@@ -194,7 +196,7 @@ namespace ToolCore
                             comp.Hitting = true;
                         }
 
-                        if (comp.Session.IsServer && voxelDef != null && voxelDef.CanBeHarvested && !string.IsNullOrEmpty(voxelDef.MinedOre))
+                        if (!secondary && comp.Session.IsServer && voxelDef != null && voxelDef.CanBeHarvested && !string.IsNullOrEmpty(voxelDef.MinedOre))
                         {
                             var oreOb = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>(voxelDef.MinedOre);
                             oreOb.MaterialTypeName = voxelDef.Id.SubtypeId;

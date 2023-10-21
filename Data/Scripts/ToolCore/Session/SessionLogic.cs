@@ -400,12 +400,6 @@ namespace ToolCore.Session
                     if (comp.Mode != ToolComp.ToolMode.Drill)
                         continue;
 
-                    //if (comp.ActiveDrillThreads > 0)
-                    //{
-                    //    Logs.WriteLine($"Drill thread still running, skipping voxel");
-                    //    continue;
-                    //}
-
                     var voxel = (IMyVoxelBase)entity;
 
                     if ((voxel as MyVoxelBase).GetOrePriority() == 0)
@@ -417,8 +411,11 @@ namespace ToolCore.Session
                     Vector3D localForward;
                     Vector3D.TransformNormal(ref worldForward, ref matrixNI, out localForward);
 
-                    var minExtent = Vector3I.Round(localCentre - def.EffectSphere.Radius);
-                    var maxExtent = Vector3I.Round(localCentre + def.EffectSphere.Radius);
+                    var drillRadius = def.EffectSphere.Radius;
+                    var expanded = (!comp.GunBase.Shooting && comp.Action == ToolComp.ToolAction.Secondary) || !comp.GunBase.Primary;
+                    if (expanded) drillRadius *= 2;
+                    var minExtent = Vector3I.Round(localCentre - drillRadius);
+                    var maxExtent = Vector3I.Round(localCentre + drillRadius);
 
                     var size = voxel.Storage.Size;
                     var min = Vector3I.Max(minExtent, Vector3I.Zero);

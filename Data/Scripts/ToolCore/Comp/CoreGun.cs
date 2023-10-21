@@ -17,9 +17,9 @@ using static ToolCore.Utils.Utils;
 
 namespace ToolCore.Comp
 {
-    internal class GunCore : IMyGunObject<MyToolBase>
+    internal class CoreGun : IMyGunObject<MyToolBase>
     {
-        public GunCore(ToolComp comp)
+        public CoreGun(ToolComp comp)
         {
             _comp = comp;
             _id = comp.Tool.BlockDefinition;
@@ -32,6 +32,14 @@ namespace ToolCore.Comp
         internal bool Primary = true;
         internal bool Shooting;
         internal bool Enabled;
+
+        internal enum ShootState
+        {
+            None = 0,
+            Primary = 1,
+            Secondary = 2,
+            Tertiary = 3,
+        }
 
         public float BackkickForcePerSecond
         {

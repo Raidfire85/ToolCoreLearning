@@ -217,7 +217,7 @@ namespace ToolCore.Definitions
             {
                 case EffectShape.Sphere:
                     EffectSphere = new BoundingSphereD(Vector3D.Zero, Radius);
-                    radius = MathHelper.CeilToInt(Radius);
+                    radius = 2 * MathHelper.CeilToInt(Radius);
                     for (int i = -radius; i <= radius; i++)
                     {
                         pos.X = i;
@@ -234,6 +234,13 @@ namespace ToolCore.Definitions
                                 else tempLayers[dist] = new List<Vector3I>() { pos };
                             }
                         }
+                    }
+                    for (int i = 0; i <= radius + 1; i++)
+                    {
+                        if (!tempLayers.ContainsKey(i))
+                            continue;
+
+                        Layers.Add(tempLayers[i]);
                     }
                     BoundingRadius = Radius;
                     Length = Location == Location.Hit ? Length : Radius;
@@ -261,17 +268,6 @@ namespace ToolCore.Definitions
                     break;
             }
 
-
-            if (EffectShape == EffectShape.Sphere)
-            {
-                for (int i = 0; i <= radius + 1; i++)
-                {
-                    if (!tempLayers.ContainsKey(i))
-                        continue;
-
-                    Layers.Add(tempLayers[i]);
-                }
-            }
 
 
             foreach (var eventDef in values.Events)

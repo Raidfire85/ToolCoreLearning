@@ -32,7 +32,7 @@ namespace ToolCore.Comp
     {
         internal readonly ToolSession Session;
 
-        internal readonly GunCore GunBase;
+        internal readonly CoreGun GunBase;
         internal readonly MyInventory Inventory;
 
         internal ToolDefinition Definition;
@@ -345,7 +345,7 @@ namespace ToolCore.Comp
 
             Definition = def;
             Tool = block;
-            GunBase = new GunCore(this);
+            GunBase = new CoreGun(this);
             Inventory = (MyInventory)(Tool as MyEntity).GetInventoryBase();
 
             Grid = Tool.CubeGrid as MyCubeGrid;
