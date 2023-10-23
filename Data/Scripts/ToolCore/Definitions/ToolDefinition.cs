@@ -30,33 +30,63 @@ namespace ToolCore.Definitions
         internal bool AffectOwnGrid;
         internal bool Debug;
         internal Vector3D Offset;
-        internal float Speed;
         internal float ActivePower;
         internal float IdlePower;
 
         //Shape dimensions
-        internal Vector3D HalfExtent;
-        internal float Radius;
-        internal float Length;
+        //internal Vector3D HalfExtent;
+        //internal float Radius;
+        //internal float Length;
 
         //BoundingSphere Dimensions
-        internal float SegmentLength;
-        internal float BoundingRadius;
-        internal float SegmentBoundingRadius;
-        internal float SegmentRatio = 1f;
+        //internal float SegmentLength;
+        //internal float BoundingRadius;
 
         internal BoundingSphereD EffectSphere;
         internal BoundingBox EffectBox;
 
-        internal float HarvestRatio;
+        //internal float Speed;
+        //internal float HarvestRatio;
 
         internal readonly List<ToolComp.ToolMode> ToolModes = new List<ToolComp.ToolMode>();
         internal readonly List<ToolComp.ToolAction> ToolActions = new List<ToolComp.ToolAction>();
+        internal readonly Dictionary<ToolComp.ToolAction, ActionDefinition> ActionMap = new Dictionary<ToolComp.ToolAction, ActionDefinition>();
         internal readonly List<List<Vector3I>> Layers = new List<List<Vector3I>>();
 
         internal readonly Trigger EventFlags;
         internal readonly Dictionary<Trigger, MyTuple<List<AnimationDef>, List<ParticleEffectDef>, List<BeamDef>, SoundDef>> EventEffectDefs = new Dictionary<Trigger, MyTuple<List<AnimationDef>, List<ParticleEffectDef>, List<BeamDef>, SoundDef>>();
         
+        internal class ActionDefinition
+        {
+            internal float Speed;
+            internal float HarvestRatio;
+
+            internal Vector3D HalfExtent;
+            internal float Radius;
+            internal float Length;
+            internal float BoundingRadius;
+
+            public ActionDefinition(ActionValues values, float speed, float harvestRatio, Vector3D half, float radius, float length, float bRadius)
+            {
+                Speed = speed * values.SpeedRatio;
+                HarvestRatio = harvestRatio * values.HarvestRatio;
+                HalfExtent = half * values.SizeRatio;
+                Radius = radius * values.SizeRatio;
+                Length = length * values.SizeRatio;
+                BoundingRadius = bRadius * values.SizeRatio;
+            }
+
+            public ActionDefinition(float speed, float harvestRatio, Vector3D half, float radius, float length, float bRadius)
+            {
+                Speed = speed;
+                HarvestRatio = harvestRatio;
+                HalfExtent = half;
+                Radius = radius;
+                Length = length;
+                BoundingRadius = bRadius;
+            }
+        }
+
         internal class AnimationDef
         {
             internal readonly string Subpart;
@@ -185,15 +215,8 @@ namespace ToolCore.Definitions
             AffectOwnGrid = values.AffectOwnGrid;
             Debug = !session.IsDedicated && values.Debug;
             Offset = values.Offset;
-            Speed = values.Speed;
             ActivePower = values.ActivePower;
             IdlePower = values.IdlePower;
-
-            HarvestRatio = values.HarvestRatio;
-
-            HalfExtent = values.HalfExtent;
-            Radius = values.Radius;
-            Length = values.Length;
 
             if ((ToolType & ToolType.Drill) > 0)
                 ToolModes.Add(ToolComp.ToolMode.Drill);
@@ -205,69 +228,87 @@ namespace ToolCore.Definitions
             if (ToolModes.Count == 0)
                 Logs.WriteLine($"No valid tool modes!");
 
-            ToolActions.Add(ToolComp.ToolAction.Primary);
-            ToolActions.Add(ToolComp.ToolAction.Secondary);
 
 
-            int radius = 0;
+            var speed = values.Speed;
+            var hRatio = values.HarvestRatio;
+
+            var halfExtent = (Vector3)values.HalfExtent;
+            var radius = values.Radius;
+            var length = values.Length;
+            var boundingRadius = 0f;
+
             Vector3I pos = new Vector3I();
             List<Vector3I> layer;
             var tempLayers = new Dictionary<int, List<Vector3I>>();
             switch (EffectShape)
             {
                 case EffectShape.Sphere:
-                    EffectSphere = new BoundingSphereD(Vector3D.Zero, Radius);
-                    radius = 2 * MathHelper.CeilToInt(Radius);
-                    for (int i = -radius; i <= radius; i++)
+                    EffectSphere = new BoundingSphereD(Vector3D.Zero, radius);
+                    int radiusInt = 2 * MathHelper.CeilToInt(radius);
+                    for (int i = -radiusInt; i <= radiusInt; i++)
                     {
                         pos.X = i;
-                        for (int j = -radius; j <= radius; j++)
+                        for (int j = -radiusInt; j <= radiusInt; j++)
                         {
                             pos.Y = j;
-                            for (int k = -radius; k <= radius; k++)
+                            for (int k = -radiusInt; k <= radiusInt; k++)
                             {
                                 pos.Z = k;
                                 var dist = MathHelper.CeilToInt(((Vector3D)pos).Length());
-                                if (dist > (radius + 1)) continue;
+                                if (dist > (radiusInt + 1)) continue;
                                 if (tempLayers.TryGetValue(dist, out layer))
                                     layer.Add(pos);
                                 else tempLayers[dist] = new List<Vector3I>() { pos };
                             }
                         }
                     }
-                    for (int i = 0; i <= radius + 1; i++)
+                    for (int i = 0; i <= radiusInt + 1; i++)
                     {
                         if (!tempLayers.ContainsKey(i))
                             continue;
 
                         Layers.Add(tempLayers[i]);
                     }
-                    BoundingRadius = Radius;
-                    Length = Location == Location.Hit ? Length : Radius;
+                    boundingRadius = radius;
+                    length = Location == Location.Hit ? length : radius;
                     break;
                 case EffectShape.Cylinder:
-                    HalfExtent = new Vector3(Radius, Radius, Length * 0.5f);
-                    EffectBox = new BoundingBox(-HalfExtent, HalfExtent);
-                    EffectSphere = new BoundingSphereD(Vector3D.Zero, HalfExtent.Length());
-                    BoundingRadius = (float)HalfExtent.Length();
+                    halfExtent = new Vector3(radius, radius, length * 0.5f);
+                    EffectBox = new BoundingBox(-halfExtent, halfExtent);
+                    EffectSphere = new BoundingSphereD(Vector3D.Zero, halfExtent.Length());
+                    boundingRadius = (float)halfExtent.Length();
                     break;
                 case EffectShape.Cuboid:
-                    EffectBox = new BoundingBox(-HalfExtent, HalfExtent);
-                    var halfExtentLength = (float)HalfExtent.Length();
+                    EffectBox = new BoundingBox(-halfExtent, halfExtent);
+                    var halfExtentLength = (float)halfExtent.Length();
                     EffectSphere = new BoundingSphereD(Vector3D.Zero, halfExtentLength);
-                    BoundingRadius = halfExtentLength;
-                    Length = halfExtentLength;
+                    boundingRadius = halfExtentLength;
+                    length = halfExtentLength;
                     break;
                 case EffectShape.Line:
-                    BoundingRadius = Length * 0.5f; //mm
-                    SegmentLength = Radius > 0 ? Length * 0.5f / Radius : Length;
-                    var halfExtent = new Vector3(Radius, Radius, Radius);
-                    SegmentBoundingRadius = halfExtent.Length();
+                    boundingRadius = length * 0.5f; //mm
+                    //SegmentLength = radius > 0 ? length * 0.5f / radius : length;
+                    halfExtent = new Vector3(radius, radius, radius);
                     break;
                 case EffectShape.Ray:
                     break;
             }
 
+            if (values.Actions != null && values.Actions.Length > 0)
+            {
+                foreach (var action in values.Actions)
+                {
+                    var actionValues = new ActionDefinition(action, speed, hRatio, halfExtent, radius, length, boundingRadius);
+                    ActionMap.Add((ToolComp.ToolAction)action.Type, actionValues);
+                    ToolActions.Add((ToolComp.ToolAction)action.Type);
+                }
+            }
+            else
+            {
+                ActionMap.Add(ToolComp.ToolAction.Primary, new ActionDefinition(speed, hRatio, halfExtent, radius, length, boundingRadius));
+                ToolActions.Add(ToolComp.ToolAction.Primary);
+            }
 
 
             foreach (var eventDef in values.Events)

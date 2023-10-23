@@ -107,18 +107,22 @@ namespace ToolCore.Session
                 Vector3D.Rotate(ref def.Offset, ref toolMatrix, out offset);
                 worldPos += offset;
             }
-            def.EffectSphere.Center = worldPos;
+
+            var toolValues = comp.Values;
+            var sphere = def.EffectSphere;
+            sphere.Center = worldPos;
+            sphere.Radius = toolValues.Radius;
 
             MatrixD drawMatrix;
             switch (def.EffectShape)
             {
                 case EffectShape.Sphere:
                     drawMatrix = MatrixD.CreateWorld(worldPos, worldForward, worldUp);
-                    DrawSphere(drawMatrix, def.EffectSphere.Radius, Color.LawnGreen, false, 20, 0.01f);
+                    DrawSphere(drawMatrix, sphere.Radius, Color.LawnGreen, false, 20, 0.01f);
                     break;
                 case EffectShape.Cylinder:
                     drawMatrix = MatrixD.CreateWorld(worldPos, worldUp, worldForward);
-                    DrawCylinder(drawMatrix, def.Radius, def.Length, Color.LawnGreen);
+                    DrawCylinder(drawMatrix, toolValues.Radius, toolValues.Length, Color.LawnGreen);
                     break;
                 case EffectShape.Cuboid:
                     drawMatrix = MatrixD.CreateWorld(worldPos, worldForward, worldUp);
@@ -126,10 +130,10 @@ namespace ToolCore.Session
                     DrawBox(obb, Color.LawnGreen, false, 20, 0.01f);
                     break;
                 case EffectShape.Line:
-                    DrawLine(worldPos, worldForward, Color.AliceBlue, 0.02f, def.Length);
+                    DrawLine(worldPos, worldForward, Color.AliceBlue, 0.02f, toolValues.Length);
                     break;
                 case EffectShape.Ray:
-                    DrawLine(worldPos, worldForward, Color.AliceBlue, 0.02f, def.Length);
+                    DrawLine(worldPos, worldForward, Color.AliceBlue, 0.02f, toolValues.Length);
                     break;
                 default:
                     return;
@@ -174,8 +178,9 @@ namespace ToolCore.Session
 
             if (comp.Functional != tool.IsFunctional)
             {
-                comp.UpdateState(Trigger.Functional, tool.IsFunctional);
                 comp.Functional = tool.IsFunctional;
+                comp.UpdateState(Trigger.Functional, tool.IsFunctional);
+                Logs.WriteLine("AAA");
                 comp.Dirty = true;
             }
 
@@ -206,7 +211,10 @@ namespace ToolCore.Session
                 return;
 
             if (comp.Dirty)
+            {
                 comp.SubpartsInit();
+                comp.ReloadModels();
+            }
 
             if (gridComp.ConveyorsDirty)
                 comp.UpdateConnections();
@@ -281,11 +289,13 @@ namespace ToolCore.Session
 
 
 
+            var toolValues = comp.Values;
+
             // Initial raycast?
             IHitInfo hitInfo = null;
             if (!IsDedicated || compTick10 && def.EffectShape == EffectShape.Ray)
             {
-                MyAPIGateway.Physics.CastRay(worldPos, worldPos + worldForward * def.Length, out hitInfo);
+                MyAPIGateway.Physics.CastRay(worldPos, worldPos + worldForward * toolValues.Length, out hitInfo);
                 if (hitInfo?.HitEntity != null)
                 {
                     MyStringHash material;
@@ -318,17 +328,19 @@ namespace ToolCore.Session
                 return;
 
             var line = false;
-            var rayLength = def.Length;
+            var rayLength = toolValues.Length;
             switch (def.EffectShape)
             {
                 case EffectShape.Sphere:
                 case EffectShape.Cylinder:
                 case EffectShape.Cuboid:
-                    def.EffectSphere.Center = worldPos;
-                    MyGamePruningStructure.GetAllTopMostEntitiesInSphere(ref def.EffectSphere, _entities);
+                    var sphere = def.EffectSphere;
+                    sphere.Center = worldPos;
+                    sphere.Radius = toolValues.BoundingRadius;
+                    MyGamePruningStructure.GetAllTopMostEntitiesInSphere(ref sphere, _entities);
                     break;
                 case EffectShape.Line:
-                    var effectLine = new LineD(worldPos, worldPos + worldForward * def.Length);
+                    var effectLine = new LineD(worldPos, worldPos + worldForward * toolValues.Length);
                     line = true;
                     MyGamePruningStructure.GetTopmostEntitiesOverlappingRay(ref effectLine, _lineOverlaps);
                     break;
@@ -411,9 +423,7 @@ namespace ToolCore.Session
                     Vector3D localForward;
                     Vector3D.TransformNormal(ref worldForward, ref matrixNI, out localForward);
 
-                    var drillRadius = def.EffectSphere.Radius;
-                    var expanded = (!comp.GunBase.Shooting && comp.Action == ToolComp.ToolAction.Secondary) || !comp.GunBase.Primary;
-                    if (expanded) drillRadius *= 2;
+                    var drillRadius = toolValues.BoundingRadius;
                     var minExtent = Vector3I.Round(localCentre - drillRadius);
                     var maxExtent = Vector3I.Round(localCentre + drillRadius);
 
@@ -474,7 +484,7 @@ namespace ToolCore.Session
                     Vector3D.TransformNormal(ref worldForward, ref gridMatrixNI, out localForward);
 
                     var gridSizeR = grid.GridSizeR;
-                    var radius = def.EffectSphere.Radius * gridSizeR;
+                    var radius = toolValues.BoundingRadius * gridSizeR;
 
                     Vector3D minExtent;
                     Vector3D maxExtent;
@@ -497,7 +507,7 @@ namespace ToolCore.Session
                         {
                             var obb = comp.Obb;
                             obb.Center = localCentre * grid.GridSize;
-                            obb.HalfExtent = def.HalfExtent;
+                            obb.HalfExtent = toolValues.HalfExtent;
                             var drawBox = obb.GetAABB();
                             var drawObb = new MyOrientedBoundingBoxD(drawBox, grid.PositionComp.LocalMatrixRef);
                             DrawBox(drawObb, Color.CornflowerBlue, false, 4, 0.005f);
@@ -524,13 +534,13 @@ namespace ToolCore.Session
                             GridUtils.GetBlocksInSphere(grid, min, max, localCentre, radius, _hitBlocks);
                             break;
                         case EffectShape.Cylinder:
-                            GridUtils.GetBlocksInCylinder(grid, min, max, localCentre, localForward, def.Radius * gridSizeR, def.Length * gridSizeR, _hitBlocks, comp.Definition.Debug);
+                            GridUtils.GetBlocksInCylinder(grid, min, max, localCentre, localForward, toolValues.Radius * gridSizeR, toolValues.Length * gridSizeR, _hitBlocks, comp.Definition.Debug);
                             break;
                         case EffectShape.Cuboid:
                             GridUtils.GetBlocksInCuboid(grid, min, max, comp.Obb, _hitBlocks);
                             break;
                         case EffectShape.Line:
-                            GridUtils.GetBlocksOverlappingLine(grid, worldPos, worldPos + worldForward * def.Length, _hitBlocks);
+                            GridUtils.GetBlocksOverlappingLine(grid, worldPos, worldPos + worldForward * toolValues.Length, _hitBlocks);
                             break;
                         case EffectShape.Ray:
                             GridUtils.GetBlockInRayPath(grid, worldPos + worldForward * (rayLength + 0.01), _hitBlocks, comp.Definition.Debug);
@@ -645,7 +655,7 @@ namespace ToolCore.Session
 
                     buildCount = buildCount > 0 ? buildCount : 1;
                     var speedMultWeld = 0.25f / (float)Math.Min(4, buildCount);
-                    var weldAmount = MyAPIGateway.Session.WelderSpeedMultiplier * def.Speed * speedMultWeld;
+                    var weldAmount = MyAPIGateway.Session.WelderSpeedMultiplier * toolValues.Speed * speedMultWeld;
                     for (int a = 0; a < _hitBlocks.Count; a++)
                     {
                         var slim = _hitBlocks[a];

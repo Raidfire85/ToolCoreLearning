@@ -91,6 +91,15 @@ namespace ToolCore.Comp
         internal int LastPushTick;
         internal int ActiveDrillThreads;
 
+        internal ActionDefinition Values
+        {
+            get 
+            {
+                var action = GunBase.Shooting ? GunBase.GunAction : Action;
+                return Definition.ActionMap[action];
+            }
+        }
+
         internal bool Activated
         {
             get { return _activated; }
@@ -126,6 +135,7 @@ namespace ToolCore.Comp
         {
             Primary = 0,
             Secondary = 1,
+            Tertiary = 2,
         }
 
         internal class Hit
@@ -152,6 +162,63 @@ namespace ToolCore.Comp
 
             UpdateState(Trigger.RayHit, false);
             HitInfo.IsValid = false;
+        }
+
+        internal void ReloadModels()
+        {
+            var entity = (MyEntity)Tool;
+
+            foreach (var effect in EventEffects.Values)
+            {
+                if (effect.HasAnimations)
+                {
+                    foreach (var anim in effect.Animations)
+                    {
+                        MyEntitySubpart subpart;
+                        if (entity.TryGetSubpartRecursive(anim.Definition.Subpart, out subpart))
+                            anim.Subpart = subpart;
+                    }
+                }
+
+                if (effect.HasParticles)
+                {
+                    foreach (var particle in effect.ParticleEffects)
+                    {
+                        IMyModelDummy dummy;
+                        MyEntity parent;
+                        if (entity.TryGetDummy(particle.Definition.Dummy, out dummy, out parent))
+                        {
+                            particle.Dummy = dummy;
+                            particle.Parent = parent;
+                        }
+                    }
+                }
+
+                if (effect.HasBeams)
+                {
+                    foreach (var beam in effect.Beams)
+                    {
+                        IMyModelDummy start;
+                        MyEntity startParent;
+                        if (entity.TryGetDummy(beam.Definition.Start, out start, out startParent))
+                        {
+                            beam.Start = start;
+                            beam.StartParent = startParent;
+                        }
+
+                        if (beam.Definition.EndAtHit)
+                            continue;
+
+                        IMyModelDummy end;
+                        MyEntity endParent;
+                        if (entity.TryGetDummy(beam.Definition.End, out end, out endParent))
+                        {
+                            beam.End = end;
+                            beam.EndParent = endParent;
+                        }
+                    }
+                }
+            }
         }
 
         internal class Effects
@@ -351,10 +418,7 @@ namespace ToolCore.Comp
             Grid = Tool.CubeGrid as MyCubeGrid;
 
             if (Definition.EffectShape == EffectShape.Cuboid)
-            {
                 Obb = new MyOrientedBoundingBoxD();
-                Obb.HalfExtent = Definition.HalfExtent * Grid.GridSizeR;
-            }
 
             var type = (int)Definition.ToolType;
             Mode = type < 2 ? ToolMode.Drill : type < 4 ? ToolMode.Grind : ToolMode.Weld;
@@ -389,7 +453,7 @@ namespace ToolCore.Comp
         internal void UpdateState(Trigger state, bool add, bool force = false)
         {
             var isActive = (State & state) > 0;
-            //Logs.WriteLine($"UpdateState : {state} : {add} : {isActive}");
+            Logs.WriteLine($"UpdateState : {state} : {add} : {isActive}");
 
             if (!force)
             {
@@ -421,6 +485,7 @@ namespace ToolCore.Comp
                     UpdateEffects(Trigger.Enabled, add);
                     if (add && !Activated) break;
                     UpdateState(Trigger.Activated, add);
+                    if (!add) Activated = false;
                     break;
                 case Trigger.LeftClick:
                 case Trigger.RightClick:
@@ -550,6 +615,9 @@ namespace ToolCore.Comp
             SinkInit();
             StorageInit();
             SubpartsInit();
+
+            if (Tool.IsFunctional)
+                UpdateState(Trigger.Functional, true);
 
             if (!Session.IsDedicated)
                 GetShowInToolbarSwitch();

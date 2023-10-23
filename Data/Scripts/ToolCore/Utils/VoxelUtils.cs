@@ -44,10 +44,9 @@ namespace ToolCore
             var session = comp.Session;
             var def = comp.Definition;
             var drillData = comp.DrillData;
+            var toolValues = comp.Values;
             var forward = drillData.Direction;
-            var radius = def.Radius;
-            var secondary = (!comp.GunBase.Shooting && comp.Action == ToolComp.ToolAction.Secondary) || !comp.GunBase.Primary;
-            if (secondary) radius *= 2;
+            var radius = toolValues.Radius;
             var extendedRadius = radius + 0.5f;
             var extRadiusSqr = extendedRadius * extendedRadius;
 
@@ -58,7 +57,7 @@ namespace ToolCore
 
             if (def.Debug) session.DrawBoxes.ClearImmediate();
 
-            var reduction = (int)(def.Speed * 255);
+            var reduction = (int)(toolValues.Speed * 255);
             using ((voxel as MyVoxelBase).Pin())
             {
                 var data = new MyStorageData();
@@ -196,11 +195,11 @@ namespace ToolCore
                             comp.Hitting = true;
                         }
 
-                        if (!secondary && comp.Session.IsServer && voxelDef != null && voxelDef.CanBeHarvested && !string.IsNullOrEmpty(voxelDef.MinedOre))
+                        if (toolValues.HarvestRatio > 0 && comp.Session.IsServer && voxelDef != null && voxelDef.CanBeHarvested && !string.IsNullOrEmpty(voxelDef.MinedOre))
                         {
                             var oreOb = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>(voxelDef.MinedOre);
                             oreOb.MaterialTypeName = voxelDef.Id.SubtypeId;
-                            var yield = (removal / 255f) * voxelDef.MinedOreRatio * def.HarvestRatio * session.VoxelHarvestRatio;
+                            var yield = (removal / 255f) * voxelDef.MinedOreRatio * toolValues.HarvestRatio * session.VoxelHarvestRatio;
 
                             if (!comp.Yields.TryAdd(oreOb, yield))
                                 comp.Yields[oreOb] += yield;
@@ -232,11 +231,12 @@ namespace ToolCore
             var session = comp.Session;
             var drillData = comp.DrillData;
             var def = comp.Definition;
+            var toolValues = comp.Values;
 
             var centre = drillData.Origin;
             var forward = drillData.Direction;
-            var radius = def.Radius;
-            var length = def.Length;
+            var radius = toolValues.Radius;
+            var length = toolValues.Length;
             var endOffset = forward * (length / 2f);
 
             var voxel = drillData.Voxel;
@@ -245,7 +245,7 @@ namespace ToolCore
 
             var halfLenSqr = Math.Pow(length / 2f, 2);
             var radiusSqr = (float)Math.Pow(radius, 2);
-            var reduction = (int)(def.Speed * 255);
+            var reduction = (int)(toolValues.Speed * 255);
             using ((voxel as MyVoxelBase).Pin())
             {
                 var data = new MyStorageData();
@@ -398,11 +398,11 @@ namespace ToolCore
                         var newContent = removal >= content ? 0 : content - removal;
 
                         var voxelDef = MyDefinitionManager.Static.GetVoxelMaterialDefinition(material);
-                        if (voxelDef != null && voxelDef.CanBeHarvested && !string.IsNullOrEmpty(voxelDef.MinedOre))
+                        if (toolValues.HarvestRatio > 0 && comp.Session.IsServer && voxelDef != null && voxelDef.CanBeHarvested && !string.IsNullOrEmpty(voxelDef.MinedOre))
                         {
                             var oreOb = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>(voxelDef.MinedOre);
                             oreOb.MaterialTypeName = voxelDef.Id.SubtypeId;
-                            var yield = (content - newContent) / 255f * voxelDef.MinedOreRatio * def.HarvestRatio * session.VoxelHarvestRatio;
+                            var yield = (content - newContent) / 255f * voxelDef.MinedOreRatio * toolValues.HarvestRatio * session.VoxelHarvestRatio;
 
                             if (!comp.Yields.TryAdd(oreOb, yield))
                                 comp.Yields[oreOb] += yield;
@@ -440,13 +440,14 @@ namespace ToolCore
             session.DsUtil2.Start("total");
             var drillData = comp.DrillData;
             var def = comp.Definition;
+            var toolValues = comp.Values;
             var origin = drillData.Origin;
             var worldForward = drillData.Direction;
-            var radius = def.Radius;
+            var radius = toolValues.Radius;
+            var length = toolValues.Length;
             var radiusSqr = radius * radius;
             var halfLenSqr = radiusSqr;
-            var length = def.Length;
-            var reduction = (int)(def.Speed * 255);
+            var reduction = (int)(toolValues.Speed * 255);
 
             var voxel = drillData.Voxel;
             var size = voxel.Storage.Size;
@@ -470,7 +471,7 @@ namespace ToolCore
             var maxLayer = 0;
             using ((voxel as MyVoxelBase).Pin())
             {
-                while (totalLen < def.Length)
+                while (totalLen < toolValues.Length)
                 {
                     totalLen += segmentLen;
                     var centreLen = totalLen - radius;
@@ -576,7 +577,7 @@ namespace ToolCore
 
                     session.DsUtil.Start("calc");
                     if ((int)def.Pattern <= 2)
-                        reduction = (int)(def.Speed * 255);
+                        reduction = (int)(toolValues.Speed * 255);
 
                     for (int i = 0; i <= maxLayer; i++)
                     {
@@ -631,11 +632,11 @@ namespace ToolCore
                             if (removal > maxContent) maxContent = removal;
 
                             var voxelDef = MyDefinitionManager.Static.GetVoxelMaterialDefinition(material);
-                            if (voxelDef != null && voxelDef.CanBeHarvested && !string.IsNullOrEmpty(voxelDef.MinedOre))
+                            if (toolValues.HarvestRatio > 0 && comp.Session.IsServer && voxelDef != null && voxelDef.CanBeHarvested && !string.IsNullOrEmpty(voxelDef.MinedOre))
                             {
                                 var oreOb = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>(voxelDef.MinedOre);
                                 oreOb.MaterialTypeName = voxelDef.Id.SubtypeId;
-                                var yield = removal / 255f * voxelDef.MinedOreRatio * def.HarvestRatio * session.VoxelHarvestRatio;
+                                var yield = removal / 255f * voxelDef.MinedOreRatio * toolValues.HarvestRatio * session.VoxelHarvestRatio;
 
                                 if (!comp.Yields.TryAdd(oreOb, yield))
                                     comp.Yields[oreOb] += yield;

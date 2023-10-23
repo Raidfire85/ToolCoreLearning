@@ -33,6 +33,8 @@ namespace ToolCore.Comp
         internal bool Shooting;
         internal bool Enabled;
 
+        internal ToolComp.ToolAction GunAction;
+
         internal enum ShootState
         {
             None = 0,
@@ -158,7 +160,7 @@ namespace ToolCore.Comp
             //Logs.WriteLine($"EndShoot : {action}");
             WantsToShoot = false;
 
-            if (!_comp.Functional || _comp.Activated || !Shooting)
+            if (_comp.Activated || !Shooting)
                 return;
 
             var state = action == MyShootActionEnum.PrimaryAction ? Trigger.LeftClick : Trigger.RightClick;
@@ -231,13 +233,13 @@ namespace ToolCore.Comp
             }
 
             WantsToShoot = true;
-            Primary = action == MyShootActionEnum.PrimaryAction;
+            GunAction = (ToolComp.ToolAction)action;
 
             var happy = _comp.Functional && _comp.Powered && _comp.Enabled && !_comp.Activated;
             if (Shooting == happy)
                 return;
 
-            var state = Primary ? Trigger.LeftClick : Trigger.RightClick;
+            var state = action == MyShootActionEnum.PrimaryAction ? Trigger.LeftClick : Trigger.RightClick;
             UpdateShootState(state);
         }
 

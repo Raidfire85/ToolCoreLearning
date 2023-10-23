@@ -28,7 +28,7 @@ namespace ToolCore.Definitions.Serialised
 
         public SerializableVector3D Offset = Vector3D.Zero;
 
-        public SerializableVector3D HalfExtent = new Vector3D(1f, 1f, 1f); //Cuboid
+        public SerializableVector3 HalfExtent = new Vector3(1f, 1f, 1f); //Cuboid
         public float Radius = 1f; //Sphere, Cylinder
         public float Length = 1f; //Cylinder, Line
 
@@ -42,6 +42,10 @@ namespace ToolCore.Definitions.Serialised
         public bool Turret = false;
         public bool Debug = false;
 
+        [XmlElement("Action")]
+        public ActionValues[] Actions;
+
+        [XmlElement("Event")]
         public Event[] Events;
 
         public Material[] MaterialSpecificModifiers;
@@ -83,11 +87,34 @@ namespace ToolCore.Definitions.Serialised
         Hit = 2,
     }
 
+    public class ActionValues
+    {
+        [XmlAttribute]
+        public ActionType Type = ActionType.Primary;
+        [XmlAttribute]
+        public float SizeRatio = 1f;
+        [XmlAttribute]
+        public float SpeedRatio = 1f;
+        [XmlAttribute]
+        public float HarvestRatio = 1f;
+    }
+
+    public enum ActionType
+    {
+        Primary = 0,
+        Secondary = 1,
+        Tertiary = 2,
+    }
+
     public class Event
     {
+        [XmlAttribute]
         public Trigger Trigger;
+        [XmlElement("Animation")]
         public Animation[] Animations;
+        [XmlElement("ParticleEffect")]
         public ParticleEffect[] ParticleEffects;
+        [XmlElement("Beam")]
         public Beam[] Beams;
         public Sound Sound;
 
