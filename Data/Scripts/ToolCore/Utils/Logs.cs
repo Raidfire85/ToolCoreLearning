@@ -85,8 +85,11 @@ namespace ToolCore.Utils
 
         internal static void LogException(Exception ex)
         {
-            var text = $"{ex.Message}\n{ex.StackTrace}";
+            var hasInner = ex.InnerException != null;
+            var text = !hasInner ? $"{ex.Message}\n{ex.StackTrace}" : ex.Message;
             WriteLine(text);
+            if (hasInner)
+                LogException(ex.InnerException);
         }
 
     }

@@ -61,12 +61,12 @@ namespace ToolCore.Definitions
             internal float Speed;
             internal float HarvestRatio;
 
-            internal Vector3D HalfExtent;
+            internal Vector3 HalfExtent;
             internal float Radius;
             internal float Length;
             internal float BoundingRadius;
 
-            public ActionDefinition(ActionValues values, float speed, float harvestRatio, Vector3D half, float radius, float length, float bRadius)
+            public ActionDefinition(ActionValues values, float speed, float harvestRatio, Vector3 half, float radius, float length, float bRadius)
             {
                 Speed = speed * values.SpeedRatio;
                 HarvestRatio = harvestRatio * values.HarvestRatio;
@@ -76,7 +76,7 @@ namespace ToolCore.Definitions
                 BoundingRadius = bRadius * values.SizeRatio;
             }
 
-            public ActionDefinition(float speed, float harvestRatio, Vector3D half, float radius, float length, float bRadius)
+            public ActionDefinition(float speed, float harvestRatio, Vector3 half, float radius, float length, float bRadius)
             {
                 Speed = speed;
                 HarvestRatio = harvestRatio;

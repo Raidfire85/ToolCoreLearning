@@ -33,6 +33,8 @@ using ToolCore.Utils;
 using static ToolCore.Utils.Draw;
 using PositionData = ToolCore.Comp.ToolComp.PositionData;
 using StorageInfo = ToolCore.Comp.ToolComp.StorageInfo;
+using System.Reflection;
+using Sandbox.Game.Gui;
 
 namespace ToolCore
 {
@@ -667,6 +669,233 @@ namespace ToolCore
 
         }
 
+        private static float Overlap(Vector3D min, int slices, MyOrientedBoundingBoxD obb)
+        {
+            var increment = 1.0 / slices;
+            var edge = increment / 2.0;
 
+            min += edge;
+
+            Vector3D pos;
+            var contained = 0;
+            for (int i = 0; i < slices; i++)
+            {
+                pos.X = min.X + (i * increment);
+                for (int j = 0; j < slices; j++)
+                {
+                    pos.Y = min.Y + (j * increment);
+                    for (int k = 0; k < slices; k++)
+                    {
+                        pos.Z = min.Z + (k * increment);
+
+                        if (obb.Contains(ref pos))
+                            contained++;
+                    }
+                }
+            }
+
+            var total = Math.Pow(slices, 3);
+            var halfUnit = (1 / total) / 2;
+            var fraction = contained / total;
+
+            return (float)MathHelper.Clamp(fraction, halfUnit, 1 - halfUnit);
+        }
+
+        internal static void DrillCuboid(this ToolComp comp)
+        {
+            try
+            {
+                var session = comp.Session;
+                var def = comp.Definition;
+                var drillData = comp.DrillData;
+                var toolValues = comp.Values;
+                var forward = drillData.Direction;
+                var radius = toolValues.BoundingRadius;
+                var hE = toolValues.HalfExtent;
+
+                var voxel = drillData.Voxel;
+                var min = drillData.Min;
+                var max = drillData.Max;
+                var centre = drillData.Origin;
+
+                if (def.Debug) session.DrawBoxes.ClearImmediate();
+
+                var reduction = (int)(toolValues.Speed * 255);
+                using ((voxel as MyVoxelBase).Pin())
+                {
+                    var data = new MyStorageData();
+                    data.Resize(min, max);
+
+                    session.DsUtil.Start("read");
+                    voxel.Storage.ReadRange(data, MyStorageDataTypeFlags.ContentAndMaterial, 0, min, max);
+                    session.DsUtil.Complete("read", true);
+
+                    Vector3I pos;
+                    MyFixedPoint amount = 0;
+
+                    int content;
+                    byte material;
+
+                    session.DsUtil.Start("sort");
+                    var maxLayer = 0;
+                    var foundContent = false;
+                    var obb = comp.Obb;
+                    for (int i = 0; i < data.SizeLinear; i++)
+                    {
+                        content = data.Content(i);
+                        if (content == 0)
+                            continue;
+
+                        data.ComputePosition(i, out pos);
+
+                        var posD = (Vector3D)pos + min;
+                        var minPos = posD - 0.5;
+                        var box = new BoundingBoxD(minPos, minPos + 1);
+
+                        var containment = obb.Contains(ref box);
+
+                        if (containment == ContainmentType.Disjoint)
+                            continue;
+
+                        foundContent = true;
+
+                        var offset = posD - centre;
+
+                        var dist = 0f;
+                        switch (def.Pattern)
+                        {
+                            case WorkOrder.InsideOut:
+                                dist = (float)Vector3D.Abs(posD - centre).Sum;
+                                break;
+                            case WorkOrder.OutsideIn:
+                                dist = hE.Sum - (float)Vector3D.Abs(posD - centre).Sum;
+                                break;
+                            case WorkOrder.Forward:
+                                var displacement = Vector3D.ProjectOnVector(ref offset, ref forward);
+                                dist = radius + (float)displacement.Length() * Math.Sign(Vector3D.Dot(offset, forward));
+                                break;
+                            case WorkOrder.Backward:
+                                displacement = Vector3D.ProjectOnVector(ref offset, ref forward);
+                                dist = radius - (float)displacement.Length() * Math.Sign(Vector3D.Dot(offset, forward));
+                                break;
+                            default:
+                                break;
+                        }
+
+                        var overlap = containment == ContainmentType.Intersects ? Overlap(minPos, 3, obb) : 1f;
+                        var posData = new PositionData(i, dist, overlap);
+
+                        var roundDist = MathHelper.RoundToInt(dist);
+                        if (roundDist > maxLayer) maxLayer = roundDist;
+
+                        List<PositionData> layer;
+                        if (comp.WorkLayers.TryGetValue(roundDist, out layer))
+                            layer.Add(posData);
+                        else comp.WorkLayers[roundDist] = new List<PositionData>() { posData };
+                    }
+
+                    if (foundContent) comp.StorageDatas.Add(new StorageInfo(min, max));
+                    session.DsUtil.Complete("sort", true);
+
+                    session.DsUtil.Start("calc");
+                    var hit = false;
+                    for (int i = 0; i <= maxLayer; i++)
+                    {
+                        List<PositionData> layer;
+                        if (!comp.WorkLayers.TryGetValue(i, out layer))
+                            continue;
+
+                        var maxContent = 0;
+                        for (int j = 0; j < layer.Count; j++)
+                        {
+                            var positionData = layer[j];
+                            var index = positionData.Index;
+                            var distance = positionData.Distance;
+                            var overlap = positionData.SecondaryDistanceSqr;
+
+                            content = data.Content(index);
+                            material = data.Material(index);
+
+                            var removal = Math.Min(reduction, content);
+
+                            if (overlap < 1 && def.Debug)
+                            {
+                                var matrix = voxel.PositionComp.WorldMatrixRef;
+                                matrix.Translation = voxel.PositionLeftBottomCorner;
+                                data.ComputePosition(index, out pos);
+                                pos += min;
+                                var lowerHalf = (Vector3D)pos - 0.475;
+                                var upperHalf = (Vector3D)pos + 0.475;
+                                var bbb = new BoundingBoxD(lowerHalf, upperHalf);
+                                var boxObb = new MyOrientedBoundingBoxD(bbb, matrix);
+                                var color = (Color)Vector4.Lerp(Color.Red, Color.Green, overlap);
+                                session.DrawBoxes.Add(new MyTuple<MyOrientedBoundingBoxD, Color>(boxObb, color));
+                            }
+
+                            if (overlap < 1f)
+                            {
+                                overlap *= 255;
+                                var excluded = 255 - MathHelper.FloorToInt(overlap);
+                                var excess = content - excluded;
+                                if (excess <= 0f)
+                                    continue;
+
+                                removal = Math.Min(removal, excess);
+                            }
+
+                            var voxelDef = MyDefinitionManager.Static.GetVoxelMaterialDefinition(material);
+                            var hardness = (voxelDef != null) ? session.Settings.MaterialModifiers[voxelDef] : 1f;
+                            var effectiveContent = MathHelper.CeilToInt(content * hardness);
+                            maxContent = Math.Max(maxContent, effectiveContent);
+
+                            if (!hit)
+                            {
+                                //data.ComputePosition(index, out testPos);
+                                //var localPos = (Vector3D)testPos + min;
+                                //var voxelMatrix = voxel.PositionComp.WorldMatrixRef;
+                                //voxelMatrix.Translation = voxel.PositionLeftBottomCorner;
+                                //Vector3D worldPos;
+                                //Vector3D.Transform(ref localPos, ref voxelMatrix, out worldPos);
+                                //comp.HitInfo.Update(worldPos, voxelDef.MaterialTypeNameHash);
+
+                                hit = true;
+                                comp.Hitting = true;
+                            }
+
+                            if (toolValues.HarvestRatio > 0 && comp.Session.IsServer && voxelDef != null && voxelDef.CanBeHarvested && !string.IsNullOrEmpty(voxelDef.MinedOre))
+                            {
+                                var oreOb = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>(voxelDef.MinedOre);
+                                oreOb.MaterialTypeName = voxelDef.Id.SubtypeId;
+                                var yield = (removal / 255f) * voxelDef.MinedOreRatio * toolValues.HarvestRatio * session.VoxelHarvestRatio;
+
+                                if (!comp.Yields.TryAdd(oreOb, yield))
+                                    comp.Yields[oreOb] += yield;
+                            }
+
+                            var newContent = content - removal;
+                            data.Content(index, (byte)newContent);
+                            if (newContent == 0)
+                                data.Material(index, byte.MaxValue);
+                        }
+
+                        reduction -= maxContent;
+                        if (reduction <= 0)
+                            break;
+                    }
+                    session.DsUtil.Complete("calc", true);
+
+                    session.DsUtil.Start("write");
+                    voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
+                    session.DsUtil.Complete("write", true);
+
+                }
+                comp.WorkLayers.Clear();
+
+            }
+            catch (Exception ex)
+            {
+                Logs.LogException(ex);
+            }
+        }
     }
 }

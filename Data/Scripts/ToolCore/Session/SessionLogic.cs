@@ -127,7 +127,7 @@ namespace ToolCore.Session
                 case EffectShape.Cuboid:
                     drawMatrix = MatrixD.CreateWorld(worldPos, worldForward, worldUp);
                     var obb = new MyOrientedBoundingBoxD(def.EffectBox, drawMatrix);
-                    DrawBox(obb, Color.LawnGreen, false, 20, 0.01f);
+                    DrawBox(obb, Color.LawnGreen, false, 5, 0.005f);
                     break;
                 case EffectShape.Line:
                     DrawLine(worldPos, worldForward, Color.AliceBlue, 0.02f, toolValues.Length);
@@ -243,7 +243,8 @@ namespace ToolCore.Session
                 DrawBoxes.ApplyAdditions();
                 MyAPIGateway.Utilities.ShowNotification(DrawBoxes.Count.ToString(), 16);
                 foreach (var tuple in DrawBoxes)
-                    DrawBox(tuple.Item1, tuple.Item2, false, 1, 0.01f);
+                    DrawLine(tuple.Item1.Center, Vector3D.One, tuple.Item2, 0.02f, 0.1f);
+                    //DrawBox(tuple.Item1, tuple.Item2, false, 1, 0.01f);
 
                 //if (comp.Hitting)
                 //{
@@ -423,14 +424,40 @@ namespace ToolCore.Session
                     Vector3D localForward;
                     Vector3D.TransformNormal(ref worldForward, ref matrixNI, out localForward);
 
-                    var drillRadius = toolValues.BoundingRadius;
-                    var minExtent = Vector3I.Round(localCentre - drillRadius);
-                    var maxExtent = Vector3I.Round(localCentre + drillRadius);
+                    Vector3I minExtent;
+                    Vector3I maxExtent;
+                    if (def.EffectShape == EffectShape.Cuboid)
+                    {
+                        Vector3D localUp;
+                        Vector3D.TransformNormal(ref worldUp, ref matrixNI, out localUp);
+                        var orientation = Quaternion.CreateFromForwardUp(localForward, localUp);
+
+                        comp.Obb.Center = localCentre;
+                        comp.Obb.Orientation = orientation;
+                        comp.Obb.HalfExtent = toolValues.HalfExtent;
+
+                        var box = comp.Obb.GetAABB();
+                        minExtent = Vector3I.Round(localCentre - box.HalfExtents);
+                        maxExtent = Vector3I.Round(localCentre + box.HalfExtents);
+                    }
+                    else
+                    {
+                        var drillRadius = toolValues.BoundingRadius;
+                        minExtent = Vector3I.Round(localCentre - drillRadius);
+                        maxExtent = Vector3I.Round(localCentre + drillRadius);
+                    }
 
                     var size = voxel.Storage.Size;
                     var min = Vector3I.Max(minExtent, Vector3I.Zero);
                     var max = Vector3I.Min(maxExtent, size);
-                    //MyAPIGateway.Utilities.ShowNotification($"{localCentre.ToString("N1")} : {min} : {max} : {size}", 16);
+
+                    if (def.Debug)
+                    {
+                        var offset = (voxel as MyVoxelBase).SizeInMetresHalf;
+                        var drawBox = new BoundingBoxD((Vector3D)min - offset, (Vector3D)max - offset);
+                        var drawObb = new MyOrientedBoundingBoxD(drawBox, voxel.PositionComp.LocalMatrixRef);
+                        DrawBox(drawObb, Color.IndianRed, false, 4, 0.005f);
+                    }
 
                     ToolComp.Drills data;
                     switch (def.EffectShape)
@@ -451,6 +478,15 @@ namespace ToolCore.Session
                             data.Origin = localCentre;
                             data.Direction = localForward;
                             MyAPIGateway.Parallel.StartBackground(comp.DrillCylinder, comp.OnDrillComplete);
+                            break;
+                        case EffectShape.Cuboid:
+                            data = comp.DrillData;
+                            data.Voxel = voxel;
+                            data.Min = min;
+                            data.Max = max;
+                            data.Origin = localCentre;
+                            data.Direction = localForward;
+                            MyAPIGateway.Parallel.StartBackground(comp.DrillCuboid, comp.OnDrillComplete);
                             break;
                         case EffectShape.Line:
                             data = comp.DrillData;
@@ -497,18 +533,17 @@ namespace ToolCore.Session
 
                         comp.Obb.Center = localCentre;
                         comp.Obb.Orientation = orientation;
+                        comp.Obb.HalfExtent = toolValues.HalfExtent * gridSizeR;
 
                         var box = comp.Obb.GetAABB();
 
                         minExtent = localCentre - box.HalfExtents;
                         maxExtent = localCentre + box.HalfExtents;
 
-                        if (comp.Definition.Debug)
+                        if (def.Debug)
                         {
-                            var obb = comp.Obb;
-                            obb.Center = localCentre * grid.GridSize;
-                            obb.HalfExtent = toolValues.HalfExtent;
-                            var drawBox = obb.GetAABB();
+                            var gridSize = grid.GridSize;
+                            var drawBox = new BoundingBoxD(minExtent * gridSize, maxExtent * gridSize);
                             var drawObb = new MyOrientedBoundingBoxD(drawBox, grid.PositionComp.LocalMatrixRef);
                             DrawBox(drawObb, Color.CornflowerBlue, false, 4, 0.005f);
                         }

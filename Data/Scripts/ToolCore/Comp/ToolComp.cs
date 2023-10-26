@@ -160,6 +160,9 @@ namespace ToolCore.Comp
                 return;
             }
 
+            if (!HitInfo.IsValid)
+                return;
+
             UpdateState(Trigger.RayHit, false);
             HitInfo.IsValid = false;
         }
