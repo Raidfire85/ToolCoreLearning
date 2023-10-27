@@ -109,24 +109,21 @@ namespace ToolCore.Session
             }
 
             var toolValues = comp.Values;
-            var sphere = def.EffectSphere;
-            sphere.Center = worldPos;
-            sphere.Radius = toolValues.Radius;
 
             MatrixD drawMatrix;
             switch (def.EffectShape)
             {
                 case EffectShape.Sphere:
                     drawMatrix = MatrixD.CreateWorld(worldPos, worldForward, worldUp);
-                    DrawSphere(drawMatrix, sphere.Radius, Color.LawnGreen, false, 20, 0.01f);
+                    DrawSphere(drawMatrix, toolValues.Radius, Color.LawnGreen, false, 20, 0.01f);
                     break;
                 case EffectShape.Cylinder:
                     drawMatrix = MatrixD.CreateWorld(worldPos, worldUp, worldForward);
                     DrawCylinder(drawMatrix, toolValues.Radius, toolValues.Length, Color.LawnGreen);
                     break;
                 case EffectShape.Cuboid:
-                    drawMatrix = MatrixD.CreateWorld(worldPos, worldForward, worldUp);
-                    var obb = new MyOrientedBoundingBoxD(def.EffectBox, drawMatrix);
+                    var quat = Quaternion.CreateFromForwardUp(worldForward, worldUp);
+                    var obb = new MyOrientedBoundingBoxD(worldPos, toolValues.HalfExtent, quat);
                     DrawBox(obb, Color.LawnGreen, false, 5, 0.005f);
                     break;
                 case EffectShape.Line:
