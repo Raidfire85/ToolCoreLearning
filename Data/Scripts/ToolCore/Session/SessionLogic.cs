@@ -29,6 +29,7 @@ using ToolCore.Comp;
 using ToolCore.Utils;
 using static ToolCore.Utils.Draw;
 using static ToolCore.Utils.Utils;
+using Sandbox.Game.Weapons;
 
 namespace ToolCore.Session
 {
@@ -756,35 +757,46 @@ namespace ToolCore.Session
                 _startBlocks.ApplyAdditions();
                 for (int i = 0; i < _startBlocks.Count; i++)
                 {
-                    var block = _startBlocks[i];
+                    var entity = _startBlocks[i];
 
-                    if (block?.CubeGrid?.Physics == null || block.CubeGrid.IsPreview)
-                        continue;
-
-                    GridComp gridComp;
-                    if (!GridMap.TryGetValue(block.CubeGrid, out gridComp))
-                        continue;
-
-                    var tool = block as IMyConveyorSorter;
-                    if (tool != null)
+                    if (entity is MyCubeBlock)
                     {
-                        var def = DefinitionMap[tool.BlockDefinition];
-                        var comp = new ToolComp(tool, def, this);
-                        ToolMap[block.EntityId] = comp;
-                        comp.Init();
-                        ((IMyCubeGrid)gridComp.Grid).WeaponSystem.Register(comp.GunBase);
-                        gridComp.FatBlockAdded(tool as MyCubeBlock);
+                        var block = (MyCubeBlock)entity;
+
+                        if (block?.CubeGrid?.Physics == null || block.CubeGrid.IsPreview)
+                            continue;
+
+                        GridComp gridComp;
+                        if (!GridMap.TryGetValue(block.CubeGrid, out gridComp))
+                            continue;
+
+                        var tool = block as IMyConveyorSorter;
+                        if (tool != null)
+                        {
+                            var def = DefinitionMap[tool.BlockDefinition];
+                            var comp = new ToolComp(tool, def, this);
+                            ToolMap[block.EntityId] = comp;
+                            comp.Init();
+                            ((IMyCubeGrid)gridComp.Grid).WeaponSystem.Register(comp.GunBase);
+                            gridComp.FatBlockAdded(block);
+
+                            continue;
+                        }
+
+                        //var controller = block as MyShipController;
+                        //if (controller != null)
+                        //{
+                        //    var control = new Control(controller);
+                        //    gridComp.Controllers.TryAdd(controller, control);
+                        //}
 
                         continue;
                     }
 
-                    //var controller = block as MyShipController;
-                    //if (controller != null)
-                    //{
-                    //    var control = new Control(controller);
-                    //    gridComp.Controllers.TryAdd(controller, control);
-                    //}
+                    if (entity is IMyGunObject<MyToolBase>)
+                    {
 
+                    }
                 }
                 _startBlocks.ClearImmediate();
             }

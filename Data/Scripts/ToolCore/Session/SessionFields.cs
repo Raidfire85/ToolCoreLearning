@@ -39,12 +39,12 @@ namespace ToolCore.Session
 
         private readonly HashSet<MyCubeGrid> _controlledGrids = new HashSet<MyCubeGrid>();
 
-        private readonly ConcurrentCachingList<MyCubeBlock> _startBlocks = new ConcurrentCachingList<MyCubeBlock>();
+        private readonly ConcurrentCachingList<MyEntity> _startBlocks = new ConcurrentCachingList<MyEntity>();
         private readonly ConcurrentCachingList<MyCubeGrid> _startGrids = new ConcurrentCachingList<MyCubeGrid>();
 
         internal readonly Dictionary<SerializableDefinitionId, ToolDefinition> DefinitionMap = new Dictionary<SerializableDefinitionId, ToolDefinition>();
-        internal readonly Dictionary<MyStringHash, Dictionary<MyStringHash, string>> ParticleMap = new Dictionary<MyStringHash, Dictionary<MyStringHash, string>>();
-        internal readonly Dictionary<MyStringHash, Dictionary<MyStringHash, MySoundPair>> SoundMap = new Dictionary<MyStringHash, Dictionary<MyStringHash, MySoundPair>>();
+        internal readonly Dictionary<string, Dictionary<MyStringHash, string>> ParticleMap = new Dictionary<string, Dictionary<MyStringHash, string>>();
+        internal readonly Dictionary<string, Dictionary<MyStringHash, MySoundPair>> SoundMap = new Dictionary<string, Dictionary<MyStringHash, MySoundPair>>();
 
         internal readonly List<GridComp> GridList = new List<GridComp>();
         internal readonly ConcurrentDictionary<IMyCubeGrid, GridComp> GridMap = new ConcurrentDictionary<IMyCubeGrid, GridComp>();

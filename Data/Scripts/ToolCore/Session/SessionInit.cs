@@ -59,6 +59,7 @@ namespace ToolCore.Session
         internal void LoadPhysicalMaterial(MyPhysicalMaterialDefinition def)
         {
             var start = MyStringId.GetOrCompute("Start");
+            var hit = MyStringId.GetOrCompute("Hit");
             Dictionary<MyStringHash, MyPhysicalMaterialDefinition.CollisionProperty> materialProperties;
             if (!def.CollisionProperties.TryGetValue(start, out materialProperties))
                 return;
@@ -71,8 +72,8 @@ namespace ToolCore.Session
                 pMap.Add(material, cProp.ParticleEffect);
                 sMap.Add(material, cProp.Sound);
             }
-            ParticleMap.Add(def.Id.SubtypeId, pMap);
-            SoundMap.Add(def.Id.SubtypeId, sMap);
+            ParticleMap.Add(def.Id.SubtypeName, pMap);
+            SoundMap.Add(def.Id.SubtypeName, sMap);
             Logs.WriteLine($"Added {pMap.Count} material properties for material {def.Id.SubtypeName}");
         }
 

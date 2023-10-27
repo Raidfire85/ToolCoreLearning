@@ -38,7 +38,6 @@ namespace ToolCore.Session
             var tool = entity as IMyConveyorSorter;
             if (tool != null && DefinitionMap.ContainsKey(tool.BlockDefinition))
             {
-                Logs.WriteLine("AAA");
                 var cube = tool as MyCubeBlock;
                 cube.AddedToScene += addToStart => _startBlocks.Add(cube);
             }
@@ -94,7 +93,6 @@ namespace ToolCore.Session
         {
             if (player.IdentityId == id)
             {
-                Logs.WriteLine($"Player found - {id}");
                 PlayerMap.TryAdd(id, player);
 
                 var controller = player.Controller;
@@ -117,7 +115,6 @@ namespace ToolCore.Session
         {
             try
             {
-                Logs.WriteLine("OnPlayerController()");
                 GridComp gridComp;
                 var exitEntity = exitController as MyEntity;
                 if (exitEntity != null && enterController?.ControllerInfo != null)
@@ -141,7 +138,6 @@ namespace ToolCore.Session
                     {
                         if (GridMap.TryGetValue(controller.CubeGrid, out gridComp))
                         {
-                            Logs.WriteLine("OnPlayerController() success");
                             gridComp.UnderControl = true;
                             //gridComp.ActiveControl = gridComp.Controllers[controller];
                         }

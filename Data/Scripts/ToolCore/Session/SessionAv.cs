@@ -145,24 +145,21 @@ namespace ToolCore.Session
 
                     var renderId = pEffect.Parent.Render.GetRenderObjectID();
                     MyParticleEffect myParticle;
-                    if (!MyParticlesManager.TryCreateParticleEffect(def.Name, ref matrix, ref position, renderId, out myParticle))
+
+                    var name = def.Lookup ? def.ParticleMap[hit.Material] : def.Name;
+
+                    if (!MyParticlesManager.TryCreateParticleEffect(name, ref matrix, ref position, renderId, out myParticle))
                         continue;
 
-                    if (def.Loop)
+                    if (myParticle.Loop)
                     {
                         pEffect.Particle = myParticle;
                     }
                     continue;
                 }
 
-                if (def.Loop)
+                if (pEffect.Particle != null)
                 {
-                    if (pEffect.Particle == null)
-                    {
-                        Logs.WriteLine($"MyParticleEffect '{def.Name}' null in particle loop!");
-                        continue;
-                    }
-
                     pEffect.Particle.WorldMatrix = matrix;
                 }
 
@@ -254,7 +251,8 @@ namespace ToolCore.Session
                     //Logs.WriteLine("Stopping sound");
                 }
 
-                emitter.PlaySound(sound.SoundPair);
+                var soundPair = sound.Lookup ? sound.SoundMap[comp.HitInfo.Material] : sound.SoundPair;
+                emitter.PlaySound(soundPair);
                 //Logs.WriteLine("Playing sound");
             }
 

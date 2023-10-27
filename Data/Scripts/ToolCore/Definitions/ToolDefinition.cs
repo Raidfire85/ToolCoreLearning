@@ -147,14 +147,14 @@ namespace ToolCore.Definitions
                 Offset = particleEffect.Offset;
                 Loop = particleEffect.Loop;
 
-                if (!Name.StartsWith("MaterialProperties"))
+                if (!Name.StartsWith("MaterialProperties/"))
                     return;
 
-                var material = Name.Substring(19);
-                Logs.WriteLine(material);
+                Name = Name.Substring(19);
+                Logs.WriteLine(Name);
 
-                var mHash = MyStringHash.GetOrCompute(material);
-                Lookup = session.ParticleMap.TryGetValue(mHash, out ParticleMap);
+                Lookup = session.ParticleMap.TryGetValue(Name, out ParticleMap);
+                if (!Lookup) Logs.WriteLine("No particle effect map found for material " + Name);
             }
         }
 
@@ -190,17 +190,17 @@ namespace ToolCore.Definitions
             {
                 Name = sound.Name;
 
-                if (!Name.StartsWith("MaterialProperties"))
+                if (!Name.StartsWith("MaterialProperties/"))
                 {
                     SoundPair = new MySoundPair(Name, false);
                     return;
                 }
 
-                var material = Name.Substring(19);
-                Logs.WriteLine(material);
+                Name = Name.Substring(19);
+                Logs.WriteLine(Name);
 
-                var mHash = MyStringHash.GetOrCompute(material);
-                Lookup = session.SoundMap.TryGetValue(mHash, out SoundMap);
+                Lookup = session.SoundMap.TryGetValue(Name, out SoundMap);
+                if (!Lookup) Logs.WriteLine("No sound map found for material " + Name);
             }
         }
 

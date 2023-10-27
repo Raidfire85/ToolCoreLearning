@@ -14,6 +14,7 @@ using ToolCore.Utils;
 using Sandbox.Game.Entities;
 using VRage.Game.ObjectBuilders.Components;
 using static ToolCore.Utils.Utils;
+using Sandbox.ModAPI;
 
 namespace ToolCore.Comp
 {
@@ -60,7 +61,7 @@ namespace ToolCore.Comp
 
         public bool EnabledInWorldRules
         {
-            get { return true; }
+            get { return MyAPIGateway.Session.WeaponsEnabled; }
         }
 
         public MyToolBase GunBase
