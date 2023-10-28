@@ -25,13 +25,14 @@ namespace ToolCore.Definitions
         internal readonly EffectShape EffectShape;
         internal WorkOrder Pattern;
         internal Location Location;
+        internal Vector3D Offset;
         internal string EmitterName;
+        internal int UpdateInterval;
+        internal float ActivePower;
+        internal float IdlePower;
         internal bool Turret;
         internal bool AffectOwnGrid;
         internal bool Debug;
-        internal Vector3D Offset;
-        internal float ActivePower;
-        internal float IdlePower;
 
         //Shape dimensions
         //internal Vector3D HalfExtent;
@@ -42,11 +43,11 @@ namespace ToolCore.Definitions
         //internal float SegmentLength;
         //internal float BoundingRadius;
 
-        internal BoundingSphereD EffectSphere;
-        internal BoundingBox EffectBox;
-
         //internal float Speed;
         //internal float HarvestRatio;
+
+        internal BoundingSphereD EffectSphere;
+        internal BoundingBox EffectBox;
 
         internal readonly List<ToolComp.ToolMode> ToolModes = new List<ToolComp.ToolMode>();
         internal readonly List<ToolComp.ToolAction> ToolActions = new List<ToolComp.ToolAction>();
@@ -210,13 +211,15 @@ namespace ToolCore.Definitions
             EffectShape = values.EffectShape;
             Pattern = values.WorkOrder;
             Location = values.WorkOrigin;
-            EmitterName = values.Emitter;
-            Turret = values.Turret;
-            AffectOwnGrid = values.AffectOwnGrid;
-            Debug = !session.IsDedicated && values.Debug;
             Offset = values.Offset;
+            EmitterName = values.Emitter;
+            UpdateInterval = values.UpdateInterval;
             ActivePower = values.ActivePower;
             IdlePower = values.IdlePower;
+            //Turret = values.Turret;
+            AffectOwnGrid = values.AffectOwnGrid;
+            Debug = !session.IsDedicated && values.Debug;
+
 
             if ((ToolType & ToolType.Drill) > 0)
                 ToolModes.Add(ToolComp.ToolMode.Drill);

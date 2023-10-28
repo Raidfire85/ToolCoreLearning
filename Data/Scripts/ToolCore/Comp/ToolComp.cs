@@ -84,6 +84,7 @@ namespace ToolCore.Comp
         internal bool Draw = true;
         internal bool Debug = true;
 
+        internal int WorkTick;
         internal int CompTick10;
         internal int CompTick20;
         internal int CompTick60;
@@ -439,6 +440,7 @@ namespace ToolCore.Comp
             if (hasSound)
                 SoundEmitter = new MyEntity3DSoundEmitter(Tool as MyEntity);
 
+            WorkTick = (int)(Tool.EntityId % def.UpdateInterval);
             CompTick10 = (int)(Tool.EntityId % 10);
             CompTick20 = (int)(Tool.EntityId % 20);
             CompTick60 = (int)(Tool.EntityId % 60);

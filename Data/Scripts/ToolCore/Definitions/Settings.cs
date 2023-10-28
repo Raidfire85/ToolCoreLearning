@@ -21,12 +21,10 @@ namespace ToolCore.Definitions
         internal ToolCoreSettings CoreSettings;
 
         internal readonly Dictionary<string, float> CategoryModifiers = new Dictionary<string, float>();
-        internal readonly Dictionary<MyVoxelMaterialDefinition, float> MaterialModifiers = new Dictionary<MyVoxelMaterialDefinition, float>();
 
         internal void Clean()
         {
             CategoryModifiers.Clear();
-            MaterialModifiers.Clear();
         }
 
         internal void LoadConfig()

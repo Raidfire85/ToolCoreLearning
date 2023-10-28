@@ -31,15 +31,15 @@ namespace ToolCore.Definitions.Serialised
         public SerializableVector3 HalfExtent = new Vector3(1f, 1f, 1f); //Cuboid
         public float Radius = 1f; //Sphere, Cylinder
         public float Length = 1f; //Cylinder, Line
+        public float Speed = 1f;
+        public float HarvestRatio = 1f;
+        public int UpdateInterval = 20;
 
         public float IdlePower = 0f;
         public float ActivePower = 1f;
-        public float Speed = 1f;
-        public float HarvestRatio = 1f;
-        public int UpdateInterval = 10;
 
         public bool AffectOwnGrid = false;
-        public bool Turret = false;
+        //public bool Turret = false;
         public bool Debug = false;
 
         [XmlElement("Action")]
@@ -48,7 +48,7 @@ namespace ToolCore.Definitions.Serialised
         [XmlElement("Event")]
         public Event[] Events;
 
-        public Material[] MaterialSpecificModifiers;
+        public MaterialModifiers[] MaterialSpecificModifiers;
     }
 
     public enum ToolType
@@ -151,16 +151,16 @@ namespace ToolCore.Definitions.Serialised
         public Location Location;
         public string Dummy;
         public SerializableVector3 Offset = Vector3.Zero;
-        public bool Loop;
+        public bool Loop; //deprecate?
     }
 
     public class Beam
     {
         public string Start;
         public string End;
-        public string Material;
-        public float Width = 1f;
-        public Vector4 Color = Vector4.One * 255;
+        public string Material = "WeaponLaser";
+        public float Width = 0.5f;
+        public Vector4 Color = new Vector4(255, 255, 255, 1000);
     }
 
     public class Sound
@@ -176,10 +176,10 @@ namespace ToolCore.Definitions.Serialised
         Unhide = 3,
     }
 
-    public class Material
+    public class MaterialModifiers
     {
+        [XmlAttribute]
         public string Category;
-        public string SubtypeId;
         public float Speed;
         public float HarvestRatio;
     }
@@ -194,10 +194,10 @@ namespace ToolCore.Definitions.Serialised
         [ProtoMember(1)] public int Version = 0;
         [ProtoMember(2)] public MaterialData[] Materials = new MaterialData[]
         {
-            new MaterialData { Category = "Snow", Hardness = 0.2f },
-            new MaterialData { Category = "Sand", Hardness = 0.4f },
-            new MaterialData { Category = "Soil", Hardness = 0.6f },
-            new MaterialData { Category = "Grass", Hardness = 0.6f },
+            new MaterialData { Category = "Sand", Hardness = 0.5f },
+            new MaterialData { Category = "Snow", Hardness = 0.6f },
+            new MaterialData { Category = "Soil", Hardness = 0.7f },
+            new MaterialData { Category = "Grass", Hardness = 0.7f },
             new MaterialData { Category = "Ice", Hardness = 0.8f },
             new MaterialData { Category = "Rock", Hardness = 1f },
             new MaterialData { Category = "Ore", Hardness = 1f },

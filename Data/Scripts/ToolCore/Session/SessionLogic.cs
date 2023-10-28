@@ -168,8 +168,8 @@ namespace ToolCore.Session
 
         private void UpdateTool(ToolComp comp, GridComp gridComp)
         {
-            //if (!Tick10) continue;
-            var compTick10 = comp.CompTick10 == TickMod10;
+            var def = comp.Definition;
+            var workTick = comp.WorkTick == Tick % def.UpdateInterval;
 
             var tool = comp.Tool;
             var parentGrid = gridComp.Grid;
@@ -178,7 +178,6 @@ namespace ToolCore.Session
             {
                 comp.Functional = tool.IsFunctional;
                 comp.UpdateState(Trigger.Functional, tool.IsFunctional);
-                Logs.WriteLine("AAA");
                 comp.Dirty = true;
             }
 
@@ -191,7 +190,7 @@ namespace ToolCore.Session
             {
                 var wasPowered = comp.Powered;
                 var isPowered = comp.IsPowered();
-                if (comp.UpdatePower) Logs.WriteLine($"UpdatePower: {wasPowered} : {isPowered}");
+                //if (comp.UpdatePower) Logs.WriteLine($"UpdatePower: {wasPowered} : {isPowered}");
                 if (wasPowered != isPowered)
                 {
                     comp.UpdateState(Trigger.Powered, comp.Powered);
@@ -251,7 +250,6 @@ namespace ToolCore.Session
                 //}
             }
 
-            var def = comp.Definition;
             var pos = tool.PositionComp;
             var toolMatrix = pos.WorldMatrixRef;
 
@@ -292,7 +290,7 @@ namespace ToolCore.Session
 
             // Initial raycast?
             IHitInfo hitInfo = null;
-            if (!IsDedicated || compTick10 && def.EffectShape == EffectShape.Ray)
+            if (!IsDedicated || workTick && def.EffectShape == EffectShape.Ray)
             {
                 MyAPIGateway.Physics.CastRay(worldPos, worldPos + worldForward * toolValues.Length, out hitInfo);
                 if (hitInfo?.HitEntity != null)
@@ -320,7 +318,7 @@ namespace ToolCore.Session
                 else comp.UpdateHitInfo(false);
             }
 
-            if (!compTick10)// || !IsServer)
+            if (!workTick)// || !IsServer)
                 return;
 
             if (comp.Mode == ToolComp.ToolMode.Drill && comp.ActiveDrillThreads > 0)

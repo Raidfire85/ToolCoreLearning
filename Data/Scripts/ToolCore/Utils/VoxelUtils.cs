@@ -179,7 +179,7 @@ namespace ToolCore
                         }
 
                         var voxelDef = MyDefinitionManager.Static.GetVoxelMaterialDefinition(material);
-                        var hardness = (voxelDef != null) ? session.Settings.MaterialModifiers[voxelDef] : 1f;
+                        var hardness = (voxelDef != null) ? session.MaterialModifiers[voxelDef] : 1f;
                         var effectiveContent = MathHelper.CeilToInt(content * hardness);
                         maxContent = Math.Max(maxContent, effectiveContent);
 
@@ -365,8 +365,6 @@ namespace ToolCore
                         content = data.Content(index);
                         material = data.Material(index);
 
-                        if (content > maxContent) maxContent = content;
-
                         var removal = Math.Min(reduction, 255);
 
                         var limit = 1f;
@@ -400,6 +398,10 @@ namespace ToolCore
                         var newContent = removal >= content ? 0 : content - removal;
 
                         var voxelDef = MyDefinitionManager.Static.GetVoxelMaterialDefinition(material);
+                        var hardness = (voxelDef != null) ? session.MaterialModifiers[voxelDef] : 1f;
+                        var effectiveContent = MathHelper.CeilToInt(content * hardness);
+                        maxContent = Math.Max(maxContent, effectiveContent);
+
                         if (toolValues.HarvestRatio > 0 && comp.Session.IsServer && voxelDef != null && voxelDef.CanBeHarvested && !string.IsNullOrEmpty(voxelDef.MinedOre))
                         {
                             var oreOb = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>(voxelDef.MinedOre);
@@ -629,11 +631,14 @@ namespace ToolCore
                                 removal = (int)(removal * density) + leftover;
                             }
                             removal = MathHelper.Clamp(removal, 0, content);
-                            comp.Hitting |= removal > 0;
                             var newContent = content - removal;
-                            if (removal > maxContent) maxContent = removal;
+                            comp.Hitting |= removal > 0;
 
                             var voxelDef = MyDefinitionManager.Static.GetVoxelMaterialDefinition(material);
+                            var hardness = (voxelDef != null) ? session.MaterialModifiers[voxelDef] : 1f;
+                            var effectiveContent = MathHelper.CeilToInt(content * hardness);
+                            maxContent = Math.Max(maxContent, effectiveContent);
+
                             if (toolValues.HarvestRatio > 0 && comp.Session.IsServer && voxelDef != null && voxelDef.CanBeHarvested && !string.IsNullOrEmpty(voxelDef.MinedOre))
                             {
                                 var oreOb = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>(voxelDef.MinedOre);
@@ -667,38 +672,6 @@ namespace ToolCore
 
             session.DsUtil2.Complete("total", true, true);
 
-        }
-
-        private static float Overlap(Vector3D min, int slices, MyOrientedBoundingBoxD obb)
-        {
-            var increment = 1.0 / slices;
-            var edge = increment / 2.0;
-
-            min += edge;
-
-            Vector3D pos;
-            var contained = 0;
-            for (int i = 0; i < slices; i++)
-            {
-                pos.X = min.X + (i * increment);
-                for (int j = 0; j < slices; j++)
-                {
-                    pos.Y = min.Y + (j * increment);
-                    for (int k = 0; k < slices; k++)
-                    {
-                        pos.Z = min.Z + (k * increment);
-
-                        if (obb.Contains(ref pos))
-                            contained++;
-                    }
-                }
-            }
-
-            var total = Math.Pow(slices, 3);
-            var halfUnit = (1 / total) / 2;
-            var fraction = contained / total;
-
-            return (float)MathHelper.Clamp(fraction, halfUnit, 1 - halfUnit);
         }
 
         internal static void DrillCuboid(this ToolComp comp)
@@ -844,7 +817,7 @@ namespace ToolCore
                             }
 
                             var voxelDef = MyDefinitionManager.Static.GetVoxelMaterialDefinition(material);
-                            var hardness = (voxelDef != null) ? session.Settings.MaterialModifiers[voxelDef] : 1f;
+                            var hardness = (voxelDef != null) ? session.MaterialModifiers[voxelDef] : 1f;
                             var effectiveContent = MathHelper.CeilToInt(content * hardness);
                             maxContent = Math.Max(maxContent, effectiveContent);
 
@@ -896,6 +869,38 @@ namespace ToolCore
             {
                 Logs.LogException(ex);
             }
+        }
+
+        private static float Overlap(Vector3D min, int slices, MyOrientedBoundingBoxD obb)
+        {
+            var increment = 1.0 / slices;
+            var edge = increment / 2.0;
+
+            min += edge;
+
+            Vector3D pos;
+            var contained = 0;
+            for (int i = 0; i < slices; i++)
+            {
+                pos.X = min.X + (i * increment);
+                for (int j = 0; j < slices; j++)
+                {
+                    pos.Y = min.Y + (j * increment);
+                    for (int k = 0; k < slices; k++)
+                    {
+                        pos.Z = min.Z + (k * increment);
+
+                        if (obb.Contains(ref pos))
+                            contained++;
+                    }
+                }
+            }
+
+            var total = Math.Pow(slices, 3);
+            var halfUnit = (1 / total) / 2;
+            var fraction = contained / total;
+
+            return (float)MathHelper.Clamp(fraction, halfUnit, 1 - halfUnit);
         }
     }
 }

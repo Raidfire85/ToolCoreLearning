@@ -85,7 +85,7 @@ namespace ToolCore.Session
             var restitution = def.Restitution;
             if (restitution != 1 && restitution > 0)
             {
-                Settings.MaterialModifiers.Add(def, restitution);
+                MaterialModifiers.Add(def, restitution);
                 return;
             }
 
@@ -93,7 +93,7 @@ namespace ToolCore.Session
             float hardness;
             if (isOre && categories.TryGetValue("Ore", out hardness))
             {
-                Settings.MaterialModifiers.Add(def, hardness);
+                MaterialModifiers.Add(def, hardness);
                 return;
             }
 
@@ -102,12 +102,12 @@ namespace ToolCore.Session
                 if (!materialName.Contains(category))
                     continue;
 
-                Settings.MaterialModifiers.Add(def, categories[category]);
+                MaterialModifiers.Add(def, categories[category]);
                 return;
             }
 
             if (categories.TryGetValue("Rock", out hardness))
-                Settings.MaterialModifiers.Add(def, hardness);
+                MaterialModifiers.Add(def, hardness);
         }
 
         internal void LoadToolCoreDefs()
