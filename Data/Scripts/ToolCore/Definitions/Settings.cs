@@ -23,6 +23,17 @@ namespace ToolCore.Definitions
             CategoryModifiers.Clear();
         }
 
+        internal void LoadSettings(ToolCoreSettings settings)
+        {
+            Logs.WriteLine("Loaded server config.");
+            for (int i = 0; i < settings.Materials.Length; i++)
+            {
+                var data = settings.Materials[i];
+                CategoryModifiers.Add(data.Category, data.Hardness);
+            }
+            Logs.WriteLine($"Loaded {CategoryModifiers.Count} material categories.");
+        }
+
         internal void LoadConfig()
         {
             try
@@ -71,12 +82,7 @@ namespace ToolCore.Definitions
                 Logs.LogException(ex);
             }
 
-            for (int i = 0; i < CoreSettings.Materials.Length; i++)
-            {
-                var data = CoreSettings.Materials[i];
-                CategoryModifiers.Add(data.Category, data.Hardness);
-            }
-            Logs.WriteLine($"Found {CategoryModifiers.Count} categories");
+            LoadSettings(CoreSettings);
         }
 
         private void GenerateConfig(ToolCoreSettings oldSettings = null)

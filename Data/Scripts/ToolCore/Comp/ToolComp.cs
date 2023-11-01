@@ -601,7 +601,7 @@ namespace ToolCore.Comp
             base.OnAddedToScene();
 
             if (!MyAPIGateway.Session.IsServer)
-                Session.Networking.SendPacketToServer(new ReplicationPacket { EntityId = Tool.EntityId, Add = true, Type = (byte)PacketType.Replicate });
+                Session.Networking.SendPacketToServer(new ReplicationPacket { EntityId = Tool.EntityId, Add = true, PacketType = (byte)PacketType.Replicate });
         }
 
         public override void OnBeforeRemovedFromContainer()
@@ -636,7 +636,7 @@ namespace ToolCore.Comp
                 GetShowInToolbarSwitch();
 
             if (!MyAPIGateway.Session.IsServer)
-                Session.Networking.SendPacketToServer(new ReplicationPacket { EntityId = Tool.EntityId, Add = true, Type = (byte)PacketType.Replicate });
+                Session.Networking.SendPacketToServer(new ReplicationPacket { EntityId = Tool.EntityId, Add = true, PacketType = (byte)PacketType.Replicate });
         }
 
         private void SinkInit()
@@ -872,7 +872,7 @@ namespace ToolCore.Comp
             Tool.IsWorkingChanged -= IsWorkingChanged;
 
             if (!MyAPIGateway.Session.IsServer)
-                Session.Networking.SendPacketToServer(new ReplicationPacket { EntityId = Tool.EntityId, Add = false, Type = (byte)PacketType.Replicate });
+                Session.Networking.SendPacketToServer(new ReplicationPacket { EntityId = Tool.EntityId, Add = false, PacketType = (byte)PacketType.Replicate });
 
             Clean();
         }

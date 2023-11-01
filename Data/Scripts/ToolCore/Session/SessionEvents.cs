@@ -87,11 +87,10 @@ namespace ToolCore.Session
                     OnPlayerController(null, controller.ControlledEntity);
                 }
 
-                // Send enforcement
-                //if (IsServer)
-                //{
-                //    SendServerStartup(player.SteamUserId);
-                //}
+                if (IsServer)
+                {
+                    Networking.SendServerConfig(player.SteamUserId);
+                }
             }
             return false;
         }

@@ -2,7 +2,9 @@
 using Sandbox.ModAPI;
 using System;
 using System.Collections.Generic;
+using System.Net.Configuration;
 using ToolCore.Comp;
+using ToolCore.Definitions;
 using ToolCore.Utils;
 
 namespace ToolCore.Session
@@ -51,7 +53,7 @@ namespace ToolCore.Session
                 }
 
                 var comp = packet.EntityId == 0 ? null : Session.ToolMap[packet.EntityId];
-                switch ((PacketType)packet.Type)
+                switch ((PacketType)packet.PacketType)
                 {
                     case PacketType.Update:
                         var uPacket = packet as UpdatePacket;
@@ -67,7 +69,7 @@ namespace ToolCore.Session
                         break;
                     case PacketType.Settings:
                         var sPacket = packet as SettingsPacket;
-                        //UpdateEnforcement(sPacket.Settings);
+                        Session.Settings.LoadSettings(sPacket.Settings);
                         break;
                     default:
                         Logs.WriteLine($"Invalid packet type - {packet.GetType()}");
@@ -81,7 +83,7 @@ namespace ToolCore.Session
 
         }
 
-        internal void UpdateComp(UpdatePacket packet, ToolComp comp)
+        private void UpdateComp(UpdatePacket packet, ToolComp comp)
         {
             switch ((FieldType)packet.Field)
             {
@@ -103,6 +105,17 @@ namespace ToolCore.Session
             }
         }
 
+        internal void SendServerConfig(ulong steamId)
+        {
+            var packet = new SettingsPacket()
+            {
+                EntityId = 0L,
+                PacketType = (byte)PacketType.Settings,
+                Settings = Session.Settings.CoreSettings
+            };
+            SendPacketToClient(packet, steamId);
+        }
+
     }
 
     [ProtoContract]
@@ -112,7 +125,7 @@ namespace ToolCore.Session
     public class Packet
     {
         [ProtoMember(1)] internal long EntityId;
-        [ProtoMember(2)] internal byte Type;
+        [ProtoMember(2)] internal byte PacketType;
     }
 
     [ProtoContract]
@@ -124,7 +137,7 @@ namespace ToolCore.Session
         public UpdatePacket(long entityId, FieldType field, int value)
         {
             EntityId = entityId;
-            Type = (byte)PacketType.Update;
+            PacketType = (byte)Session.PacketType.Update;
             Field = (byte)field;
             Value = (byte)value;
         }
@@ -144,7 +157,7 @@ namespace ToolCore.Session
     [ProtoContract]
     public class SettingsPacket : Packet
     {
-        //[ProtoMember(1)] internal StealthSettings Settings;
+        [ProtoMember(1)] internal ToolCoreSettings Settings;
     }
 
     public enum PacketType : byte
