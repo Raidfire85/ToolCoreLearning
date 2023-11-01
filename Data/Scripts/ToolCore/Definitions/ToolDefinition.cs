@@ -149,7 +149,6 @@ namespace ToolCore.Definitions
             internal readonly Location Location;
             internal readonly string Dummy;
             internal readonly Vector3 Offset;
-            internal readonly bool Loop;
             internal readonly bool Lookup;
 
             internal readonly Dictionary<MyStringHash, string> ParticleMap;
@@ -160,7 +159,6 @@ namespace ToolCore.Definitions
                 Location = particleEffect.Location;
                 Dummy = particleEffect.Dummy;
                 Offset = particleEffect.Offset;
-                Loop = particleEffect.Loop;
 
                 if (!Name.StartsWith("MaterialProperties/"))
                     return;

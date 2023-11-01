@@ -99,10 +99,11 @@ namespace ToolCore.Session
             {
                 var pEffect = particles[i];
                 var def = pEffect.Definition;
+                var exists = pEffect.Particle != null;
 
                 if (effects.Expired)
                 {
-                    if (def.Loop && pEffect.Particle != null)
+                    if (exists)
                     {
                         pEffect.Particle.Stop(false);
                         pEffect.Particle = null;
@@ -111,7 +112,7 @@ namespace ToolCore.Session
                 }
 
                 var create = effects.Restart || effects.LastActiveTick < Tick - 1;
-                if (!create && !def.Loop)
+                if (!create && !exists)
                     continue;
 
                 MatrixD matrix;
@@ -140,7 +141,7 @@ namespace ToolCore.Session
 
                 if (create)
                 {
-                    if (pEffect.Particle != null)
+                    if (exists)
                         continue;
 
                     var renderId = pEffect.Parent.Render.GetRenderObjectID();
@@ -158,7 +159,7 @@ namespace ToolCore.Session
                     continue;
                 }
 
-                if (pEffect.Particle != null)
+                if (exists)
                 {
                     pEffect.Particle.WorldMatrix = matrix;
                 }
