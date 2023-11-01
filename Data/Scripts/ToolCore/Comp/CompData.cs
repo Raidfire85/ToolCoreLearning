@@ -1,11 +1,4 @@
 ﻿using ProtoBuf;
-using Sandbox.ModAPI;
-using System;
-using VRage.Game.ModAPI;
-using VRage.ModAPI;
-using System.Collections.Generic;
-using VRageMath;
-using Sandbox.Game.Entities;
 
 namespace ToolCore.Comp
 {

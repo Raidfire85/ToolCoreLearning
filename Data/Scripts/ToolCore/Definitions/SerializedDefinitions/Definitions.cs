@@ -1,5 +1,4 @@
-﻿using ProtoBuf;
-using System;
+﻿using System;
 using System.Xml.Serialization;
 using VRage;
 using VRage.ObjectBuilders;
@@ -181,34 +180,6 @@ namespace ToolCore.Definitions.Serialised
         [XmlAttribute]
         public float HarvestRatio = 1f;
     }
-
-    #endregion
-
-    #region Settings
-
-    [ProtoContract]
-    public class ToolCoreSettings
-    {
-        [ProtoMember(1)] public int Version = 0;
-        [ProtoMember(2)] public MaterialData[] Materials = new MaterialData[]
-        {
-            new MaterialData { Category = "Sand", Hardness = 0.5f },
-            new MaterialData { Category = "Snow", Hardness = 0.6f },
-            new MaterialData { Category = "Soil", Hardness = 0.7f },
-            new MaterialData { Category = "Grass", Hardness = 0.7f },
-            new MaterialData { Category = "Ice", Hardness = 0.8f },
-            new MaterialData { Category = "Rock", Hardness = 1f },
-            new MaterialData { Category = "Ore", Hardness = 1f },
-        };
-
-        [ProtoContract]
-        public class MaterialData
-        {
-            [XmlAttribute][ProtoMember(1)] public string Category;
-            [XmlAttribute][ProtoMember(2)] public float Hardness;
-        }
-    }
-
 
     #endregion
 

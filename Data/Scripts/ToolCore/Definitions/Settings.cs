@@ -3,13 +3,9 @@ using Sandbox.ModAPI;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using ToolCore.Definitions.Serialised;
-using VRage.Game;
+using System.Xml.Serialization;
 using ToolCore.Utils;
-using static ToolCore.Definitions.Serialised.ToolCoreSettings;
+using static ToolCore.Definitions.ToolCoreSettings;
 
 namespace ToolCore.Definitions
 {
@@ -130,16 +126,7 @@ namespace ToolCore.Definitions
 
         private void RecreateMaterials()
         {
-            CoreSettings.Materials = new MaterialData[]
-            {
-                new MaterialData { Category = "Sand", Hardness = 0.5f },
-                new MaterialData { Category = "Snow", Hardness = 0.6f },
-                new MaterialData { Category = "Soil", Hardness = 0.7f },
-                new MaterialData { Category = "Grass", Hardness = 0.7f },
-                new MaterialData { Category = "Ice", Hardness = 0.8f },
-                new MaterialData { Category = "Rock", Hardness = 1f },
-                new MaterialData { Category = "Ore", Hardness = 1f },
-            };
+            CoreSettings.Materials = MaterialData.Default();
         }
 
         private void SaveConfig()
@@ -158,5 +145,38 @@ namespace ToolCore.Definitions
         }
 
     }
+
+    #region Settings
+
+    [ProtoContract]
+    public class ToolCoreSettings
+    {
+        [ProtoMember(1)] public int Version = 0;
+        [ProtoMember(2)] public MaterialData[] Materials = MaterialData.Default();
+
+        [ProtoContract]
+        public class MaterialData
+        {
+            [XmlAttribute][ProtoMember(1)] public string Category;
+            [XmlAttribute][ProtoMember(2)] public float Hardness;
+
+            public static MaterialData[] Default()
+            {
+                return new MaterialData[]
+                {
+                    new MaterialData { Category = "Sand", Hardness = 0.75f },
+                    new MaterialData { Category = "Snow", Hardness = 0.8f },
+                    new MaterialData { Category = "Grass", Hardness = 0.85f },
+                    new MaterialData { Category = "Soil", Hardness = 0.9f },
+                    new MaterialData { Category = "Ice", Hardness = 0.95f },
+                    new MaterialData { Category = "Rock", Hardness = 1f },
+                    new MaterialData { Category = "Ore", Hardness = 1f },
+                };
+            }
+        }
+    }
+
+
+    #endregion
 
 }

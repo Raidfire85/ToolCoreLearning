@@ -1,35 +1,20 @@
-﻿using Entities.Blocks;
-using ObjectBuilders.SafeZone;
-using Sandbox.Common.ObjectBuilders;
-using Sandbox.Definitions;
-using Sandbox.Engine.Physics;
-using Sandbox.Engine.Voxels;
-using Sandbox.Game;
+﻿using Sandbox.Definitions;
 using Sandbox.Game.Entities;
-using Sandbox.Game.Entities.Blocks;
-using Sandbox.Game.Entities.Cube;
-using Sandbox.Game.EntityComponents;
 using Sandbox.Game.WorldEnvironment;
 using Sandbox.ModAPI;
-using SpaceEngineers.Game.ModAPI;
 using System;
-using System.Collections.Generic;
+using ToolCore.Comp;
+using ToolCore.Definitions.Serialised;
+using ToolCore.Utils;
 using VRage.Game;
-using VRage.Game.Components;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
 using VRage.Game.ModAPI.Interfaces;
 using VRage.ModAPI;
-using VRage.ObjectBuilders;
 using VRage.Utils;
-using VRage.Voxels;
 using VRageMath;
-using ToolCore.Definitions.Serialised;
-using ToolCore.Comp;
-using ToolCore.Utils;
 using static ToolCore.Utils.Draw;
 using static ToolCore.Utils.Utils;
-using Sandbox.Game.Weapons;
 
 namespace ToolCore.Session
 {
@@ -151,16 +136,6 @@ namespace ToolCore.Session
             {
                 comp.WasHitting = hitting;
                 comp.UpdateState(Trigger.Hit, hitting);
-
-                if (drillDebug && !hitting)
-                {
-                    Logs.WriteLine("read: " + DsUtil.GetValue("read").ToString());
-                    Logs.WriteLine("sort: " + DsUtil.GetValue("sort").ToString());
-                    Logs.WriteLine("calc: " + DsUtil.GetValue("calc").ToString());
-                    Logs.WriteLine("write: " + DsUtil.GetValue("write").ToString());
-                    Logs.WriteLine("notify: " + DsUtil.GetValue("notify").ToString());
-                    DsUtil.Clean();
-                }
             }
 
             comp.Hitting = false;
@@ -183,8 +158,6 @@ namespace ToolCore.Session
 
             if (!comp.Functional)
                 return;
-
-            //MyAPIGateway.Utilities.ShowNotification(comp.Hitting.ToString() + " " + comp.WasHitting.ToString(), 16);
 
             if (comp.UpdatePower || comp.CompTick20 == TickMod20)
             {
@@ -792,10 +765,10 @@ namespace ToolCore.Session
                         continue;
                     }
 
-                    if (entity is IMyGunObject<MyToolBase>)
-                    {
+                    //if (entity is IMyGunObject<MyToolBase>)
+                    //{
 
-                    }
+                    //}
                 }
                 _startBlocks.ClearImmediate();
             }

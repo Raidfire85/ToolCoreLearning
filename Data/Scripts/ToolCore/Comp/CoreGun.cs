@@ -1,20 +1,13 @@
-﻿using Sandbox.Game.EntityComponents;
+﻿using Sandbox.Game.Entities;
 using Sandbox.Game.Weapons;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Sandbox.ModAPI;
 using ToolCore.Definitions.Serialised;
+using ToolCore.Utils;
 using VRage.Game;
 using VRage.Game.ModAPI;
 using VRage.Game.ModAPI.Interfaces;
 using VRageMath;
-using ToolCore.Utils;
-using Sandbox.Game.Entities;
-using VRage.Game.ObjectBuilders.Components;
 using static ToolCore.Utils.Utils;
-using Sandbox.ModAPI;
 
 namespace ToolCore.Comp
 {

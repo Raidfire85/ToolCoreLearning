@@ -1,31 +1,15 @@
-﻿using ObjectBuilders.SafeZone;
-using Sandbox.Common.ObjectBuilders;
-using Sandbox.Definitions;
-using Sandbox.Game;
+﻿using Sandbox.Definitions;
 using Sandbox.Game.Entities;
-using Sandbox.Game.Entities.Cube;
-using Sandbox.Game.GameSystems;
 using Sandbox.ModAPI;
-using Sandbox.ModAPI.Interfaces.Terminal;
-using SpaceEngineers.Game.ModAPI;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text;
-using VRage.Collections;
-using VRage.Game;
-using VRage.Game.Components;
-using VRage.Game.Entity;
-using VRage.Game.ModAPI;
-using VRage.Input;
-using VRage.ModAPI;
-using VRage.ObjectBuilders;
-using VRage.Utils;
-using VRageMath;
 using ToolCore.Definitions;
 using ToolCore.Definitions.Serialised;
 using ToolCore.Utils;
-using static ToolCore.Definitions.Serialised.ToolCoreSettings;
+using VRage.Game;
+using VRage.Game.ModAPI;
+using VRage.Utils;
 
 namespace ToolCore.Session
 {

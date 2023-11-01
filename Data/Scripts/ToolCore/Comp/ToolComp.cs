@@ -7,6 +7,10 @@ using Sandbox.ModAPI.Interfaces.Terminal;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using ToolCore.Definitions;
+using ToolCore.Definitions.Serialised;
+using ToolCore.Session;
+using ToolCore.Utils;
 using VRage;
 using VRage.Collections;
 using VRage.Game;
@@ -17,10 +21,6 @@ using VRage.ModAPI;
 using VRage.Utils;
 using VRage.Voxels;
 using VRageMath;
-using ToolCore.Definitions;
-using ToolCore.Definitions.Serialised;
-using ToolCore.Session;
-using ToolCore.Utils;
 using static ToolCore.Definitions.ToolDefinition;
 
 namespace ToolCore.Comp
@@ -616,7 +616,6 @@ namespace ToolCore.Comp
             if (Tool.Storage == null || Repo == null) return false;
 
             Repo.Sync(this);
-
             Tool.Storage[Session.CompDataGuid] = Convert.ToBase64String(MyAPIGateway.Utilities.SerializeToBinary(Repo));
 
             return false;
@@ -783,7 +782,7 @@ namespace ToolCore.Comp
                 UpdateState(Trigger.Hit, isHitting);
                 WasHitting = isHitting;
 
-                if (!isHitting)
+                if (Debug && !isHitting)
                 {
                     Logs.WriteLine("read: " + Session.DsUtil.GetValue("read").ToString());
                     Logs.WriteLine("sort: " + Session.DsUtil.GetValue("sort").ToString());

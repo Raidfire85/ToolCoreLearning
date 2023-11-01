@@ -1,13 +1,13 @@
 ﻿using Sandbox.Game.Entities;
 using System.Collections.Generic;
+using ToolCore.Comp;
+using ToolCore.Definitions.Serialised;
+using ToolCore.Session;
+using ToolCore.Utils;
 using VRage;
 using VRage.Game;
 using VRage.Utils;
 using VRageMath;
-using ToolCore.Session;
-using ToolCore.Comp;
-using ToolCore.Utils;
-using ToolCore.Definitions.Serialised;
 
 namespace ToolCore.Definitions
 {

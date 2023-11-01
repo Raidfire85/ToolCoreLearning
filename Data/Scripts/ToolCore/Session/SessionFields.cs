@@ -3,6 +3,10 @@ using Sandbox.Game.Entities;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using ToolCore.Comp;
+using ToolCore.Definitions;
+using ToolCore.Utils;
+using VRage;
 using VRage.Collections;
 using VRage.Game;
 using VRage.Game.Entity;
@@ -10,10 +14,6 @@ using VRage.Game.ModAPI;
 using VRage.ObjectBuilders;
 using VRage.Utils;
 using VRageMath;
-using ToolCore.Comp;
-using ToolCore.Definitions;
-using ToolCore.Utils;
-using VRage;
 
 namespace ToolCore.Session
 {
