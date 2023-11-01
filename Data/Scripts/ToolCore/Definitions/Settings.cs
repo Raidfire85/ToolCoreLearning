@@ -38,7 +38,7 @@ namespace ToolCore.Definitions
                     catch (Exception ex)
                     {
                         writer.Dispose();
-                        Logs.WriteLine($"Exception in SerializeFromXML: {ex}");
+                        Logs.LogException(ex);
                     }
 
                     writer.Dispose();
@@ -68,7 +68,7 @@ namespace ToolCore.Definitions
             }
             catch (Exception ex)
             {
-                Logs.WriteLine($"Exception in LoadConfig: {ex}");
+                Logs.LogException(ex);
             }
 
             for (int i = 0; i < CoreSettings.Materials.Length; i++)

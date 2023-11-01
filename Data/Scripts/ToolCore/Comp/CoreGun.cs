@@ -260,7 +260,6 @@ namespace ToolCore.Comp
         internal void UpdateShootState(Trigger state)
         {
             Shooting = WantsToShoot && _comp.Functional && _comp.Powered && _comp.Enabled && !_comp.Activated;
-            Logs.WriteLine($"Setting Shooting to {Shooting}");
 
             _comp.UpdateState(state, Shooting);
         }

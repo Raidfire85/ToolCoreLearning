@@ -583,7 +583,6 @@ namespace ToolCore.Session
                     for (int a = 0; a < _hitBlocks.Count; a++)
                     {
                         var slim = _hitBlocks[a];
-                        Logs.WriteLine($"aaaa");
 
                         var hitGrid = slim.CubeGrid as MyCubeGrid;
                         if (!hitGrid.Editable || hitGrid.Immune)
@@ -774,7 +773,7 @@ namespace ToolCore.Session
             }
             catch (Exception ex)
             {
-                Logs.WriteLine($"Exception in StartComps: {ex}");
+                Logs.LogException(ex);
             }
 
         }

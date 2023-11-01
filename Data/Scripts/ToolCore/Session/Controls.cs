@@ -259,7 +259,6 @@ namespace ToolCore.Session
             var next = index + 1;
             var newIndex = next < modes.Count ? next : 0;
             comp.Mode = comp.Definition.ToolModes[newIndex];
-            Logs.WriteLine(comp.Mode.ToString());
 
             _session.Networking.SendPacketToServer(new UpdatePacket(comp.Tool.EntityId, FieldType.Mode, (int)comp.Mode));
         }

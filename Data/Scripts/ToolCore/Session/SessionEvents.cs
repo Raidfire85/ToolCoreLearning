@@ -57,7 +57,7 @@ namespace ToolCore.Session
                 if (PlayerMap.ContainsKey(id)) return;
                 MyAPIGateway.Multiplayer.Players.GetPlayers(null, myPlayer => FindPlayer(myPlayer, id));
             }
-            catch (Exception ex) { Logs.WriteLine($"Exception in PlayerConnected: {ex}"); }
+            catch (Exception ex) { Logs.LogException(ex); }
         }
 
         private void PlayerDisconnected(long id)
@@ -71,7 +71,7 @@ namespace ToolCore.Session
                     player.Controller.ControlledEntityChanged -= OnPlayerController;
                 }
             }
-            catch (Exception ex) { Logs.WriteLine($"Exception in PlayerDisconnected: {ex}"); }
+            catch (Exception ex) { Logs.LogException(ex); }
         }
 
         private bool FindPlayer(IMyPlayer player, long id)
@@ -129,7 +129,7 @@ namespace ToolCore.Session
                     }
                 }
             }
-            catch (Exception ex) { Logs.WriteLine($"Exception in OnPlayerController: {ex}"); }
+            catch (Exception ex) { Logs.LogException(ex); }
         }
 
     }

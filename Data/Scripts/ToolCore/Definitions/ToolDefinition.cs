@@ -164,7 +164,6 @@ namespace ToolCore.Definitions
                     return;
 
                 Name = Name.Substring(19);
-                Logs.WriteLine(Name);
 
                 Lookup = session.ParticleMap.TryGetValue(Name, out ParticleMap);
                 if (!Lookup) Logs.WriteLine("No particle effect map found for material " + Name);
@@ -210,7 +209,6 @@ namespace ToolCore.Definitions
                 }
 
                 Name = Name.Substring(19);
-                Logs.WriteLine(Name);
 
                 Lookup = session.SoundMap.TryGetValue(Name, out SoundMap);
                 if (!Lookup) Logs.WriteLine("No sound map found for material " + Name);
