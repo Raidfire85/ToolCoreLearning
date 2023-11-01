@@ -81,8 +81,6 @@ namespace ToolCore.Definitions
             {
                 Logs.LogException(ex);
             }
-
-            LoadSettings(CoreSettings);
         }
 
         private void GenerateConfig(ToolCoreSettings oldSettings = null)
@@ -158,7 +156,7 @@ namespace ToolCore.Definitions
     public class ToolCoreSettings
     {
         [ProtoMember(1)] public int Version = 0;
-        [ProtoMember(2)] public MaterialData[] Materials = MaterialData.Default();
+        [ProtoMember(2)] public MaterialData[] Materials;
 
         [ProtoContract]
         public class MaterialData

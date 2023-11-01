@@ -69,7 +69,7 @@ namespace ToolCore.Session
                         break;
                     case PacketType.Settings:
                         var sPacket = packet as SettingsPacket;
-                        Session.Settings.LoadSettings(sPacket.Settings);
+                        Session.SettingsLoad(sPacket.Settings);
                         break;
                     default:
                         Logs.WriteLine($"Invalid packet type - {packet.GetType()}");

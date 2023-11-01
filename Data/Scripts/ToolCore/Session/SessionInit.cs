@@ -29,6 +29,16 @@ namespace ToolCore.Session
             }
         }
 
+        internal void SettingsLoad(ToolCoreSettings settings)
+        {
+            Settings.LoadSettings(settings);
+            LoadVoxelMaterials();
+            foreach (var def in DefinitionMap.Values)
+            {
+                def.DefineMaterialModifiers(this);
+            }
+        }
+
         internal void PostLoad()
         {
             MaterialCategoryMap.Clear();

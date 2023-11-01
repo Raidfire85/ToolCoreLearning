@@ -56,11 +56,10 @@ namespace ToolCore.Session
                     MyAPIGateway.Multiplayer.RegisterSecureMessageHandler(Networking.ClientPacketId, Networking.ProcessPacket);
             }
 
-            Settings.LoadConfig();
-            LoadVoxelMaterials();
-            foreach (var def in DefinitionMap.Values)
+            if (IsServer)
             {
-                def.DefineMaterialModifiers(this);
+                Settings.LoadConfig();
+                SettingsLoad(Settings.CoreSettings);
             }
 
             MyVisualScriptLogicProvider.PlayerDisconnected += PlayerDisconnected;
