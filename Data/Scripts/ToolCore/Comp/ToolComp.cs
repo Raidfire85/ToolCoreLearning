@@ -244,15 +244,15 @@ namespace ToolCore.Comp
 
             internal Effects(List<AnimationDef> animationDefs, List<ParticleEffectDef> particleEffectDefs, List<BeamDef> beamDefs, SoundDef soundDef, ToolComp comp)
             {
-                var entity = (MyEntity)comp.Tool;
+                var block = (MyCubeBlock)comp.Tool;
 
                 if (animationDefs?.Count > 0)
                 {
                     Animations = new List<Animation>();
                     foreach (var aDef in animationDefs)
                     {
-                        MyEntitySubpart subpart;
-                        if (!entity.TryGetSubpartRecursive(aDef.Subpart, out subpart))
+                        MyEntitySubpart subpart = null;
+                        if (block.IsFunctional && !block.TryGetSubpartRecursive(aDef.Subpart, out subpart))
                         {
                             Logs.WriteLine($"Subpart '{aDef.Subpart}' not found!");
                             continue;
@@ -269,9 +269,9 @@ namespace ToolCore.Comp
                     ParticleEffects = new List<ParticleEffect>();
                     foreach (var pDef in particleEffectDefs)
                     {
-                        IMyModelDummy dummy;
-                        MyEntity parent;
-                        if (!entity.TryGetDummy(pDef.Dummy, out dummy, out parent))
+                        IMyModelDummy dummy = null;
+                        MyEntity parent = null;
+                        if (block.IsFunctional && !block.TryGetDummy(pDef.Dummy, out dummy, out parent))
                         {
                             Logs.WriteLine($"Dummy '{pDef.Dummy}' not found!");
                             continue;
@@ -288,9 +288,9 @@ namespace ToolCore.Comp
                     Beams = new List<Beam>();
                     foreach (var beamDef in beamDefs)
                     {
-                        IMyModelDummy start;
-                        MyEntity startParent;
-                        if (!entity.TryGetDummy(beamDef.Start, out start, out startParent))
+                        IMyModelDummy start = null;
+                        MyEntity startParent = null;
+                        if (block.IsFunctional && !block.TryGetDummy(beamDef.Start, out start, out startParent))
                         {
                             Logs.WriteLine($"Dummy '{beamDef.Start}' not found!");
                             continue;
@@ -298,7 +298,7 @@ namespace ToolCore.Comp
 
                         IMyModelDummy end = null;
                         MyEntity endParent = null;
-                        if (!beamDef.EndAtHit && !entity.TryGetDummy(beamDef.End, out end, out endParent))
+                        if (!beamDef.EndAtHit && block.IsFunctional && !block.TryGetDummy(beamDef.End, out end, out endParent))
                         {
                             Logs.WriteLine($"Dummy '{beamDef.End}' not found!");
                             continue;
@@ -455,7 +455,6 @@ namespace ToolCore.Comp
             CompTick20 = (int)(Tool.EntityId % 20);
             CompTick60 = (int)(Tool.EntityId % 60);
             CompTick120 = (int)(Tool.EntityId % 120);
-            Logs.WriteLine($"{CompTick10} {CompTick20} {CompTick60} {CompTick120}");
 
             Tool.EnabledChanged += EnabledChanged;
             Tool.IsWorkingChanged += IsWorkingChanged;
@@ -468,7 +467,7 @@ namespace ToolCore.Comp
         internal void UpdateState(Trigger state, bool add, bool force = false)
         {
             var isActive = (State & state) > 0;
-            Logs.WriteLine($"UpdateState : {state} : {add} : {isActive}");
+            //Logs.WriteLine($"UpdateState : {state} : {add} : {isActive}");
 
             if (!force)
             {
@@ -534,7 +533,7 @@ namespace ToolCore.Comp
 
         internal void UpdateEffects(Trigger state, bool add)
         {
-            if (Session.IsDedicated) return; //TEMPORARY!!!
+            if (Session.IsDedicated) return; //TEMPORARY!!! or not?
 
             Effects effects;
             if (!EventEffects.TryGetValue(state, out effects))
@@ -696,7 +695,10 @@ namespace ToolCore.Comp
             foreach (var entity in entities)
             {
                 if (entity != Tool)
+                {
                     entity.OnClose += (ent) => Dirty = true;
+                }
+                entity.NeedsWorldMatrix = true;
 
                 if (noEmitter)
                     continue;
@@ -716,8 +718,6 @@ namespace ToolCore.Comp
             }
 
             HasEmitter = Muzzle != null;
-            if (!HasEmitter && !noEmitter)
-                Logs.WriteLine($"Failed to find emitter dummy '{Definition.EmitterName}'!");
 
             Dirty = false;
         }
