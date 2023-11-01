@@ -1,12 +1,7 @@
 ﻿using ProtoBuf;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Xml.Serialization;
 using VRage;
-using VRage.Game;
 using VRage.ObjectBuilders;
 using VRageMath;
 
@@ -48,6 +43,7 @@ namespace ToolCore.Definitions.Serialised
         [XmlElement("Event")]
         public Event[] Events;
 
+        [XmlArrayItem("Material")]
         public MaterialModifiers[] MaterialSpecificModifiers;
     }
 
@@ -180,8 +176,10 @@ namespace ToolCore.Definitions.Serialised
     {
         [XmlAttribute]
         public string Category;
-        public float Speed;
-        public float HarvestRatio;
+        [XmlAttribute]
+        public float SpeedRatio = 1f;
+        [XmlAttribute]
+        public float HarvestRatio = 1f;
     }
 
     #endregion
@@ -206,8 +204,8 @@ namespace ToolCore.Definitions.Serialised
         [ProtoContract]
         public class MaterialData
         {
-            [ProtoMember(1)] public string Category;
-            [ProtoMember(2)] public float Hardness;
+            [XmlAttribute][ProtoMember(1)] public string Category;
+            [XmlAttribute][ProtoMember(2)] public float Hardness;
         }
     }
 

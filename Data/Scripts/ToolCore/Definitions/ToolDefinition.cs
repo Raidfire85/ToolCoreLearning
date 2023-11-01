@@ -1,10 +1,5 @@
 ﻿using Sandbox.Game.Entities;
-using Sandbox.ModAPI;
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using VRage;
 using VRage.Game;
 using VRage.Utils;
@@ -33,6 +28,7 @@ namespace ToolCore.Definitions
         internal bool Turret;
         internal bool AffectOwnGrid;
         internal bool Debug;
+        internal bool HasMaterialModifiers;
 
         //Shape dimensions
         //internal Vector3D HalfExtent;
@@ -56,7 +52,27 @@ namespace ToolCore.Definitions
 
         internal readonly Trigger EventFlags;
         internal readonly Dictionary<Trigger, MyTuple<List<AnimationDef>, List<ParticleEffectDef>, List<BeamDef>, SoundDef>> EventEffectDefs = new Dictionary<Trigger, MyTuple<List<AnimationDef>, List<ParticleEffectDef>, List<BeamDef>, SoundDef>>();
-        
+        internal readonly Dictionary<MyVoxelMaterialDefinition, MaterialModifierDefinition> MaterialModifiers = new Dictionary<MyVoxelMaterialDefinition, MaterialModifierDefinition>();
+
+        private MaterialModifiers[] _tempModifiers;
+
+        internal class MaterialModifierDefinition
+        {
+            internal float Speed = 1f;
+            internal float HarvestRatio = 1f;
+
+            public MaterialModifierDefinition()
+            {
+                    
+            }
+
+            public MaterialModifierDefinition(MaterialModifiers modifiers)
+            {
+                Speed = modifiers.SpeedRatio;
+                HarvestRatio = modifiers.HarvestRatio;
+            }
+        }
+
         internal class ActionDefinition
         {
             internal float Speed;
@@ -124,8 +140,6 @@ namespace ToolCore.Definitions
                         break;
 
                 }
-                Logs.WriteLine("Animation Matrix:");
-                Logs.WriteLine(Transform.ToString());
             }
         }
 
@@ -208,6 +222,20 @@ namespace ToolCore.Definitions
         public ToolDefinition(ToolValues values, ToolSession session)
         {
             ToolType = values.ToolType;
+
+            if ((ToolType & ToolType.Drill) > 0)
+                ToolModes.Add(ToolComp.ToolMode.Drill);
+            if ((ToolType & ToolType.Grind) > 0)
+                ToolModes.Add(ToolComp.ToolMode.Grind);
+            if ((ToolType & ToolType.Weld) > 0)
+                ToolModes.Add(ToolComp.ToolMode.Weld);
+
+            if (ToolModes.Count == 0)
+            {
+                Logs.WriteLine($"Tool definition has no valid tool modes!");
+                return;
+            }
+
             EffectShape = values.EffectShape;
             Pattern = values.WorkOrder;
             Location = values.WorkOrigin;
@@ -221,18 +249,15 @@ namespace ToolCore.Definitions
             Debug = !session.IsDedicated && values.Debug;
 
 
-            if ((ToolType & ToolType.Drill) > 0)
-                ToolModes.Add(ToolComp.ToolMode.Drill);
-            if ((ToolType & ToolType.Grind) > 0)
-                ToolModes.Add(ToolComp.ToolMode.Grind);
-            if ((ToolType & ToolType.Weld) > 0)
-                ToolModes.Add(ToolComp.ToolMode.Weld);
+            DefineParameters(values, session);
+            _tempModifiers = values.MaterialSpecificModifiers;
 
-            if (ToolModes.Count == 0)
-                Logs.WriteLine($"No valid tool modes!");
+            EventFlags = DefineEvents(values.Events, session);
 
+        }
 
-
+        private void DefineParameters(ToolValues values, ToolSession session)
+        {
             var speed = values.Speed;
             var hRatio = values.HarvestRatio;
 
@@ -298,23 +323,52 @@ namespace ToolCore.Definitions
                     break;
             }
 
-            if (values.Actions != null && values.Actions.Length > 0)
-            {
-                foreach (var action in values.Actions)
-                {
-                    var actionValues = new ActionDefinition(action, speed, hRatio, halfExtent, radius, length, boundingRadius);
-                    ActionMap.Add((ToolComp.ToolAction)action.Type, actionValues);
-                    ToolActions.Add((ToolComp.ToolAction)action.Type);
-                }
-            }
-            else
+            if (values.Actions == null || values.Actions.Length == 0)
             {
                 ActionMap.Add(ToolComp.ToolAction.Primary, new ActionDefinition(speed, hRatio, halfExtent, radius, length, boundingRadius));
                 ToolActions.Add(ToolComp.ToolAction.Primary);
+                return;
             }
 
+            foreach (var action in values.Actions)
+            {
+                var actionValues = new ActionDefinition(action, speed, hRatio, halfExtent, radius, length, boundingRadius);
+                ActionMap.Add((ToolComp.ToolAction)action.Type, actionValues);
+                ToolActions.Add((ToolComp.ToolAction)action.Type);
+            }
+        }
 
-            foreach (var eventDef in values.Events)
+        internal void DefineMaterialModifiers(ToolSession session)
+        {
+            var modifiers = _tempModifiers;
+            if (modifiers == null || modifiers.Length == 0)
+                return;
+
+            HasMaterialModifiers = true;
+
+            var categories = new Dictionary<string, MaterialModifierDefinition>();
+            foreach (var modifier in modifiers)
+            {
+                categories.Add(modifier.Category, new MaterialModifierDefinition(modifier));
+            }
+
+            foreach (var matList in session.MaterialCategoryMap)
+            {
+                MaterialModifierDefinition mods;
+                if (!categories.TryGetValue(matList.Key, out mods))
+                    mods = new MaterialModifierDefinition();
+
+                foreach (var mat in matList.Value)
+                {
+                    MaterialModifiers.Add(mat, mods);
+                }
+            }
+        }
+
+        private Trigger DefineEvents(Event[] events, ToolSession session)
+        {
+            Trigger flags = 0;
+            foreach (var eventDef in events)
             {
                 var hasAnimations = eventDef.Animations != null && eventDef.Animations.Length > 0;
                 var hasParticleEffects = eventDef.ParticleEffects != null && eventDef.ParticleEffects.Length > 0;
@@ -355,10 +409,10 @@ namespace ToolCore.Definitions
                     soundDef = new SoundDef(eventDef.Sound, session);
 
                 EventEffectDefs[eventDef.Trigger] = new MyTuple<List<AnimationDef>, List<ParticleEffectDef>, List<BeamDef>, SoundDef>(animationDefs, particleEffectDefs, beamDefs, soundDef);
-                EventFlags |= eventDef.Trigger;
+                flags |= eventDef.Trigger;
             }
 
-
+            return flags;
         }
 
     }

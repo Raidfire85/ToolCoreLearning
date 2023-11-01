@@ -388,13 +388,23 @@ namespace ToolCore.Comp
         {
             internal int Index;
             internal float Distance;
-            internal float SecondaryDistanceSqr;
+            internal float Distance2;
+            internal bool Contained;
+            internal Vector3D Position;
 
-            public PositionData(int index, float distance, float secondaryDistSqr)
+            public PositionData(int index, float distance, float distance2 = 0f)
             {
                 Index = index;
                 Distance = distance;
-                SecondaryDistanceSqr = secondaryDistSqr;
+                Distance2 = distance2;
+            }
+
+            public PositionData(int index, float distance, Vector3D position, bool contained)
+            {
+                Index = index;
+                Distance = distance;
+                Position = position;
+                Contained = contained;
             }
         }
 

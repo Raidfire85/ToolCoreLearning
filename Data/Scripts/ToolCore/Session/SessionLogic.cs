@@ -128,10 +128,10 @@ namespace ToolCore.Session
                     DrawBox(obb, Color.LawnGreen, false, 5, 0.005f);
                     break;
                 case EffectShape.Line:
-                    DrawLine(worldPos, worldForward, Color.AliceBlue, 0.02f, toolValues.Length);
+                    DrawLine(worldPos, worldForward, Color.LawnGreen, 0.025f, toolValues.Length);
                     break;
                 case EffectShape.Ray:
-                    DrawLine(worldPos, worldForward, Color.AliceBlue, 0.02f, toolValues.Length);
+                    DrawLine(worldPos, worldForward, Color.LawnGreen, 0.025f, toolValues.Length);
                     break;
                 default:
                     return;
@@ -464,6 +464,7 @@ namespace ToolCore.Session
                             data.Min = min;
                             data.Max = max;
                             data.Origin = localCentre;
+                            data.Direction = localForward;
                             MyAPIGateway.Parallel.StartBackground(comp.DrillSphere, comp.OnDrillComplete);
                             break;
                         case EffectShape.Cylinder:

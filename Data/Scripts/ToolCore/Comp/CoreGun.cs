@@ -125,6 +125,16 @@ namespace ToolCore.Comp
                 status = MyGunStatusEnum.NotFunctional;
                 return false;
             }
+            if (!_comp.Enabled)
+            {
+                status = MyGunStatusEnum.Disabled;
+                return false;
+            }
+            if (!_comp.Powered)
+            {
+                status = MyGunStatusEnum.OutOfPower;
+                return false;
+            }
             if (!_comp.Tool.HasPlayerAccess(shooter, MyRelationsBetweenPlayerAndBlock.NoOwnership))
             {
                 status = MyGunStatusEnum.AccessDenied;

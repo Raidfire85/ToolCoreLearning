@@ -132,12 +132,12 @@ namespace ToolCore.Definitions
         {
             CoreSettings.Materials = new MaterialData[]
             {
-                new MaterialData { Category = "Snow", Hardness = 0.2f },
-                new MaterialData { Category = "Sand", Hardness = 0.4f },
-                new MaterialData { Category = "Soil", Hardness = 0.6f },
-                new MaterialData { Category = "Grass", Hardness = 0.6f },
+                new MaterialData { Category = "Sand", Hardness = 0.5f },
+                new MaterialData { Category = "Snow", Hardness = 0.6f },
+                new MaterialData { Category = "Soil", Hardness = 0.7f },
+                new MaterialData { Category = "Grass", Hardness = 0.7f },
                 new MaterialData { Category = "Ice", Hardness = 0.8f },
-                new MaterialData { Category = "Stone", Hardness = 1f },
+                new MaterialData { Category = "Rock", Hardness = 1f },
                 new MaterialData { Category = "Ore", Hardness = 1f },
             };
         }

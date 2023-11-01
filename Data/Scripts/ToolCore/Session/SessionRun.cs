@@ -57,6 +57,7 @@ namespace ToolCore.Session
 
             LoadDefinitions();
             LoadToolCoreDefs();
+            PostLoad();
 
             MyAPIGateway.TerminalControls.CustomActionGetter += Controls.CustomActionGetter;
             MyAPIGateway.TerminalControls.CustomControlGetter += Controls.CustomControlGetter;
@@ -74,6 +75,10 @@ namespace ToolCore.Session
 
             Settings.LoadConfig();
             LoadVoxelMaterials();
+            foreach (var def in DefinitionMap.Values)
+            {
+                def.DefineMaterialModifiers(this);
+            }
 
             MyVisualScriptLogicProvider.PlayerDisconnected += PlayerDisconnected;
             MyVisualScriptLogicProvider.PlayerRespawnRequest += PlayerConnected;

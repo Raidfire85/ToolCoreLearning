@@ -45,8 +45,18 @@ namespace ToolCore.Session
             }
         }
 
+        internal void PostLoad()
+        {
+            MaterialCategoryMap.Clear();
+        }
+
         internal void LoadVoxelMaterials()
         {
+            foreach (var category in Settings.CategoryModifiers.Keys)
+            {
+                MaterialCategoryMap.Add(category, new List<MyVoxelMaterialDefinition>());
+            }
+
             foreach (var def in MyDefinitionManager.Static?.GetVoxelMaterialDefinitions())
             {
                 if (def == null || !def.Enabled)
@@ -82,18 +92,19 @@ namespace ToolCore.Session
             var materialName = def.MaterialTypeName;
             var categories = Settings.CategoryModifiers;
 
-            var restitution = def.Restitution;
-            if (restitution != 1 && restitution > 0)
-            {
-                MaterialModifiers.Add(def, restitution);
-                return;
-            }
+            //var restitution = def.Restitution;
+            //if (restitution != 1 && restitution > 0)
+            //{
+            //    MaterialModifiers.Add(def, restitution);
+            //    return;
+            //}
 
             var isOre = !def.MinedOre.Equals("Stone") && !def.MinedOre.Equals("Ice");
             float hardness;
             if (isOre && categories.TryGetValue("Ore", out hardness))
             {
                 MaterialModifiers.Add(def, hardness);
+                MaterialCategoryMap["Ore"].Add(def);
                 return;
             }
 
@@ -103,11 +114,16 @@ namespace ToolCore.Session
                     continue;
 
                 MaterialModifiers.Add(def, categories[category]);
+                MaterialCategoryMap[category].Add(def);
                 return;
             }
 
             if (categories.TryGetValue("Rock", out hardness))
+            {
                 MaterialModifiers.Add(def, hardness);
+                MaterialCategoryMap["Rock"].Add(def);
+
+            }
         }
 
         internal void LoadToolCoreDefs()
