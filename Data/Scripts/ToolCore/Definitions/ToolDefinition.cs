@@ -83,14 +83,20 @@ namespace ToolCore.Definitions
             internal float Length;
             internal float BoundingRadius;
 
-            public ActionDefinition(ActionValues values, float speed, float harvestRatio, Vector3 half, float radius, float length, float bRadius)
+            public ActionDefinition(ActionValues values, float speed, float harvestRatio, Vector3 half, float radius, float length, float bRadius, EffectShape shape)
             {
                 Speed = speed * values.SpeedRatio;
                 HarvestRatio = harvestRatio * values.HarvestRatio;
                 HalfExtent = half * values.SizeRatio;
                 Radius = radius * values.SizeRatio;
-                Length = length * values.SizeRatio;
-                BoundingRadius = bRadius * values.SizeRatio;
+                Length = length;
+                BoundingRadius = bRadius;
+
+                if (shape != EffectShape.Line && shape != EffectShape.Ray)
+                {
+                    Length *= values.SizeRatio;
+                    BoundingRadius *= values.SizeRatio;
+                }
             }
 
             public ActionDefinition(float speed, float harvestRatio, Vector3 half, float radius, float length, float bRadius)
@@ -174,19 +180,21 @@ namespace ToolCore.Definitions
         {
             internal readonly string Start;
             internal readonly string End;
-            internal readonly bool EndAtHit;
+            internal readonly Location EndLocation;
             internal readonly MyStringId Material;
             internal readonly float Width;
             internal readonly Vector4 Color;
+            internal readonly float MaxLength;
 
-            internal BeamDef(Beam beam)
+            internal BeamDef(Beam beam, float maxLength)
             {
                 Start = beam.Start;
                 End = beam.End;
-                EndAtHit = End.Equals("Hit");
+                EndLocation = beam.EndLocation;
                 Material = MyStringId.GetOrCompute(beam.Material);
                 Width = beam.Width;
                 Color = beam.Color;
+                MaxLength = maxLength;
             }
         }
 
@@ -248,7 +256,7 @@ namespace ToolCore.Definitions
             DefineParameters(values, session);
             _tempModifiers = values.MaterialSpecificModifiers;
 
-            EventFlags = DefineEvents(values.Events, session);
+            EventFlags = DefineEvents(values.Events, session, values.Length);
 
         }
 
@@ -328,7 +336,7 @@ namespace ToolCore.Definitions
 
             foreach (var action in values.Actions)
             {
-                var actionValues = new ActionDefinition(action, speed, hRatio, halfExtent, radius, length, boundingRadius);
+                var actionValues = new ActionDefinition(action, speed, hRatio, halfExtent, radius, length, boundingRadius, EffectShape);
                 ActionMap.Add((ToolComp.ToolAction)action.Type, actionValues);
                 ToolActions.Add((ToolComp.ToolAction)action.Type);
             }
@@ -361,7 +369,7 @@ namespace ToolCore.Definitions
             }
         }
 
-        private Trigger DefineEvents(Event[] events, ToolSession session)
+        private Trigger DefineEvents(Event[] events, ToolSession session, float maxLength)
         {
             Trigger flags = 0;
             foreach (var eventDef in events)
@@ -396,7 +404,7 @@ namespace ToolCore.Definitions
                 {
                     foreach (var beam in eventDef.Beams)
                     {
-                        beamDefs.Add(new BeamDef(beam));
+                        beamDefs.Add(new BeamDef(beam, maxLength));
                     }
                 }
 

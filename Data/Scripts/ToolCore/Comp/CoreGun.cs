@@ -108,11 +108,6 @@ namespace ToolCore.Comp
         public bool CanShoot(MyShootActionEnum action, long shooter, out MyGunStatusEnum status)
         {
             status = MyGunStatusEnum.OK;
-            //if (action != MyShootActionEnum.PrimaryAction)
-            //{
-            //    status = MyGunStatusEnum.Failed;
-            //    return false;
-            //}
             if (!_comp.Functional)
             {
                 status = MyGunStatusEnum.NotFunctional;
@@ -126,6 +121,11 @@ namespace ToolCore.Comp
             if (!_comp.Powered)
             {
                 status = MyGunStatusEnum.OutOfPower;
+                return false;
+            }
+            if (!_comp.Definition.ActionMap.ContainsKey((ToolComp.ToolAction)action))
+            {
+                status = MyGunStatusEnum.Failed;
                 return false;
             }
             if (!_comp.Tool.HasPlayerAccess(shooter, MyRelationsBetweenPlayerAndBlock.NoOwnership))

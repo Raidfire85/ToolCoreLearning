@@ -80,6 +80,7 @@ namespace ToolCore.Definitions.Serialised
         Centre = 0,
         Emitter = 1,
         Hit = 2,
+        Forward = 3,
     }
 
     public class ActionValues
@@ -153,6 +154,7 @@ namespace ToolCore.Definitions.Serialised
     {
         public string Start;
         public string End;
+        public Location EndLocation;
         public string Material = "WeaponLaser";
         public float Width = 0.5f;
         public Vector4 Color = new Vector4(255, 255, 255, 1000);

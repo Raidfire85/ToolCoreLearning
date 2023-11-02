@@ -81,8 +81,8 @@ namespace ToolCore.Comp
         internal MyStringHash HitMaterial = MyStringHash.GetOrCompute("Metal");
 
         internal bool HasEmitter;
-        internal bool Draw = true;
-        internal bool Debug = true;
+        internal bool Draw;
+        internal bool Debug;
 
         internal int WorkTick;
         internal int CompTick10;
@@ -210,7 +210,7 @@ namespace ToolCore.Comp
                             beam.StartParent = startParent;
                         }
 
-                        if (beam.Definition.EndAtHit)
+                        if (beam.Definition.EndLocation != Location.Emitter)
                             continue;
 
                         IMyModelDummy end;
@@ -270,8 +270,8 @@ namespace ToolCore.Comp
                     foreach (var pDef in particleEffectDefs)
                     {
                         IMyModelDummy dummy = null;
-                        MyEntity parent = null;
-                        if (block.IsFunctional && !block.TryGetDummy(pDef.Dummy, out dummy, out parent))
+                        MyEntity parent = block;
+                        if (pDef.Location == Location.Emitter && block.IsFunctional && !block.TryGetDummy(pDef.Dummy, out dummy, out parent))
                         {
                             Logs.WriteLine($"Dummy '{pDef.Dummy}' not found!");
                             continue;
@@ -298,7 +298,7 @@ namespace ToolCore.Comp
 
                         IMyModelDummy end = null;
                         MyEntity endParent = null;
-                        if (!beamDef.EndAtHit && block.IsFunctional && !block.TryGetDummy(beamDef.End, out end, out endParent))
+                        if (beamDef.EndLocation == Location.Emitter && block.IsFunctional && !block.TryGetDummy(beamDef.End, out end, out endParent))
                         {
                             Logs.WriteLine($"Dummy '{beamDef.End}' not found!");
                             continue;
@@ -651,12 +651,11 @@ namespace ToolCore.Comp
             Sink = Tool.Components?.Get<MyResourceSinkComponent>();
             if (Sink != null)
             {
-                Logs.WriteLine("Sink found on init, setting input func...");
                 Sink.SetRequiredInputFuncByType(MyResourceDistributorComponent.ElectricityId, RequiredInput);
             }
             else
             {
-                Logs.WriteLine("No sink found on init, creating...");
+                Logs.WriteLine("No sink found on init, creating!");
                 Sink = new MyResourceSinkComponent();
                 Sink.Init(MyStringHash.GetOrCompute("Defense"), sinkInfo);
                 Tool.Components.Add(Sink);

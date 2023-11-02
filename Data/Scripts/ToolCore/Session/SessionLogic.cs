@@ -41,7 +41,7 @@ namespace ToolCore.Session
                         comp.AvActive = true;
                     }
 
-                    if (comp.Mode != ToolComp.ToolMode.Drill)
+                    if (comp.Mode != ToolComp.ToolMode.Drill && comp.WorkTick == Tick % def.UpdateInterval)
                         UpdateHitState(comp);
 
                     if (!IsDedicated && comp.Draw)
@@ -76,9 +76,9 @@ namespace ToolCore.Session
 
                 if (!Vector3D.IsZero(def.Offset))
                 {
-                    Vector3D offset;
-                    Vector3D.Rotate(ref def.Offset, ref muzzleMatrix, out offset);
-                    localPos += offset;
+                    //Vector3D offset;
+                    //Vector3D.Rotate(ref def.Offset, ref muzzleMatrix, out offset);
+                    localPos += def.Offset;
                 }
                 var muzzleForward = Vector3D.Normalize(muzzleMatrix.Forward);
                 var muzzleUp = Vector3D.Normalize(muzzleMatrix.Up);
@@ -123,11 +123,8 @@ namespace ToolCore.Session
             }
         }
 
-        private void UpdateHitState(ToolComp comp, bool drillDebug = false)
+        private void UpdateHitState(ToolComp comp)
         {
-            if (comp.Mode == ToolComp.ToolMode.Drill && comp.ActiveDrillThreads > 0)
-                return;
-
             var operational = comp.Functional && comp.Powered && comp.Enabled;
             var firing = comp.Activated || comp.GunBase.Shooting;
 
@@ -239,9 +236,9 @@ namespace ToolCore.Session
 
                 if (!Vector3D.IsZero(def.Offset))
                 {
-                    Vector3D offset;
-                    Vector3D.Rotate(ref def.Offset, ref muzzleMatrix, out offset);
-                    localPos += offset;
+                    //Vector3D offset;
+                    //Vector3D.Rotate(ref def.Offset, ref muzzleMatrix, out offset);
+                    localPos += def.Offset;
                 }
                 var muzzleForward = Vector3D.Normalize(muzzleMatrix.Forward);
                 var muzzleUp = Vector3D.Normalize(muzzleMatrix.Up);

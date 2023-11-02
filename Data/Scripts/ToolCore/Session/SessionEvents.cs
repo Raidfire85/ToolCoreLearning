@@ -87,7 +87,7 @@ namespace ToolCore.Session
                     OnPlayerController(null, controller.ControlledEntity);
                 }
 
-                if (IsServer)
+                if (IsDedicated || IsServer && player != MyAPIGateway.Session.LocalHumanPlayer)
                 {
                     Networking.SendServerConfig(player.SteamUserId);
                 }

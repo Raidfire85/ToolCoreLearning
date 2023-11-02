@@ -123,7 +123,7 @@ namespace ToolCore.Comp
                         Inventories.Add(data);
                         Inventories.ApplyAdditions();
                     }
-                    else Logs.WriteLine("FatBlockAdded() - Failed to add inventory to map");
+                    //else Logs.WriteLine("FatBlockAdded() - Failed to add inventory to map");
 
                     block.IsWorkingChanged += (cube) => ConveyorsDirty = true;
                 }

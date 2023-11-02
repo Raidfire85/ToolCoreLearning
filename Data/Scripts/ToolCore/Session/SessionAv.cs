@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using Sandbox.ModAPI;
+using System.Collections.Generic;
 using ToolCore.Comp;
 using ToolCore.Utils;
 using VRage.Game;
@@ -67,7 +68,24 @@ namespace ToolCore.Session
                 var def = beam.Definition;
 
                 var startPos = Vector3D.Transform(beam.Start.Matrix.Translation, beam.StartParent.PositionComp.WorldMatrixRef);
-                var endPos = def.EndAtHit ? hit.Position : Vector3D.Transform(beam.End.Matrix.Translation, beam.EndParent.PositionComp.WorldMatrixRef);
+
+                Vector3D endPos;
+                switch (def.EndLocation)
+                {
+                    case Emitter:
+                        endPos = Vector3D.Transform(beam.End.Matrix.Translation, beam.EndParent.PositionComp.WorldMatrixRef);
+                        break;
+                    case Hit:
+                        endPos = hit.Position;
+                        break;
+                    case Forward:
+                        endPos = hit.IsValid ? hit.Position :
+                            Vector3D.Transform(beam.Start.Matrix.Translation + beam.Definition.MaxLength * beam.Start.Matrix.Forward, beam.StartParent.PositionComp.WorldMatrixRef);
+                        break;
+                    default:
+                        return;
+                }
+                
                 DrawLine(startPos, endPos, def.Color, def.Width, def.Material);
             }
         }
@@ -128,7 +146,9 @@ namespace ToolCore.Session
                     var renderId = pEffect.Parent.Render.GetRenderObjectID();
                     MyParticleEffect myParticle;
 
-                    var name = def.Lookup ? def.ParticleMap[hit.Material] : def.Name;
+                    string name;
+                    if (!def.Lookup || !def.ParticleMap.TryGetValue(hit.Material, out name))
+                        name = def.Name;
 
                     if (!MyParticlesManager.TryCreateParticleEffect(name, ref matrix, ref position, renderId, out myParticle))
                         continue;
