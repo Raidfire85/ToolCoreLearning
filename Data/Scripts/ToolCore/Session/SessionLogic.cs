@@ -602,8 +602,8 @@ namespace ToolCore.Session
                     var grindCount = _hitBlocks.Count;
                     grindCount = grindCount > 0 ? grindCount : 1;
 
-                    var speedMultGrind = 0.25f / (float)Math.Min(4, grindCount);
-                    var grindAmount = MyAPIGateway.Session.GrinderSpeedMultiplier * 4f * speedMultGrind;
+                    var grindScaler = 0.25f / (float)Math.Min(4, grindCount);
+                    var grindAmount = grindScaler * toolValues.Speed * MyAPIGateway.Session.GrinderSpeedMultiplier * 4f;
                     for (int a = 0; a < _hitBlocks.Count; a++)
                     {
                         var slim = _hitBlocks[a];
@@ -683,8 +683,8 @@ namespace ToolCore.Session
                     }
 
                     buildCount = buildCount > 0 ? buildCount : 1;
-                    var speedMultWeld = 0.25f / (float)Math.Min(4, buildCount);
-                    var weldAmount = MyAPIGateway.Session.WelderSpeedMultiplier * toolValues.Speed * speedMultWeld;
+                    var weldScaler = 0.25f / (float)Math.Min(4, buildCount);
+                    var weldAmount = weldScaler * toolValues.Speed * MyAPIGateway.Session.WelderSpeedMultiplier;
                     for (int a = 0; a < _hitBlocks.Count; a++)
                     {
                         var slim = _hitBlocks[a];
