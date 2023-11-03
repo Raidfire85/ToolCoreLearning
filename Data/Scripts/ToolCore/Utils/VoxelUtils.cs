@@ -180,7 +180,7 @@ namespace ToolCore
                         //    session.DrawBoxes.Add(new MyTuple<MyOrientedBoundingBoxD, Color>(obb, color));
                         //}
 
-                        if (!hit)
+                        if (!hit && removal > 0)
                         {
                             //data.ComputePosition(index, out testPos);
                             //var localPos = (Vector3D)testPos + min;
@@ -191,7 +191,7 @@ namespace ToolCore
                             //comp.HitInfo.Update(worldPos, voxelDef.MaterialTypeNameHash);
 
                             hit = true;
-                            comp.Hitting = true;
+                            comp.Working = true;
                         }
 
                         harvestRatio *= toolValues.HarvestRatio;
@@ -415,7 +415,7 @@ namespace ToolCore
                 session.DsUtil.Start("write");
                 if (foundContent)
                 {
-                    comp.Hitting = true;
+                    comp.Working = true;
                     comp.StorageDatas.Add(new StorageInfo(min, max));
                     voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
                 }
@@ -624,10 +624,10 @@ namespace ToolCore
                             var effectiveContent = MathHelper.FloorToInt(removal * hardness);
                             maxContent = Math.Max(maxContent, effectiveContent);
 
-                            if (!hit)
+                            if (!hit && removal > 0)
                             {
                                 hit = true;
-                                comp.Hitting = true;
+                                comp.Working = true;
                             }
 
                             harvestRatio *= toolValues.HarvestRatio;
@@ -827,7 +827,7 @@ namespace ToolCore
                             //    session.DrawBoxes.Add(new MyTuple<MyOrientedBoundingBoxD, Color>(boxObb, color));
                             //}
 
-                            if (!hit)
+                            if (!hit && removal > 0)
                             {
                                 //data.ComputePosition(index, out testPos);
                                 //var localPos = (Vector3D)testPos + min;
@@ -838,7 +838,7 @@ namespace ToolCore
                                 //comp.HitInfo.Update(worldPos, voxelDef.MaterialTypeNameHash);
 
                                 hit = true;
-                                comp.Hitting = true;
+                                comp.Working = true;
                             }
 
                             harvestRatio *= toolValues.HarvestRatio;

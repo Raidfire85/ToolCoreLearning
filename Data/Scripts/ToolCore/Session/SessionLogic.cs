@@ -1,5 +1,6 @@
 ﻿using Sandbox.Definitions;
 using Sandbox.Game.Entities;
+using Sandbox.Game.Entities.Character;
 using Sandbox.Game.WorldEnvironment;
 using Sandbox.ModAPI;
 using System;
@@ -128,14 +129,14 @@ namespace ToolCore.Session
             var operational = comp.Functional && comp.Powered && comp.Enabled;
             var firing = comp.Activated || comp.GunBase.Shooting;
 
-            var hitting = comp.Hitting && operational && firing;
+            var hitting = comp.Working && operational && firing;
             if (hitting != comp.WasHitting)
             {
                 comp.WasHitting = hitting;
                 comp.UpdateState(Trigger.Hit, hitting);
             }
 
-            comp.Hitting = false;
+            comp.Working = false;
         }
 
         private void UpdateTool(ToolComp comp, GridComp gridComp)
@@ -208,7 +209,6 @@ namespace ToolCore.Session
             if (comp.Definition.Debug)
             {
                 DrawBoxes.ApplyAdditions();
-                MyAPIGateway.Utilities.ShowNotification(DrawBoxes.Count.ToString(), 16);
                 foreach (var tuple in DrawBoxes)
                     DrawLine(tuple.Item1.Center, Vector3D.One, tuple.Item2, 0.02f, 0.1f);
                     //DrawBox(tuple.Item1, tuple.Item2, false, 1, 0.01f);
@@ -288,7 +288,7 @@ namespace ToolCore.Session
                 else comp.UpdateHitInfo(false);
             }
 
-            if (!workTick)// || !IsServer)
+            if (!workTick)
                 return;
 
             if (comp.Mode == ToolComp.ToolMode.Drill && comp.ActiveDrillThreads > 0)
@@ -301,10 +301,9 @@ namespace ToolCore.Session
                 case EffectShape.Sphere:
                 case EffectShape.Cylinder:
                 case EffectShape.Cuboid:
-                    var sphere = def.EffectSphere;
-                    sphere.Center = worldPos;
-                    sphere.Radius = toolValues.BoundingRadius;
-                    MyGamePruningStructure.GetAllTopMostEntitiesInSphere(ref sphere, _entities);
+                    def.EffectSphere.Center = worldPos;
+                    def.EffectSphere.Radius = toolValues.BoundingRadius;
+                    MyGamePruningStructure.GetAllTopMostEntitiesInSphere(ref def.EffectSphere, _entities);
                     break;
                 case EffectShape.Line:
                     var effectLine = new LineD(worldPos, worldPos + worldForward * toolValues.Length);
@@ -333,46 +332,78 @@ namespace ToolCore.Session
             {
                 var entity = line ? _lineOverlaps[k].Element : _entities[k];
 
-                if (entity is IMyCharacter)
-                {
-                    comp.Hitting = true;
-                    var character = (IMyCharacter)entity;
-                    character.DoDamage(1f, damageType, true, null, tool.OwnerId);
-                    continue;
-                }
-
                 if (entity is IMyDestroyableObject)
                 {
-                    comp.Hitting = true;
+                    var obb = new MyOrientedBoundingBoxD(entity.PositionComp.LocalAABB, entity.PositionComp.WorldMatrixRef);
+                    if (def.Debug) DrawBox(obb, Color.Red, false, 8);
+                    switch (def.EffectShape)
+                    {
+                        case EffectShape.Sphere:
+                            if (obb.Contains(ref def.EffectSphere) == ContainmentType.Disjoint)
+                                continue;
+                            break;
+                        case EffectShape.Cylinder:
+                            var offset = obb.Center - worldPos;
+                            var halfEdge = entity.PositionComp.LocalAABB.HalfExtents.AbsMax();
+
+                            var radial = Vector3D.ProjectOnPlane(ref offset, ref worldForward);
+                            var radialDistSqr = (float)radial.LengthSquared();
+                            var radiusPlus = toolValues.Radius + halfEdge;
+                            if (radialDistSqr > (radiusPlus * radiusPlus))
+                                continue;
+                            var axial = Vector3D.ProjectOnVector(ref offset, ref worldForward);
+                            var axialDistSqr = (float)axial.LengthSquared();
+                            var halfLen = (toolValues.Length / 2) + halfEdge;
+                            if (axialDistSqr > (halfLen * halfLen))
+                                continue;
+                            break;
+                        case EffectShape.Cuboid:
+                            var orientation = Quaternion.CreateFromForwardUp(worldForward, worldUp);
+                            comp.Obb.Center = worldPos;
+                            comp.Obb.Orientation = orientation;
+                            comp.Obb.HalfExtent = toolValues.HalfExtent;
+                            if (obb.Contains(ref comp.Obb) == ContainmentType.Disjoint)
+                                continue;
+                            break;
+                        case EffectShape.Line:
+                            var effectLine = new LineD(worldPos, worldPos + worldForward * toolValues.Length);
+                            if (obb.Intersects(ref effectLine) == null)
+                                continue;
+                            break;
+                        default:
+                            break;
+
+                    }
+                    comp.Working = true;
                     var floating = (IMyDestroyableObject)entity;
                     floating.DoDamage(1f, damageType, true, null, tool.OwnerId);
                     continue;
                 }
 
-                //if (entity is MyEnvironmentSector)
-                //{
-                //    IHitInfo hitInfo;
-                //    if (MyAPIGateway.Physics.CastRay(worldPos, worldPos + def.EffectSphere.Radius * worldForward, out hitInfo))
-                //    {
-                //        var hitEntity = hitInfo.HitEntity;
-                //        if (hitEntity is MyEnvironmentSector)
-                //        {
-                //            var sector = hitEntity as MyEnvironmentSector;
-                //            uint shapeKey = hitInfo.Value.HkHitInfo.GetShapeKey(0);
-                //            int itemFromShapeKey = sector.GetItemFromShapeKey(shapeKey);
-                //            if (sector.DataView.Items[itemFromShapeKey].ModelIndex >= 0)
-                //            {
-                //                MyBreakableEnvironmentProxy module = sector.GetModule<MyBreakableEnvironmentProxy>();
-                //                Vector3D hitnormal = base.CubeGrid.WorldMatrix.Right + base.CubeGrid.WorldMatrix.Forward;
-                //                hitnormal.Normalize();
-                //                float num = 10f;
-                //                float mass = base.CubeGrid.Physics.Mass;
-                //                float num2 = num * num * mass;
-                //                module.BreakAt(itemFromShapeKey, hitInfo.Value.HkHitInfo.Position, hitnormal, (double)num2);
-                //            }
-                //        }
-                //    }
-                //}
+/*                if (entity is MyEnvironmentSector)
+                {
+                    IHitInfo hitInfo;
+                    if (MyAPIGateway.Physics.CastRay(worldPos, worldPos + def.EffectSphere.Radius * worldForward, out hitInfo))
+                    {
+                        var hitEntity = hitInfo.HitEntity;
+                        if (hitEntity is MyEnvironmentSector)
+                        {
+                            var sector = hitEntity as MyEnvironmentSector;
+                            uint shapeKey = hitInfo.Value.HkHitInfo.GetShapeKey(0);
+                            int itemFromShapeKey = sector.GetItemFromShapeKey(shapeKey);
+                            if (sector.DataView.Items[itemFromShapeKey].ModelIndex >= 0)
+                            {
+                                MyBreakableEnvironmentProxy module = sector.GetModule<MyBreakableEnvironmentProxy>();
+                                Vector3D hitnormal = base.CubeGrid.WorldMatrix.Right + base.CubeGrid.WorldMatrix.Forward;
+                                hitnormal.Normalize();
+                                float num = 10f;
+                                float mass = base.CubeGrid.Physics.Mass;
+                                float num2 = num * num * mass;
+                                module.BreakAt(itemFromShapeKey, hitInfo.Value.HkHitInfo.Position, hitnormal, (double)num2);
+                            }
+                        }
+                    }
+                }*/
 
                 if (entity is IMyVoxelBase)
                 {
@@ -385,7 +416,6 @@ namespace ToolCore.Session
                         continue;
 
                     var localCentre = Vector3D.Transform(worldPos + Vector3D.TransformNormal((voxel as MyVoxelBase).SizeInMetresHalf, voxel.WorldMatrix), voxel.WorldMatrixNormalizedInv);
-                    //MyAPIGateway.Utilities.ShowNotification($"{localCentre.ToString("N1")}", 160);
                     var matrixNI = voxel.PositionComp.WorldMatrixNormalizedInv;
                     Vector3D localForward;
                     Vector3D.TransformNormal(ref worldForward, ref matrixNI, out localForward);
@@ -561,9 +591,6 @@ namespace ToolCore.Session
             _missingComponents.Clear();
             _hitBlocks.ApplyAdditions();
 
-            comp.Hitting |= _hitBlocks.Count > 0;
-            //Logs.WriteLine($"{count} : {_hitBlocks.Count} {(int)comp.Mode}");
-
             var inventory = comp.Inventory;
             switch (comp.Mode)
             {
@@ -585,6 +612,7 @@ namespace ToolCore.Session
                         if (!hitGrid.Editable || hitGrid.Immune)
                             continue;
 
+                        comp.Working = true;
 
                         MyDamageInformation damageInfo = new MyDamageInformation(false, grindAmount, MyDamageType.Grind, tool.EntityId);
                         if (slim.UseDamageSystem) Session.DamageSystem.RaiseBeforeDamageApplied(slim, ref damageInfo);
@@ -672,6 +700,8 @@ namespace ToolCore.Session
                             if (slim.WillBecomeFunctional(weldAmount) && !welder.IsWithinWorldLimits(gridComp.Projector, "", cubeDef.PCU - 1))
                                 continue;
                         }
+
+                        comp.Working = true;
 
                         slim.MoveItemsToConstructionStockpile(inventory);
 

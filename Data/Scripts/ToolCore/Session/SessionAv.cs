@@ -1,10 +1,12 @@
-﻿using Sandbox.ModAPI;
+﻿using Sandbox.Game.Entities;
+using Sandbox.ModAPI;
 using System.Collections.Generic;
 using ToolCore.Comp;
+using ToolCore.Definitions.Serialised;
 using ToolCore.Utils;
 using VRage.Game;
 using VRageMath;
-using static ToolCore.Definitions.Serialised.Location;
+using static ToolCore.Comp.ToolComp;
 using static ToolCore.Utils.Draw;
 
 namespace ToolCore.Session
@@ -59,7 +61,7 @@ namespace ToolCore.Session
             AvComps.ApplyRemovals();
         }
 
-        internal void RunBeams(ToolComp.Effects effects, ToolComp.Hit hit)
+        internal void RunBeams(Effects effects, Hit hit)
         {
             var beams = effects.Beams;
             for (int i = 0; i < beams.Count; i++)
@@ -72,13 +74,13 @@ namespace ToolCore.Session
                 Vector3D endPos;
                 switch (def.EndLocation)
                 {
-                    case Emitter:
+                    case Location.Emitter:
                         endPos = Vector3D.Transform(beam.End.Matrix.Translation, beam.EndParent.PositionComp.WorldMatrixRef);
                         break;
-                    case Hit:
+                    case Location.Hit:
                         endPos = hit.Position;
                         break;
-                    case Forward:
+                    case Location.Forward:
                         endPos = hit.IsValid ? hit.Position :
                             Vector3D.Transform(beam.Start.Matrix.Translation + beam.Definition.MaxLength * beam.Start.Matrix.Forward, beam.StartParent.PositionComp.WorldMatrixRef);
                         break;
@@ -90,7 +92,7 @@ namespace ToolCore.Session
             }
         }
 
-        internal bool RunParticles(ToolComp.Effects effects, ToolComp.Hit hit)
+        internal bool RunParticles(Effects effects, Hit hit)
         {
             var particles = effects.ParticleEffects;
             //MyAPIGateway.Utilities.ShowNotification($"Running {particles.Count} particles", 16);
@@ -119,15 +121,15 @@ namespace ToolCore.Session
                 var parent = pEffect.Parent;
                 switch (def.Location)
                 {
-                    case Centre:
+                    case Location.Centre:
                         matrix = parent.PositionComp.LocalMatrixRef;
                         position = def.Offset;
                         break;
-                    case Emitter:
+                    case Location.Emitter:
                         matrix = MatrixD.Normalize(pEffect.Dummy.Matrix);
                         position = matrix.Translation + def.Offset;
                         break;
-                    case Hit:
+                    case Location.Hit:
                         matrix = MatrixD.Rescale(parent.PositionComp.LocalMatrixRef, -1);
                         position = Vector3D.Transform(hit.Position, parent.PositionComp.WorldMatrixNormalizedInv);
                         break;
@@ -169,7 +171,7 @@ namespace ToolCore.Session
             return true;
         }
 
-        internal bool RunAnimations(ToolComp.Effects effects)
+        internal bool RunAnimations(Effects effects)
         {
             var animations = effects.Animations;
             var finished = true;
@@ -224,7 +226,7 @@ namespace ToolCore.Session
 
         }
 
-        internal void RunSound(ToolComp.Effects effects, ToolComp comp)
+        internal void RunSound(Effects effects, ToolComp comp)
         {
             var emitter = comp.SoundEmitter;
             if (emitter == null)
@@ -252,8 +254,13 @@ namespace ToolCore.Session
                     emitter.StopSound(true);
                     //Logs.WriteLine("Stopping sound");
                 }
+                MySoundPair soundPair;
+                if (!sound.Lookup || !sound.SoundMap.TryGetValue(comp.HitInfo.Material, out soundPair))
+                    soundPair = sound.SoundPair;
 
-                var soundPair = sound.Lookup ? sound.SoundMap[comp.HitInfo.Material] : sound.SoundPair;
+                if (soundPair == null)
+                    return;
+
                 emitter.PlaySound(soundPair);
                 //Logs.WriteLine("Playing sound");
             }

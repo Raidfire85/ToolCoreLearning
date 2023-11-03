@@ -75,7 +75,7 @@ namespace ToolCore.Comp
         internal bool UpdatePower;
         internal bool LastPushSucceeded;
 
-        internal bool Hitting;
+        internal bool Working;
         internal bool WasHitting;
         internal readonly Hit HitInfo = new Hit();
         internal MyStringHash HitMaterial = MyStringHash.GetOrCompute("Metal");
@@ -775,7 +775,7 @@ namespace ToolCore.Comp
             ActiveDrillThreads--;
             if (ActiveDrillThreads > 0) return;
 
-            var isHitting = Functional && Powered && Enabled && Hitting && (Activated || GunBase.Shooting);
+            var isHitting = Functional && Powered && Enabled && Working && (Activated || GunBase.Shooting);
             if (isHitting != WasHitting)
             {
                 UpdateState(Trigger.Hit, isHitting);
@@ -791,7 +791,7 @@ namespace ToolCore.Comp
                     Session.DsUtil.Clean();
                 }
             }
-            Hitting = false;
+            Working = false;
         }
         
         internal void ManageInventory()
