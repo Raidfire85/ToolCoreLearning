@@ -80,8 +80,8 @@ namespace ToolCore.Session
                     action.Enabled = IsFalse;
                 }
 
-                foreach (var newAction in _customActions)
-                    actions.Add(newAction);
+                //foreach (var newAction in _customActions)
+                //    actions.Add(newAction);
             }
         }
 
@@ -93,10 +93,16 @@ namespace ToolCore.Session
             _customControls.Add(SelectAction<T>());
             _customControls.Add(DrawSwitch<T>());
 
+            //foreach (var control in _customControls)
+            //    MyAPIGateway.TerminalControls.AddControl<T>(control);
+
             _customActions.Add(CreateActivateOnOffAction<T>());
             _customActions.Add(CreateModeAction<T>());
             _customActions.Add(CreateActionAction<T>());
             _customActions.Add(CreateDrawAction<T>());
+
+            foreach (var action in _customActions)
+                MyAPIGateway.TerminalControls.AddAction<T>(action);
         }
 
         #region ShootOnOff

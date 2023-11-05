@@ -36,7 +36,6 @@ namespace ToolCore.Session
             MyEntities.OnEntityCreate += OnEntityCreate;
 
             Logs.InitLogs();
-            Controls.CreateTerminalControls<IMyConveyorSorter>();
 
             LoadDefinitions();
             LoadToolCoreDefs();
@@ -61,6 +60,7 @@ namespace ToolCore.Session
                 Settings.LoadConfig();
                 SettingsLoad(Settings.CoreSettings);
             }
+            Controls.CreateTerminalControls<IMyConveyorSorter>();
 
             MyVisualScriptLogicProvider.PlayerDisconnected += PlayerDisconnected;
             MyVisualScriptLogicProvider.PlayerRespawnRequest += PlayerConnected;

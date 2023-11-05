@@ -136,7 +136,7 @@ namespace ToolCore
                         var voxelDef = MyDefinitionManager.Static.GetVoxelMaterialDefinition(material);
                         var validVoxel = voxelDef != null;
 
-                        var harvestRatio = 0f;
+                        var harvestRatio = 1f;
                         var hardness = 1f;
                         var removal = reduction;
                         if (validVoxel)
@@ -344,7 +344,7 @@ namespace ToolCore
                         var voxelDef = MyDefinitionManager.Static.GetVoxelMaterialDefinition(material);
                         var validVoxel = voxelDef != null;
 
-                        var harvestRatio = 0f;
+                        var harvestRatio = 1f;
                         var hardness = 1f;
                         var removal = reduction;
                         if (validVoxel)
@@ -593,7 +593,7 @@ namespace ToolCore
                             var voxelDef = MyDefinitionManager.Static.GetVoxelMaterialDefinition(material);
                             var validVoxel = voxelDef != null;
 
-                            var harvestRatio = 0f;
+                            var harvestRatio = 1f;
                             var hardness = 1f;
                             var removal = reduction;
                             if (validVoxel)
@@ -781,7 +781,7 @@ namespace ToolCore
                             var voxelDef = MyDefinitionManager.Static.GetVoxelMaterialDefinition(material);
                             var validVoxel = voxelDef != null;
 
-                            var harvestRatio = 0f;
+                            var harvestRatio = 1f;
                             var hardness = 1f;
                             var removal = reduction;
                             if (validVoxel)

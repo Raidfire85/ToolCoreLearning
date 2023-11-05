@@ -565,7 +565,7 @@ namespace ToolCore.Comp
             var required = RequiredInput();
             var elec = MyResourceDistributorComponent.ElectricityId;
             var distributor = (MyResourceDistributorComponent)((IMyCubeGrid)Grid).ResourceDistributor;
-            Powered = required > 0 && Sink.IsPoweredByType(elec) && (Sink.ResourceAvailableByType(elec) >= required || distributor.MaxAvailableResourceByType(elec) >= required);
+            Powered = required > 0 && Sink.IsPoweredByType(elec) && (Sink.ResourceAvailableByType(elec) >= required || distributor != null && distributor.MaxAvailableResourceByType(elec) >= required);
             return Powered;
         }
 
