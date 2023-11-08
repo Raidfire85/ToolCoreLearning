@@ -180,27 +180,39 @@ namespace ToolCore.Session
             {
                 var anim = animations[i];
                 var subpart = anim.Subpart;
+                var def = anim.Definition;
 
                 if (subpart == null)
                 {
                     Logs.WriteLine($"Subpart null in animation loop!");
                     continue;
                 }
-                var transform = anim.Definition.Transform;
 
-                if (effects.Expired)
+                var closing = anim.Ending || effects.Expired;
+
+                if (closing)
                 {
-                    if (!anim.Definition.HasWindup || anim.TransitionState <= 0)
+                    if (!def.HasWindup || anim.TransitionState <= 0)
                         continue;
 
                     anim.Starting = false;
 
                     finished = false;
                     anim.TransitionState--;
-                    transform = Matrix.CreateFromAxisAngle(anim.Definition.Direction, anim.TransitionState * anim.Definition.WindupRadsFraction);
                 }
 
-                if (anim.Definition.HasWindup && effects.LastActiveTick < Tick - 1)
+                if (!def.IsContinuous)
+                {
+                    if (!anim.Ending && anim.RemainingDuration <= 0)
+                    {
+                        anim.Ending = true;
+                        continue;
+                    }
+
+                    anim.RemainingDuration--;
+                }
+
+                if (def.HasWindup && effects.LastActiveTick < Tick - 1)
                 {
                     anim.Starting = true;
                 }
@@ -208,18 +220,53 @@ namespace ToolCore.Session
                 if (anim.Starting)
                 {
                     anim.TransitionState++;
-                    if (anim.TransitionState >= anim.Definition.WindupTime - 1)
+                    if (anim.TransitionState >= def.WindupTime - 1)
                         anim.Starting = false;
-
-                    transform = Matrix.CreateFromAxisAngle(anim.Definition.Direction, anim.TransitionState * anim.Definition.WindupRadsFraction);
                 }
 
-                var lm = subpart.PositionComp.LocalMatrixRef;
-                var trans = lm.Translation;
-                //lm *= transform;
-                Matrix.MultiplyRotation(ref lm, ref transform, out lm);
-                lm.Translation = trans;
-                subpart.PositionComp.SetLocalMatrix(ref lm);
+                var transform = def.Transform;
+                var transparency = def.Type == AnimationType.Hide ? 0f : 1f;
+
+                if (anim.Starting || closing)
+                {
+                    switch (def.Type)
+                    {
+                        case AnimationType.Rotate:
+                            transform = Matrix.CreateFromAxisAngle(def.Direction, anim.TransitionState * def.WindupFraction);
+                            break;
+                        case AnimationType.Linear:
+                            transform = Matrix.CreateTranslation(def.Direction * anim.TransitionState * def.WindupFraction);
+                            break;
+                        case AnimationType.Hide:
+                            transparency = 1f - (anim.TransitionState * def.WindupFraction);
+                            break;
+                        case AnimationType.Unhide:
+                            transparency = anim.TransitionState * def.WindupFraction;
+                            break;
+                    }
+                }
+
+                switch (def.Type)
+                {
+                    case AnimationType.Rotate:
+                        var lm = subpart.PositionComp.LocalMatrixRef;
+                        var trans = lm.Translation;
+                        Matrix.MultiplyRotation(ref lm, ref transform, out lm);
+                        lm.Translation = trans;
+                        subpart.PositionComp.SetLocalMatrix(ref lm);
+                        break;
+                    case AnimationType.Linear:
+                        lm = subpart.PositionComp.LocalMatrixRef;
+                        lm += transform;
+                        subpart.PositionComp.SetLocalMatrix(ref lm);
+                        break;
+                    case AnimationType.Hide:
+                    case AnimationType.Unhide:
+                        subpart.Render.Transparency = transparency;
+                        break;
+
+                }
+
             }
 
             return finished;

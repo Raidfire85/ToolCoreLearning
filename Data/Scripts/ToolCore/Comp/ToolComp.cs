@@ -329,6 +329,9 @@ namespace ToolCore.Comp
                 internal MyEntitySubpart Subpart;
 
                 internal bool Starting;
+                internal bool Running;
+                internal bool Ending;
+                internal int RemainingDuration;
                 internal int TransitionState;
 
                 public Animation(AnimationDef def, MyEntitySubpart subpart)

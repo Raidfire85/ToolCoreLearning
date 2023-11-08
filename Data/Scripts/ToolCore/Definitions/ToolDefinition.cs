@@ -116,18 +116,22 @@ namespace ToolCore.Definitions
             internal readonly AnimationType Type;
             internal readonly Vector3 Direction;
             internal readonly float Speed;
+            internal readonly int Duration;
             internal readonly int WindupTime;
             internal readonly Matrix Transform;
+            internal readonly bool IsContinuous;
             internal readonly bool HasWindup;
-            internal readonly float WindupRadsFraction;
+            internal readonly float WindupFraction;
 
             internal AnimationDef(Animation animation)
             {
                 Subpart = animation.Subpart;
                 Type = animation.Type;
-                Direction = animation.Direction;
+                Direction = Vector3.Normalize(animation.Direction);
                 Speed = animation.Speed;
+                Duration = animation.Duration;
                 WindupTime = animation.WindupTime;
+                IsContinuous = Duration <= 0;
                 HasWindup = WindupTime > 0;
 
                 var speedTicks = Speed / 60f;
@@ -136,13 +140,15 @@ namespace ToolCore.Definitions
                     case AnimationType.Rotate:
                         var radsPerTick = MathHelper.ToRadians(speedTicks);
                         Transform = Matrix.CreateFromAxisAngle(Direction, radsPerTick);
-                        if (HasWindup) WindupRadsFraction = radsPerTick / WindupTime;
+                        if (HasWindup) WindupFraction = radsPerTick / WindupTime;
                         break;
                     case AnimationType.Linear:
                         Transform = Matrix.CreateTranslation(Direction * speedTicks);
+                        if (HasWindup) WindupFraction = speedTicks / WindupTime;
                         break;
                     default:
                         Transform = Matrix.Zero;
+                        if (HasWindup) WindupFraction = 1f / WindupTime;
                         break;
 
                 }

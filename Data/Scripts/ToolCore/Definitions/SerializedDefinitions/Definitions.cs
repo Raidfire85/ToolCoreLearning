@@ -138,6 +138,7 @@ namespace ToolCore.Definitions.Serialised
         public AnimationType Type;
         public SerializableVector3 Direction = Vector3.Zero;
         public float Speed = 1f; //(degrees/metres) per second
+        public int Duration = 0; //ticks
         public int WindupTime = 0; //ticks
     }
 
