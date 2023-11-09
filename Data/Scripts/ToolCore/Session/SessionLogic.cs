@@ -1,12 +1,15 @@
-﻿using Sandbox.Definitions;
+﻿using Sandbox.Common.ObjectBuilders;
+using Sandbox.Definitions;
 using Sandbox.Game.Entities;
 using Sandbox.Game.Entities.Character;
 using Sandbox.Game.WorldEnvironment;
 using Sandbox.ModAPI;
+using SpaceEngineers.Game.Entities.Blocks;
 using System;
 using ToolCore.Comp;
 using ToolCore.Definitions.Serialised;
 using ToolCore.Utils;
+using VRage;
 using VRage.Game;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
@@ -651,14 +654,24 @@ namespace ToolCore.Session
                             if (!slim.HasDeformation)
                             {
                                 _hitBlocks.Remove(slim);
-                                continue;
                             }
+                            continue;
                         }
-                        else
+                        
+                        if (((MyCubeGrid)slim.CubeGrid).Projector != null)
                         {
-                            slim.GetMissingComponents(_missingComponents);
+                            var components = ((MyCubeBlockDefinition)slim.BlockDefinition).Components;
+                            if (components != null && components.Length != 0)
+                            {
+                                var first = components[0].Definition.Id.SubtypeName;
+                                if (_missingComponents.ContainsKey(first))
+                                    _missingComponents[first] += 1;
+                                else _missingComponents[first] = 1;
+                            }
+                            continue;
                         }
 
+                        slim.GetMissingComponents(_missingComponents);
                     }
                     _hitBlocks.ApplyRemovals();
 
@@ -685,27 +698,37 @@ namespace ToolCore.Session
                     buildCount = buildCount > 0 ? buildCount : 1;
                     var weldScaler = 0.25f / (float)Math.Min(4, buildCount);
                     var weldAmount = weldScaler * toolValues.Speed * MyAPIGateway.Session.WelderSpeedMultiplier;
+
+                    //var welder = null as IMyShipWelder;
                     for (int a = 0; a < _hitBlocks.Count; a++)
                     {
                         var slim = _hitBlocks[a];
+                        var grid = (MyCubeGrid)slim.CubeGrid;
 
-                        var welder = tool as IMyShipWelder;
-                        if (welder != null && gridComp.Projector != null)
+                        var cubeDef = slim.BlockDefinition as MyCubeBlockDefinition;
+                        if (grid.Projector != null)
                         {
-                            var cubeDef = slim.BlockDefinition as MyCubeBlockDefinition;
-
-                            if (!slim.CanContinueBuild(inventory))
+                            if (inventory.RemoveItemsOfType(1, cubeDef.Components[0].Definition.Id) < 1)
                                 continue;
 
-                            if (slim.WillBecomeFunctional(weldAmount) && !welder.IsWithinWorldLimits(gridComp.Projector, "", cubeDef.PCU - 1))
-                                continue;
+                            ((IMyProjector)grid.Projector).Build(slim, tool.OwnerId, ((MyCubeBlock)tool).BuiltBy, MyAPIGateway.Session.CreativeMode);
+                            continue;
                         }
+
+                        if (!slim.CanContinueBuild(inventory))
+                            continue;
+
+                        //if (welder != null)
+                        //{
+                        //    if (slim.WillBecomeFunctional(weldAmount) && !welder.IsWithinWorldLimits(gridComp.Projector, "", cubeDef.PCU - 1))
+                        //        continue;
+                        //}
 
                         comp.Working = true;
 
                         slim.MoveItemsToConstructionStockpile(inventory);
 
-                        slim.IncreaseMountLevel(weldAmount, tool.OwnerId, inventory, 0.15f, welder?.HelpOthers ?? false);
+                        slim.IncreaseMountLevel(weldAmount, tool.OwnerId, inventory, 0.15f, false);
 
                     }
                     #endregion
