@@ -1,4 +1,5 @@
 ﻿using Sandbox.Game.Entities;
+using System;
 using System.Collections.Generic;
 using ToolCore.Comp;
 using ToolCore.Definitions.Serialised;
@@ -51,6 +52,7 @@ namespace ToolCore.Definitions
         internal readonly List<List<Vector3I>> Layers = new List<List<Vector3I>>();
 
         internal readonly Trigger EventFlags;
+        internal readonly List<Trigger> Triggers = new List<Trigger>();
         internal readonly Dictionary<Trigger, MyTuple<List<AnimationDef>, List<ParticleEffectDef>, List<BeamDef>, SoundDef>> EventEffectDefs = new Dictionary<Trigger, MyTuple<List<AnimationDef>, List<ParticleEffectDef>, List<BeamDef>, SoundDef>>();
         internal readonly Dictionary<MyVoxelMaterialDefinition, MaterialModifierDefinition> MaterialModifiers = new Dictionary<MyVoxelMaterialDefinition, MaterialModifierDefinition>();
 
@@ -419,6 +421,7 @@ namespace ToolCore.Definitions
                     soundDef = new SoundDef(eventDef.Sound, session);
 
                 EventEffectDefs[eventDef.Trigger] = new MyTuple<List<AnimationDef>, List<ParticleEffectDef>, List<BeamDef>, SoundDef>(animationDefs, particleEffectDefs, beamDefs, soundDef);
+                Triggers.Add(eventDef.Trigger);
                 flags |= eventDef.Trigger;
             }
 

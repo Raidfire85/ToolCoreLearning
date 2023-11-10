@@ -150,7 +150,15 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Data\Scripts\ToolCore\API\TCApi.cs" />
+    <Compile Include="Data\Scripts\ToolCore\API\Backend\APIBackend.cs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Compile>
+    <Compile Include="Data\Scripts\ToolCore\API\Backend\APIServer.cs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Compile>
+    <Compile Include="Data\Scripts\ToolCore\API\TCApi.cs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Compile>
     <Compile Include="Data\Scripts\ToolCore\Comp\CompData.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>

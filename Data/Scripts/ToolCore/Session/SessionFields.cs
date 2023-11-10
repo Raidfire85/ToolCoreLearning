@@ -3,6 +3,7 @@ using Sandbox.Game.Entities;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using ToolCore.API;
 using ToolCore.Comp;
 using ToolCore.Definitions;
 using ToolCore.Utils;
@@ -74,6 +75,10 @@ namespace ToolCore.Session
         internal readonly DSUtils DsUtil2;
         internal readonly Controls Controls;
         internal readonly Networking Networking;
+        internal readonly APIBackend API;
+        internal readonly APIServer APIServer;
+
+        internal bool PbApiInited;
 
 
         public ToolSession()
@@ -82,6 +87,8 @@ namespace ToolCore.Session
             DsUtil2 = new DSUtils(this);
             Controls = new Controls(this);
             Networking = new Networking(this);
+            API = new APIBackend(this);
+            APIServer = new APIServer(this);
         }
 
         private void Clean()

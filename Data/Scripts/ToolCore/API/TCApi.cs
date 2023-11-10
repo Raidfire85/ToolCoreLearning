@@ -2,34 +2,40 @@
 using System;
 using System.Collections.Generic;
 using VRage.Game.Entity;
-using VRage.Game.ModAPI;
 
-namespace StealthSystem
+namespace ToolCore.API
 {
     internal class TCApi
     {
-        public int GetStatus(IMyTerminalBlock drive) => _getStatus?.Invoke(drive) ?? 4;
-
         /// <summary>
-        /// Monitor various kind of events, see WcApiDef.WeaponDefinition.AnimationDef.PartAnimationSetDef.EventTriggers for int mapping, bool is for active/inactive
+        /// Monitor various kinds of events, see ToolCore.Definitions.Serialised.Trigger for int mapping, bool is for active/inactive
         /// </summary>
         /// <param name="entity"></param>
-        /// <param name="partId"></param>
         /// <param name="action"></param>
         /// <returns></returns>
-        public void MonitorEvents(MyEntity entity, int partId, Action<int, bool> action) =>
-            _monitorEvents?.Invoke(entity, partId, action);
+        public void MonitorEvents(MyEntity entity, Action<int, bool> action) =>
+            _monitorEvents?.Invoke(entity, action);
 
         /// <summary>
-        /// Monitor various kind of events, see WcApiDef.WeaponDefinition.AnimationDef.PartAnimationSetDef.EventTriggers for int mapping, bool is for active/inactive
+        /// Monitor various kinds of events, see ToolCore.Definitions.Serialised.Trigger for int mapping, bool is for active/inactive
         /// </summary>
         /// <param name="entity"></param>
-        /// <param name="partId"></param>
         /// <param name="action"></param>
         /// <returns></returns>
-        public void UnMonitorEvents(MyEntity entity, int partId, Action<int, bool> action) =>
-            _unmonitorEvents?.Invoke(entity, partId, action);
+        public void UnMonitorEvents(MyEntity entity, Action<int, bool> action) =>
+            _unmonitorEvents?.Invoke(entity, action);
 
+        //None = 0,
+        //Functional = 1,
+        //Powered = 2,
+        //Enabled = 4,
+        //Activated = 8,
+        //LeftClick = 16,
+        //RightClick = 32,
+        //Click = 48,
+        //Firing = 56,
+        //Hit = 64,
+        //RayHit = 128,
 
 
         private const long CHANNEL = 2172757428;
@@ -37,9 +43,8 @@ namespace StealthSystem
         private bool _apiInit;
         private Action _readyCallback;
 
-        private Func<IMyTerminalBlock, int> _getStatus;
-        private Action<MyEntity, int, Action<int, bool>> _monitorEvents;
-        private Action<MyEntity, int, Action<int, bool>> _unmonitorEvents;
+        private Action<MyEntity, Action<int, bool>> _monitorEvents;
+        private Action<MyEntity, Action<int, bool>> _unmonitorEvents;
 
         public bool IsReady { get; private set; }
 
@@ -92,7 +97,6 @@ namespace StealthSystem
         {
             _apiInit = (delegates != null);
 
-            AssignMethod(delegates, "GetStatus", ref _getStatus);
             AssignMethod(delegates, "RegisterEventMonitor", ref _monitorEvents);
             AssignMethod(delegates, "UnRegisterEventMonitor", ref _unmonitorEvents);
         }

@@ -38,7 +38,7 @@ namespace ToolCore.Session
 
                     UpdateTool(comp, gridComp);
 
-                    var avState = comp.State & def.EventFlags;
+                    var avState = comp.AvState & def.EventFlags;
                     if (!comp.AvActive && avState > 0)
                     {
                         AvComps.Add(comp);

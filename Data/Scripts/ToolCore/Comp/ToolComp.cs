@@ -53,7 +53,7 @@ namespace ToolCore.Comp
 
         internal ToolMode Mode;
         internal ToolAction Action;
-        internal Trigger State;
+        internal Trigger AvState;
         internal Drills DrillData;
 
         internal readonly Dictionary<Trigger, Effects> EventEffects = new Dictionary<Trigger, Effects>();
@@ -62,7 +62,8 @@ namespace ToolCore.Comp
         internal readonly List<byte> MaxContent = new List<byte>();
         internal readonly List<StorageInfo> StorageDatas = new List<StorageInfo>();
         internal readonly ConcurrentDictionary<MyObjectBuilder_Ore, float> Yields = new ConcurrentDictionary<MyObjectBuilder_Ore, float>();
-        internal List<ulong> ReplicatedClients = new List<ulong>();
+        internal readonly List<ulong> ReplicatedClients = new List<ulong>();
+        internal readonly List<Action<int, bool>> EventMonitors = new List<Action<int, bool>>();
 
         internal readonly HashSet<Vector3I> PreviousPositions = new HashSet<Vector3I>();
         internal readonly ConcurrentCachingList<MyTuple<MyOrientedBoundingBoxD, Color>> DrawBoxes = new ConcurrentCachingList<MyTuple<MyOrientedBoundingBoxD, Color>>();
@@ -467,70 +468,30 @@ namespace ToolCore.Comp
 
         }
 
-        internal void UpdateState(Trigger state, bool add, bool force = false)
+        internal void UpdateState(Trigger state, bool add)
         {
-            var isActive = (State & state) > 0;
-            //Logs.WriteLine($"UpdateState : {state} : {add} : {isActive}");
-
-            if (!force)
+            var valid = false;
+            foreach (var flag in Definition.Triggers)
             {
-                if (add == isActive)
-                    return;
+                if (flag >= state)
+                    valid = true;
 
-                if (add)
-                    State |= state;
-                else
+                if (!valid || (add && (flag & state) == 0))
+                    continue;
+
+                if (add) AvState |= state;
+                else AvState ^= state;
+
+                foreach (var monitor in EventMonitors)
+                    monitor.Invoke((int)state, add);
+
+                UpdateEffects(flag, add);
+
+                if (!add) // maybe remove this later :|
                 {
-                    state &= State;
-                    State ^= state;
+                    if (flag == Trigger.Hit) WasHitting = false;
+                    if (flag == Trigger.RayHit) HitInfo.IsValid = false;
                 }
-            }
-
-            switch (state)
-            {
-                case Trigger.Functional:
-                    UpdateEffects(Trigger.Functional, add);
-                    if (add && !IsPowered()) break;
-                    UpdateState(Trigger.Powered, add);
-                    break;
-                case Trigger.Powered:
-                    UpdateEffects(Trigger.Powered, add);
-                    if (add && !Enabled) break;
-                    UpdateState(Trigger.Enabled, add);
-                    break;
-                case Trigger.Enabled:
-                    UpdateEffects(Trigger.Enabled, add);
-                    if (add && !Activated) break;
-                    UpdateState(Trigger.Activated, add);
-                    if (!add) Activated = false;
-                    break;
-                case Trigger.LeftClick:
-                case Trigger.RightClick:
-                    UpdateEffects(state, add);
-                    UpdateState(Trigger.Click, add, true);
-                    break;
-                case Trigger.Activated:
-                case Trigger.Click:
-                    UpdateEffects(state, add);
-                    if (!add && (State & Trigger.Firing) > 0) break;
-                    UpdateState(Trigger.Firing, add, true);
-                    break;
-                case Trigger.Firing:
-                    UpdateEffects(Trigger.Firing, add);
-                    if (add) break;
-                    UpdateState(Trigger.Hit, false);
-                    UpdateState(Trigger.RayHit, false);
-                    break;
-                case Trigger.Hit:
-                    UpdateEffects(Trigger.Hit, add);
-                    if (!add) WasHitting = false;
-                    break;
-                case Trigger.RayHit:
-                    UpdateEffects(Trigger.RayHit, add);
-                    if (!add) HitInfo.IsValid = false;
-                    break;
-                default:
-                    break;
             }
         }
 
