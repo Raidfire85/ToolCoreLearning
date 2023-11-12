@@ -647,16 +647,6 @@ namespace ToolCore.Session
                     for (int a = 0; a < _hitBlocks.Count; a++)
                     {
                         var slim = _hitBlocks[a];
-
-                        if (slim.IsFullIntegrity)
-                        {
-                            buildCount--;
-                            if (!slim.HasDeformation)
-                            {
-                                _hitBlocks.Remove(slim);
-                            }
-                            continue;
-                        }
                         
                         if (((MyCubeGrid)slim.CubeGrid).Projector != null)
                         {
@@ -667,6 +657,16 @@ namespace ToolCore.Session
                                 if (_missingComponents.ContainsKey(first))
                                     _missingComponents[first] += 1;
                                 else _missingComponents[first] = 1;
+                            }
+                            continue;
+                        }
+
+                        if (slim.IsFullIntegrity)
+                        {
+                            buildCount--;
+                            if (!slim.HasDeformation)
+                            {
+                                _hitBlocks.Remove(slim);
                             }
                             continue;
                         }
@@ -708,7 +708,7 @@ namespace ToolCore.Session
                         var cubeDef = slim.BlockDefinition as MyCubeBlockDefinition;
                         if (grid.Projector != null)
                         {
-                            if (inventory.RemoveItemsOfType(1, cubeDef.Components[0].Definition.Id) < 1)
+                            if (!MyAPIGateway.Session.CreativeMode && inventory.RemoveItemsOfType(1, cubeDef.Components[0].Definition.Id) < 1)
                                 continue;
 
                             ((IMyProjector)grid.Projector).Build(slim, tool.OwnerId, ((MyCubeBlock)tool).BuiltBy, MyAPIGateway.Session.CreativeMode);

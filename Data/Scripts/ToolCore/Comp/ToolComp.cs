@@ -470,13 +470,15 @@ namespace ToolCore.Comp
 
         internal void UpdateState(Trigger state, bool add)
         {
+            var keepFiring = !add && (Activated || GunBase.Shooting) && (state ^ Trigger.Firing) > 0;
+
             var valid = false;
             foreach (var flag in Definition.Triggers)
             {
                 if (flag >= state)
                     valid = true;
 
-                if (!valid || (add && (flag & state) == 0))
+                if (!valid || keepFiring || (add && (flag & state) == 0))
                     continue;
 
                 if (add) AvState |= state;
@@ -486,6 +488,8 @@ namespace ToolCore.Comp
                     monitor.Invoke((int)state, add);
 
                 UpdateEffects(flag, add);
+
+                //Logs.WriteLine($"{flag} - {add} - {state}");
 
                 if (!add) // maybe remove this later :|
                 {
