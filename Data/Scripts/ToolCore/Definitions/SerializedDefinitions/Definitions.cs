@@ -32,6 +32,7 @@ namespace ToolCore.Definitions.Serialised
         public float IdlePower = 0f;
         public float ActivePower = 1f;
 
+        public bool DamageCharacters = true;
         public bool AffectOwnGrid = false;
         //public bool Turret = false;
         public bool Debug = false;

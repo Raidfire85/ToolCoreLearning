@@ -27,6 +27,7 @@ namespace ToolCore.Definitions
         internal float ActivePower;
         internal float IdlePower;
         internal bool Turret;
+        internal bool DamageCharacters;
         internal bool AffectOwnGrid;
         internal bool Debug;
         internal bool HasMaterialModifiers;
@@ -257,6 +258,7 @@ namespace ToolCore.Definitions
             ActivePower = values.ActivePower;
             IdlePower = values.IdlePower;
             //Turret = values.Turret;
+            DamageCharacters = values.DamageCharacters;
             AffectOwnGrid = values.AffectOwnGrid;
             Debug = !session.IsDedicated && values.Debug;
 

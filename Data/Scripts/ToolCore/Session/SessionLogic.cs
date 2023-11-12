@@ -337,6 +337,9 @@ namespace ToolCore.Session
 
                 if (entity is IMyDestroyableObject)
                 {
+                    if (entity is IMyCharacter && !def.DamageCharacters)
+                        continue;
+
                     var obb = new MyOrientedBoundingBoxD(entity.PositionComp.LocalAABB, entity.PositionComp.WorldMatrixRef);
                     if (def.Debug) DrawBox(obb, Color.Red, false, 8);
                     switch (def.EffectShape)
@@ -711,7 +714,7 @@ namespace ToolCore.Session
                             if (!MyAPIGateway.Session.CreativeMode && inventory.RemoveItemsOfType(1, cubeDef.Components[0].Definition.Id) < 1)
                                 continue;
 
-                            ((IMyProjector)grid.Projector).Build(slim, tool.OwnerId, ((MyCubeBlock)tool).BuiltBy, MyAPIGateway.Session.CreativeMode);
+                            ((IMyProjector)grid.Projector).Build(slim, tool.OwnerId, tool.EntityId, true, tool.SlimBlock.BuiltBy);
                             continue;
                         }
 
