@@ -31,12 +31,20 @@ namespace ToolCore.Utils
 
         internal static bool TryGetSubpartRecursive(this MyEntity entity, string name, out MyEntitySubpart subpart)
         {
+            if (string.IsNullOrEmpty(name))
+            {
+                subpart = null;
+                return false;
+            }
+
             if (entity.TryGetSubpart(name, out subpart))
                 return true;
 
             foreach (var part in entity.Subparts.Values)
+            {
                 if (TryGetSubpartRecursive(part, name, out subpart))
                     return true;
+            }
 
             return false;
         }
@@ -44,6 +52,12 @@ namespace ToolCore.Utils
         internal static bool TryGetDummy(this MyEntity entity, string name, out IMyModelDummy dummy, out MyEntity parent)
         {
             parent = entity;
+
+            if (string.IsNullOrEmpty(name))
+            {
+                dummy = null;
+                return false;
+            }
 
             var dummies = new Dictionary<string, IMyModelDummy>();
             (entity as IMyEntity).Model.GetDummies(dummies);
@@ -55,8 +69,10 @@ namespace ToolCore.Utils
                 return false;
 
             foreach (var part in parts.Values)
+            {
                 if (TryGetDummy(part, name, out dummy, out parent))
                     return true;
+            }
             
             return false;
         }
