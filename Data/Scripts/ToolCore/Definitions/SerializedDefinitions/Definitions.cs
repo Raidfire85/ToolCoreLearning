@@ -180,6 +180,8 @@ namespace ToolCore.Definitions.Serialised
         [XmlAttribute]
         public string Category;
         [XmlAttribute]
+        public string Subtype;
+        [XmlAttribute]
         public float SpeedRatio = 1f;
         [XmlAttribute]
         public float HarvestRatio = 1f;

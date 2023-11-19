@@ -361,9 +361,20 @@ namespace ToolCore.Definitions
             HasMaterialModifiers = true;
 
             var categories = new Dictionary<string, MaterialModifierDefinition>();
+            var subtypes = new Dictionary<string, MaterialModifierDefinition>();
             foreach (var modifier in modifiers)
             {
-                categories.Add(modifier.Category, new MaterialModifierDefinition(modifier));
+                if (!string.IsNullOrEmpty(modifier.Subtype))
+                {
+                    subtypes.Add(modifier.Subtype, new MaterialModifierDefinition(modifier));
+                    continue;
+                }
+
+                if (!string.IsNullOrEmpty(modifier.Category))
+                {
+                    categories.Add(modifier.Category, new MaterialModifierDefinition(modifier));
+                    continue;
+                }
             }
 
             foreach (var matList in session.MaterialCategoryMap)
@@ -374,6 +385,7 @@ namespace ToolCore.Definitions
 
                 foreach (var mat in matList.Value)
                 {
+                    subtypes.TryGetValue(mat.Id.SubtypeName, out mods);
                     MaterialModifiers.Add(mat, mods);
                 }
             }
