@@ -367,13 +367,11 @@ namespace ToolCore.Definitions
                 if (!string.IsNullOrEmpty(modifier.Subtype))
                 {
                     subtypes.Add(modifier.Subtype, new MaterialModifierDefinition(modifier));
-                    continue;
                 }
 
                 if (!string.IsNullOrEmpty(modifier.Category))
                 {
                     categories.Add(modifier.Category, new MaterialModifierDefinition(modifier));
-                    continue;
                 }
             }
 
