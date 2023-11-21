@@ -642,7 +642,7 @@ namespace ToolCore.Comp
 
         private float RequiredInput()
         {
-            if (!Functional && !Enabled)
+            if (!Functional || !Enabled)
                 return 0f;
 
             if (Activated || GunBase.WantsToShoot)
