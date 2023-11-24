@@ -1,6 +1,8 @@
-﻿using Sandbox.Game.Entities;
+﻿using ParallelTasks;
+using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using System;
+using System.ComponentModel;
 using ToolCore.Comp;
 using ToolCore.Utils;
 using VRage.Game.Entity;
@@ -20,17 +22,33 @@ namespace ToolCore.Session
                 grid.AddedToScene += addToStart => _startGrids.Add(grid);
             }
 
-            var tool = entity as IMyConveyorSorter;
-            if (tool != null && DefinitionMap.ContainsKey(tool.BlockDefinition))
+            //var tool = entity as IMyConveyorSorter;
+            //if (tool != null && DefinitionMap.ContainsKey(tool.BlockDefinition))
+            //{
+            //    var cube = tool as MyCubeBlock;
+            //    cube.AddedToScene += addToStart => _startComps.Add(cube);
+            //}
+
+            var sorter = entity as IMyConveyorSorter;
+            var handTool = entity as IMyHandheldGunObject<MyDeviceBase>;
+            if (sorter != null || handTool != null)
             {
-                var cube = tool as MyCubeBlock;
-                cube.AddedToScene += addToStart => _startBlocks.Add(cube);
+                //var defId = sorter?.BlockDefinition ?? entity.DefinitionId;
+                //if (!defId.HasValue)
+                //{
+                //    Logs.WriteLine("Entity DefinitionId null in OnEntityCreate");
+                //    return;
+                //}
+                //if (!DefinitionMap.ContainsKey(defId.Value))
+                //    return;
+
+                entity.AddedToScene += addToStart => _startComps.Add(entity);
             }
 
             var controller = entity as MyShipController;
             if (controller != null)
             {
-                controller.AddedToScene += addToStart => _startBlocks.Add(controller);
+                controller.AddedToScene += addToStart => _startComps.Add(controller);
             }
 
         }

@@ -2,11 +2,14 @@
 using Sandbox.Definitions;
 using Sandbox.Game.Entities;
 using Sandbox.Game.Entities.Character;
+using Sandbox.Game.Weapons;
 using Sandbox.Game.WorldEnvironment;
 using Sandbox.ModAPI;
 using SpaceEngineers.Game.Entities.Blocks;
 using System;
+using System.Security.Cryptography;
 using ToolCore.Comp;
+using ToolCore.Definitions;
 using ToolCore.Definitions.Serialised;
 using ToolCore.Utils;
 using VRage;
@@ -63,7 +66,7 @@ namespace ToolCore.Session
         private void DrawComp(ToolComp comp)
         {
             var def = comp.Definition;
-            var tool = comp.Tool;
+            var tool = comp.ToolEntity;
             var pos = tool.PositionComp;
             var toolMatrix = pos.WorldMatrixRef;
 
@@ -147,20 +150,23 @@ namespace ToolCore.Session
             var def = comp.Definition;
             var workTick = comp.WorkTick == Tick % def.UpdateInterval;
 
-            var tool = comp.Tool;
+            var tool = comp.ToolEntity;
+            var block = comp.BlockTool;
+            var handTool = comp.HandTool;
+            var isBlock = comp.IsBlock;
             var parentGrid = gridComp.Grid;
 
-            if (comp.Functional != tool.IsFunctional)
+            if (isBlock && comp.Functional != block.IsFunctional)
             {
-                comp.Functional = tool.IsFunctional;
-                comp.UpdateState(Trigger.Functional, tool.IsFunctional);
+                comp.Functional = block.IsFunctional;
+                comp.UpdateState(Trigger.Functional, block.IsFunctional);
                 comp.Dirty = true;
             }
 
             if (!comp.Functional)
                 return;
 
-            if (comp.UpdatePower || comp.CompTick20 == TickMod20)
+            if (isBlock && (comp.UpdatePower || comp.CompTick20 == TickMod20))
             {
                 var wasPowered = comp.Powered;
                 var isPowered = comp.IsPowered();
@@ -178,7 +184,7 @@ namespace ToolCore.Session
                 comp.UpdatePower = false;
             }
 
-            if (!comp.Powered)
+            if (!comp.Powered || !isBlock && ((IMyCharacter)comp.Parent).SuitEnergyLevel <= 0)
                 return;
 
             if (comp.Dirty)
@@ -190,23 +196,24 @@ namespace ToolCore.Session
             if (gridComp.ConveyorsDirty)
                 comp.UpdateConnections();
 
-            if (!tool.Enabled)
+            if (isBlock && !block.Enabled)
                 return;
 
             var activated = comp.Activated;
-            if (!activated && !comp.GunBase.Shooting)
+            var handToolShooting = !isBlock && comp.HandTool.IsShooting;
+            if (!activated && !comp.GunBase.Shooting && !handToolShooting)
                 return;
 
             if (activated)
             {
-                if (!MySessionComponentSafeZones.IsActionAllowed(comp.Grid, CastHax(MySessionComponentSafeZones.AllowedActions, (int)comp.Mode)))
+                if (!MySessionComponentSafeZones.IsActionAllowed(comp.Parent, CastHax(MySessionComponentSafeZones.AllowedActions, (int)comp.Mode)))
                 {
                     comp.Activated = false;
                     return;
                 }
             }
 
-            if (IsServer && comp.CompTick120 == TickMod120 && comp.Mode != ToolComp.ToolMode.Weld)
+            if (isBlock && IsServer && comp.CompTick120 == TickMod120 && comp.Mode != ToolComp.ToolMode.Weld)
                 comp.ManageInventory();
 
             if (comp.Definition.Debug)
@@ -325,6 +332,7 @@ namespace ToolCore.Session
             }
 
             var damageType = (int)def.ToolType < 2 ? MyDamageType.Drill : (int)def.ToolType < 4 ? MyDamageType.Grind : MyDamageType.Weld;
+            var ownerId = isBlock ? block.OwnerId : handTool.OwnerId;
 
             _debugBlocks.Clear();
             _debugBlocks.UnionWith(_hitBlocks);
@@ -381,8 +389,8 @@ namespace ToolCore.Session
 
                     }
                     comp.Working = true;
-                    var floating = (IMyDestroyableObject)entity;
-                    floating.DoDamage(1f, damageType, true, null, tool.OwnerId);
+                    var destroyableObject = (IMyDestroyableObject)entity;
+                    destroyableObject.DoDamage(1f, damageType, true, null, ownerId);
                     continue;
                 }
 
@@ -714,7 +722,7 @@ namespace ToolCore.Session
                             if (!MyAPIGateway.Session.CreativeMode && inventory.RemoveItemsOfType(1, cubeDef.Components[0].Definition.Id) < 1)
                                 continue;
 
-                            ((IMyProjector)grid.Projector).Build(slim, tool.OwnerId, tool.EntityId, true, tool.SlimBlock.BuiltBy);
+                            ((IMyProjector)grid.Projector).Build(slim, ownerId, tool.EntityId, true, isBlock ? block.SlimBlock.BuiltBy : ownerId);
                             continue;
                         }
 
@@ -731,7 +739,7 @@ namespace ToolCore.Session
 
                         slim.MoveItemsToConstructionStockpile(inventory);
 
-                        slim.IncreaseMountLevel(weldAmount, tool.OwnerId, inventory, 0.15f, false);
+                        slim.IncreaseMountLevel(weldAmount, ownerId, inventory, 0.15f, false);
 
                     }
                     #endregion
@@ -778,10 +786,10 @@ namespace ToolCore.Session
                 }
                 _startGrids.ClearImmediate();
 
-                _startBlocks.ApplyAdditions();
-                for (int i = 0; i < _startBlocks.Count; i++)
+                _startComps.ApplyAdditions();
+                for (int i = 0; i < _startComps.Count; i++)
                 {
-                    var entity = _startBlocks[i];
+                    var entity = _startComps[i];
 
                     if (entity is MyCubeBlock)
                     {
@@ -798,7 +806,7 @@ namespace ToolCore.Session
                         if (tool != null)
                         {
                             var def = DefinitionMap[tool.BlockDefinition];
-                            var comp = new ToolComp(tool, def, this);
+                            var comp = new ToolComp(entity, def, this);
                             ToolMap[block.EntityId] = comp;
                             comp.Init();
                             ((IMyCubeGrid)gridComp.Grid).WeaponSystem.Register(comp.GunBase);
@@ -817,12 +825,21 @@ namespace ToolCore.Session
                         continue;
                     }
 
-                    //if (entity is IMyGunObject<MyToolBase>)
-                    //{
+                    if (entity is IMyHandheldGunObject<MyDeviceBase>)
+                    {
+                        if (!entity.DefinitionId.HasValue)
+                            continue;
 
-                    //}
+                        ToolDefinition def;
+                        if (!DefinitionMap.TryGetValue(entity.DefinitionId.Value, out def))
+                            continue;
+
+                        var comp = new ToolComp(entity, def, this);
+                        ToolMap[entity.EntityId] = comp;
+                        comp.Init();
+                    }
                 }
-                _startBlocks.ClearImmediate();
+                _startComps.ClearImmediate();
             }
             catch (Exception ex)
             {

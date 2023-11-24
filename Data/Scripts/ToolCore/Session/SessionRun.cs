@@ -89,7 +89,7 @@ namespace ToolCore.Session
                 Logs.LogException(ex);
             }
 
-            if (!_startBlocks.IsEmpty || !_startGrids.IsEmpty)
+            if (!_startComps.IsEmpty || !_startGrids.IsEmpty)
                 StartComps();
 
             if (FirstRun)

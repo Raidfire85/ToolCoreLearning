@@ -26,21 +26,13 @@ namespace ToolCore.Session
 
         internal readonly MyDefinitionId SteelPlate = new MyDefinitionId(typeof(MyObjectBuilder_Component), "SteelPlate");
 
-        private readonly HashSet<MyObjectBuilderType> _toolTypes = new HashSet<MyObjectBuilderType>()
-        {
-            new MyObjectBuilderType(typeof(MyObjectBuilder_Drill)),
-            new MyObjectBuilderType(typeof(MyObjectBuilder_ShipGrinder)),
-            new MyObjectBuilderType(typeof(MyObjectBuilder_ShipWelder)),
-            new MyObjectBuilderType(typeof(MyObjectBuilder_ConveyorSorter)),
-        };
-
         private readonly Stack<GridComp> _gridCompPool = new Stack<GridComp>(128);
         internal readonly MyConcurrentPool<InventoryItem> InventoryItemPool = new MyConcurrentPool<InventoryItem>(4096);
 
 
         private readonly HashSet<MyCubeGrid> _controlledGrids = new HashSet<MyCubeGrid>();
 
-        private readonly ConcurrentCachingList<MyEntity> _startBlocks = new ConcurrentCachingList<MyEntity>();
+        private readonly ConcurrentCachingList<MyEntity> _startComps = new ConcurrentCachingList<MyEntity>();
         private readonly ConcurrentCachingList<MyCubeGrid> _startGrids = new ConcurrentCachingList<MyCubeGrid>();
 
         internal readonly Dictionary<SerializableDefinitionId, ToolDefinition> DefinitionMap = new Dictionary<SerializableDefinitionId, ToolDefinition>();
@@ -77,7 +69,9 @@ namespace ToolCore.Session
         internal readonly Networking Networking;
         internal readonly APIBackend API;
         internal readonly APIServer APIServer;
+        internal object InitObj = new object();
 
+        internal bool Inited;
         internal bool PbApiInited;
 
 
@@ -95,7 +89,7 @@ namespace ToolCore.Session
         {
             _gridCompPool.Clear();
             _controlledGrids.Clear();
-            _startBlocks.ClearImmediate();
+            _startComps.ClearImmediate();
             _startGrids.ClearImmediate();
 
             DefinitionMap.Clear();

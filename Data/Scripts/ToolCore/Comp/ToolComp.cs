@@ -36,7 +36,10 @@ namespace ToolCore.Comp
         internal readonly MyInventory Inventory;
 
         internal ToolDefinition Definition;
-        internal IMyConveyorSorter Tool;
+        internal MyEntity ToolEntity;
+        internal MyEntity Parent;
+        internal IMyConveyorSorter BlockTool;
+        internal IMyHandheldGunObject<MyDeviceBase> HandTool;
         internal IMyModelDummy Muzzle;
         internal MyEntity MuzzlePart;
         internal MyResourceSinkComponent Sink;
@@ -68,9 +71,9 @@ namespace ToolCore.Comp
         internal readonly HashSet<Vector3I> PreviousPositions = new HashSet<Vector3I>();
         internal readonly ConcurrentCachingList<MyTuple<MyOrientedBoundingBoxD, Color>> DrawBoxes = new ConcurrentCachingList<MyTuple<MyOrientedBoundingBoxD, Color>>();
 
-        internal bool Enabled;
-        internal bool Functional;
-        internal bool Powered;
+        internal bool Enabled = true;
+        internal bool Functional = true;
+        internal bool Powered = true;
         internal bool Dirty;
         internal bool AvActive;
         internal bool UpdatePower;
@@ -81,6 +84,7 @@ namespace ToolCore.Comp
         internal readonly Hit HitInfo = new Hit();
         internal MyStringHash HitMaterial = MyStringHash.GetOrCompute("Metal");
 
+        internal bool IsBlock;
         internal bool HasEmitter;
         internal bool Draw;
         internal bool Debug;
@@ -92,6 +96,70 @@ namespace ToolCore.Comp
         internal int CompTick120;
         internal int LastPushTick;
         internal int ActiveDrillThreads;
+
+        internal ToolComp(MyEntity tool, ToolDefinition def, ToolSession session)
+        {
+            Session = session;
+
+            Definition = def;
+            ToolEntity = tool;
+            BlockTool = tool as IMyConveyorSorter;
+            HandTool = tool as IMyHandheldGunObject<MyDeviceBase>;
+            GunBase = new CoreGun(this);
+
+            if (Definition.EffectShape == EffectShape.Cuboid)
+                Obb = new MyOrientedBoundingBoxD();
+
+            var type = (int)Definition.ToolType;
+            Mode = type < 2 ? ToolMode.Drill : type < 4 ? ToolMode.Grind : ToolMode.Weld;
+            if ((type & 1) > 0)
+                DrillData = new Drills();
+
+            var hasSound = false;
+            foreach (var pair in def.EventEffectDefs)
+            {
+                var myTuple = pair.Value;
+                EventEffects[pair.Key] = new Effects(myTuple.Item1, myTuple.Item2, myTuple.Item3, myTuple.Item4, this);
+                hasSound = myTuple.Item3 != null;
+            }
+
+            if (hasSound)
+                SoundEmitter = new MyEntity3DSoundEmitter(ToolEntity);
+
+            WorkTick = (int)(ToolEntity.EntityId % def.UpdateInterval);
+            CompTick10 = (int)(ToolEntity.EntityId % 10);
+            CompTick20 = (int)(ToolEntity.EntityId % 20);
+            CompTick60 = (int)(ToolEntity.EntityId % 60);
+            CompTick120 = (int)(ToolEntity.EntityId % 120);
+
+            IsBlock = BlockTool != null;
+            if (!IsBlock)
+            {
+                Parent = MyEntities.GetEntityById(HandTool.OwnerId);
+                if (Parent == null)
+                {
+                    Logs.WriteLine("Hand tool owner null on init");
+                    return;
+                }
+
+                Inventory = Parent.GetInventory(0);
+                if (Inventory == null)
+                    Logs.WriteLine("Hand tool owner inventory null on init");
+
+                return;
+            }
+
+            Inventory = (MyInventory)ToolEntity.GetInventoryBase();
+            Grid = BlockTool.CubeGrid as MyCubeGrid;
+            Parent = Grid;
+
+            BlockTool.EnabledChanged += EnabledChanged;
+            BlockTool.IsWorkingChanged += IsWorkingChanged;
+
+            Enabled = BlockTool.Enabled;
+            Functional = BlockTool.IsFunctional;
+
+        }
 
         internal ActionDefinition Values
         {
@@ -171,8 +239,6 @@ namespace ToolCore.Comp
 
         internal void ReloadModels()
         {
-            var entity = (MyEntity)Tool;
-
             foreach (var effect in EventEffects.Values)
             {
                 if (effect.HasAnimations)
@@ -180,7 +246,7 @@ namespace ToolCore.Comp
                     foreach (var anim in effect.Animations)
                     {
                         MyEntitySubpart subpart;
-                        if (entity.TryGetSubpartRecursive(anim.Definition.Subpart, out subpart))
+                        if (ToolEntity.TryGetSubpartRecursive(anim.Definition.Subpart, out subpart))
                             anim.Subpart = subpart;
                     }
                 }
@@ -191,7 +257,7 @@ namespace ToolCore.Comp
                     {
                         IMyModelDummy dummy;
                         MyEntity parent;
-                        if (entity.TryGetDummy(particle.Definition.Dummy, out dummy, out parent))
+                        if (ToolEntity.TryGetDummy(particle.Definition.Dummy, out dummy, out parent))
                         {
                             particle.Dummy = dummy;
                             particle.Parent = parent;
@@ -205,7 +271,7 @@ namespace ToolCore.Comp
                     {
                         IMyModelDummy start;
                         MyEntity startParent;
-                        if (entity.TryGetDummy(beam.Definition.Start, out start, out startParent))
+                        if (ToolEntity.TryGetDummy(beam.Definition.Start, out start, out startParent))
                         {
                             beam.Start = start;
                             beam.StartParent = startParent;
@@ -216,7 +282,7 @@ namespace ToolCore.Comp
 
                         IMyModelDummy end;
                         MyEntity endParent;
-                        if (entity.TryGetDummy(beam.Definition.End, out end, out endParent))
+                        if (ToolEntity.TryGetDummy(beam.Definition.End, out end, out endParent))
                         {
                             beam.End = end;
                             beam.EndParent = endParent;
@@ -245,7 +311,8 @@ namespace ToolCore.Comp
 
             internal Effects(List<AnimationDef> animationDefs, List<ParticleEffectDef> particleEffectDefs, List<BeamDef> beamDefs, SoundDef soundDef, ToolComp comp)
             {
-                var block = (MyCubeBlock)comp.Tool;
+                var tool = comp.ToolEntity;
+                var functional = comp.IsBlock ? ((MyCubeBlock)comp.BlockTool).IsFunctional : true;
 
                 if (animationDefs?.Count > 0)
                 {
@@ -253,7 +320,7 @@ namespace ToolCore.Comp
                     foreach (var aDef in animationDefs)
                     {
                         MyEntitySubpart subpart = null;
-                        if (block.IsFunctional && !block.TryGetSubpartRecursive(aDef.Subpart, out subpart))
+                        if (functional && !tool.TryGetSubpartRecursive(aDef.Subpart, out subpart))
                         {
                             Logs.WriteLine($"Subpart '{aDef.Subpart}' not found!");
                             continue;
@@ -271,8 +338,8 @@ namespace ToolCore.Comp
                     foreach (var pDef in particleEffectDefs)
                     {
                         IMyModelDummy dummy = null;
-                        MyEntity parent = block;
-                        if (pDef.Location == Location.Emitter && block.IsFunctional && !block.TryGetDummy(pDef.Dummy, out dummy, out parent))
+                        MyEntity parent = tool;
+                        if (pDef.Location == Location.Emitter && functional && !tool.TryGetDummy(pDef.Dummy, out dummy, out parent))
                         {
                             Logs.WriteLine($"Dummy '{pDef.Dummy}' not found!");
                             continue;
@@ -291,7 +358,7 @@ namespace ToolCore.Comp
                     {
                         IMyModelDummy start = null;
                         MyEntity startParent = null;
-                        if (block.IsFunctional && !block.TryGetDummy(beamDef.Start, out start, out startParent))
+                        if (functional && !tool.TryGetDummy(beamDef.Start, out start, out startParent))
                         {
                             Logs.WriteLine($"Dummy '{beamDef.Start}' not found!");
                             continue;
@@ -299,7 +366,7 @@ namespace ToolCore.Comp
 
                         IMyModelDummy end = null;
                         MyEntity endParent = null;
-                        if (beamDef.EndLocation == Location.Emitter && block.IsFunctional && !block.TryGetDummy(beamDef.End, out end, out endParent))
+                        if (beamDef.EndLocation == Location.Emitter && functional && !tool.TryGetDummy(beamDef.End, out end, out endParent))
                         {
                             Logs.WriteLine($"Dummy '{beamDef.End}' not found!");
                             continue;
@@ -424,50 +491,6 @@ namespace ToolCore.Comp
             }
         }
 
-        internal ToolComp(IMyConveyorSorter block, ToolDefinition def, ToolSession session)
-        {
-            Session = session;
-
-            Definition = def;
-            Tool = block;
-            GunBase = new CoreGun(this);
-            Inventory = (MyInventory)(Tool as MyEntity).GetInventoryBase();
-
-            Grid = Tool.CubeGrid as MyCubeGrid;
-
-            if (Definition.EffectShape == EffectShape.Cuboid)
-                Obb = new MyOrientedBoundingBoxD();
-
-            var type = (int)Definition.ToolType;
-            Mode = type < 2 ? ToolMode.Drill : type < 4 ? ToolMode.Grind : ToolMode.Weld;
-            if ((type & 1) > 0)
-                DrillData = new Drills();
-
-            var hasSound = false;
-            foreach (var pair in def.EventEffectDefs)
-            {
-                var myTuple = pair.Value;
-                EventEffects[pair.Key] = new Effects(myTuple.Item1, myTuple.Item2, myTuple.Item3, myTuple.Item4, this);
-                hasSound = myTuple.Item3 != null;
-            }
-
-            if (hasSound)
-                SoundEmitter = new MyEntity3DSoundEmitter(Tool as MyEntity);
-
-            WorkTick = (int)(Tool.EntityId % def.UpdateInterval);
-            CompTick10 = (int)(Tool.EntityId % 10);
-            CompTick20 = (int)(Tool.EntityId % 20);
-            CompTick60 = (int)(Tool.EntityId % 60);
-            CompTick120 = (int)(Tool.EntityId % 120);
-
-            Tool.EnabledChanged += EnabledChanged;
-            Tool.IsWorkingChanged += IsWorkingChanged;
-
-            Enabled = Tool.Enabled;
-            Functional = Tool.IsFunctional;
-
-        }
-
         internal void UpdateState(Trigger state, bool add)
         {
             var keepFiring = !add && (Activated || GunBase.Shooting) && (state & Trigger.Firing) > 0;
@@ -534,6 +557,7 @@ namespace ToolCore.Comp
             var elec = MyResourceDistributorComponent.ElectricityId;
             var distributor = (MyResourceDistributorComponent)((IMyCubeGrid)Grid).ResourceDistributor;
             Powered = MyUtils.IsEqual(required, 0f) || Sink.IsPoweredByType(elec) && (Sink.ResourceAvailableByType(elec) >= required || distributor != null && distributor.MaxAvailableResourceByType(elec) >= required);
+
             return Powered;
         }
 
@@ -569,7 +593,7 @@ namespace ToolCore.Comp
             base.OnAddedToScene();
 
             if (!MyAPIGateway.Session.IsServer)
-                Session.Networking.SendPacketToServer(new ReplicationPacket { EntityId = Tool.EntityId, Add = true, PacketType = (byte)PacketType.Replicate });
+                Session.Networking.SendPacketToServer(new ReplicationPacket { EntityId = ToolEntity.EntityId, Add = true, PacketType = (byte)PacketType.Replicate });
         }
 
         public override void OnBeforeRemovedFromContainer()
@@ -581,30 +605,34 @@ namespace ToolCore.Comp
 
         public override bool IsSerialized()
         {
-            if (Tool.Storage == null || Repo == null) return false;
+            if (ToolEntity.Storage == null || Repo == null) return false;
 
             Repo.Sync(this);
-            Tool.Storage[Session.CompDataGuid] = Convert.ToBase64String(MyAPIGateway.Utilities.SerializeToBinary(Repo));
+            ToolEntity.Storage[Session.CompDataGuid] = Convert.ToBase64String(MyAPIGateway.Utilities.SerializeToBinary(Repo));
 
             return false;
         }
 
         internal void Init()
         {
-            Tool.Components.Add(this);
+            ToolEntity.Components.Add(this);
 
-            SinkInit();
+            if (IsBlock)
+            {
+                SinkInit();
+            }
+
             StorageInit();
             SubpartsInit();
 
-            if (Tool.IsFunctional)
+            if (!IsBlock || BlockTool.IsFunctional)
                 UpdateState(Trigger.Functional, true);
 
             if (!Session.IsDedicated)
                 GetShowInToolbarSwitch();
 
             if (!MyAPIGateway.Session.IsServer)
-                Session.Networking.SendPacketToServer(new ReplicationPacket { EntityId = Tool.EntityId, Add = true, PacketType = (byte)PacketType.Replicate });
+                Session.Networking.SendPacketToServer(new ReplicationPacket { EntityId = ToolEntity.EntityId, Add = true, PacketType = (byte)PacketType.Replicate });
         }
 
         private void SinkInit()
@@ -616,7 +644,7 @@ namespace ToolCore.Comp
                 ResourceTypeId = MyResourceDistributorComponent.ElectricityId
             };
 
-            Sink = Tool.Components?.Get<MyResourceSinkComponent>();
+            Sink = ToolEntity.Components?.Get<MyResourceSinkComponent>();
             if (Sink != null)
             {
                 Sink.SetRequiredInputFuncByType(MyResourceDistributorComponent.ElectricityId, RequiredInput);
@@ -626,10 +654,10 @@ namespace ToolCore.Comp
                 Logs.WriteLine("No sink found on init, creating!");
                 Sink = new MyResourceSinkComponent();
                 Sink.Init(MyStringHash.GetOrCompute("Defense"), sinkInfo);
-                Tool.Components.Add(Sink);
+                ToolEntity.Components.Add(Sink);
             }
 
-            var distributor = (MyResourceDistributorComponent)Tool.CubeGrid.ResourceDistributor;
+            var distributor = (MyResourceDistributorComponent)BlockTool.CubeGrid.ResourceDistributor;
             if (distributor == null)
             {
                 Logs.WriteLine("Grid distributor null on sink init!");
@@ -653,14 +681,14 @@ namespace ToolCore.Comp
 
         internal void SubpartsInit()
         {
-            HashSet<IMyEntity> entities = new HashSet<IMyEntity>() { Tool };
-            Tool.Hierarchy.GetChildrenRecursive(entities);
+            HashSet<IMyEntity> entities = new HashSet<IMyEntity>() { ToolEntity };
+            ToolEntity.Hierarchy.GetChildrenRecursive(entities);
 
             var noEmitter = string.IsNullOrEmpty(Definition.EmitterName);
             Dictionary<string, IMyModelDummy> dummies = new Dictionary<string, IMyModelDummy>();
             foreach (var entity in entities)
             {
-                if (entity != Tool)
+                if (entity != ToolEntity)
                 {
                     entity.OnClose += (ent) => Dirty = true;
                 }
@@ -692,11 +720,11 @@ namespace ToolCore.Comp
         {
             string rawData;
             ToolRepo loadRepo = null;
-            if (Tool.Storage == null)
+            if (ToolEntity.Storage == null)
             {
-                Tool.Storage = new MyModStorageComponent();
+                ToolEntity.Storage = new MyModStorageComponent();
             }
-            else if (Tool.Storage.TryGetValue(Session.CompDataGuid, out rawData))
+            else if (ToolEntity.Storage.TryGetValue(Session.CompDataGuid, out rawData))
             {
                 try
                 {
@@ -772,7 +800,7 @@ namespace ToolCore.Comp
                 if (tryPush)
                 {
                     MyFixedPoint transferred;
-                    LastPushSucceeded = Grid.ConveyorSystem.PushGenerateItem(itemDef.Id, amount, out transferred, Tool, false);
+                    LastPushSucceeded = Grid.ConveyorSystem.PushGenerateItem(itemDef.Id, amount, out transferred, BlockTool, false);
                     if (LastPushSucceeded)
                         continue;
 
@@ -791,7 +819,7 @@ namespace ToolCore.Comp
                 {
                     var item = items[i];
                     MyFixedPoint transferred;
-                    LastPushSucceeded = Grid.ConveyorSystem.PushGenerateItem(item.Content.GetId(), item.Amount, out transferred, Tool, false);
+                    LastPushSucceeded = Grid.ConveyorSystem.PushGenerateItem(item.Content.GetId(), item.Amount, out transferred, BlockTool, false);
                     Inventory.RemoveItems(item.ItemId, transferred);
                     if (!LastPushSucceeded)
                         break;
@@ -818,13 +846,13 @@ namespace ToolCore.Comp
 
         internal void RefreshTerminal()
         {
-            Tool.RefreshCustomInfo();
+            BlockTool.RefreshCustomInfo();
 
             if (ShowInToolbarSwitch != null)
             {
-                var originalSetting = ShowInToolbarSwitch.Getter(Tool);
-                ShowInToolbarSwitch.Setter(Tool, !originalSetting);
-                ShowInToolbarSwitch.Setter(Tool, originalSetting);
+                var originalSetting = ShowInToolbarSwitch.Getter(BlockTool);
+                ShowInToolbarSwitch.Setter(BlockTool, !originalSetting);
+                ShowInToolbarSwitch.Setter(BlockTool, originalSetting);
             }
         }
 
@@ -835,11 +863,14 @@ namespace ToolCore.Comp
 
         internal void Close()
         {
-            Tool.EnabledChanged -= EnabledChanged;
-            Tool.IsWorkingChanged -= IsWorkingChanged;
+            if (IsBlock)
+            {
+                BlockTool.EnabledChanged -= EnabledChanged;
+                BlockTool.IsWorkingChanged -= IsWorkingChanged;
+            }
 
             if (!MyAPIGateway.Session.IsServer)
-                Session.Networking.SendPacketToServer(new ReplicationPacket { EntityId = Tool.EntityId, Add = false, PacketType = (byte)PacketType.Replicate });
+                Session.Networking.SendPacketToServer(new ReplicationPacket { EntityId = ToolEntity.EntityId, Add = false, PacketType = (byte)PacketType.Replicate });
 
             Clean();
         }

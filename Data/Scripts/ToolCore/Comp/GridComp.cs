@@ -134,6 +134,7 @@ namespace ToolCore.Comp
                     if (Session.ToolMap.TryGetValue(block.EntityId, out comp) && !ToolComps.Contains(comp))
                     {
                         ToolComps.Add(comp);
+                        ((IMyCubeGrid)Grid).WeaponSystem.Register(comp.GunBase);
 
                         if (ToolComps.Count == 1)
                         {
@@ -170,6 +171,7 @@ namespace ToolCore.Comp
                 if (Session.ToolMap.TryGetValue(block.EntityId, out comp))
                 {
                     ToolComps.Remove(comp);
+                    ((IMyCubeGrid)Grid).WeaponSystem.Unregister(comp.GunBase);
                 }
             }
 

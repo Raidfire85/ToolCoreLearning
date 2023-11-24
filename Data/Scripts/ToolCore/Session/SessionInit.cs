@@ -154,6 +154,8 @@ namespace ToolCore.Session
                     var line = reader.ReadLine();
                     if (line.Contains("<Definition xsi:type="))
                         line = "<Definition>";
+                    else if (line.Contains("<HandItem xsi:type="))
+                        line = "<HandItem>";
 
                     builder.AppendLine(line);
 
@@ -174,9 +176,7 @@ namespace ToolCore.Session
             if (definitions == null) return;
 
             ImportDefinitions(definitions.CubeBlocks);
-            ImportDefinitions(definitions.Components);
-            ImportDefinitions(definitions.PhysicalItems);
-            ImportDefinitions(definitions.Definition);
+            ImportDefinitions(definitions.HandItems);
 
         }
 
@@ -189,12 +189,8 @@ namespace ToolCore.Session
                 var definition = definitions[i];
                 if (definition.ToolValues == null) continue;
 
-                if (_toolTypes.Contains(definition.Id.TypeId))
-                {
-                    var toolDef = new ToolDefinition(definition.ToolValues, this);
-                    DefinitionMap[definition.Id] = toolDef;
-                }
-
+                var toolDef = new ToolDefinition(definition.ToolValues, this);
+                DefinitionMap[definition.Id] = toolDef;
             }
         }
 

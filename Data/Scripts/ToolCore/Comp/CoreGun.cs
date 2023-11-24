@@ -16,7 +16,7 @@ namespace ToolCore.Comp
         public CoreGun(ToolComp comp)
         {
             _comp = comp;
-            _id = comp.Tool.BlockDefinition;
+            _id = comp.BlockTool?.BlockDefinition ?? comp.HandTool.DefinitionId; // :/
         }
 
         private ToolComp _comp;
@@ -128,12 +128,12 @@ namespace ToolCore.Comp
                 status = MyGunStatusEnum.Failed;
                 return false;
             }
-            if (!_comp.Tool.HasPlayerAccess(shooter, MyRelationsBetweenPlayerAndBlock.NoOwnership))
+            if (_comp.IsBlock && !_comp.BlockTool.HasPlayerAccess(shooter, MyRelationsBetweenPlayerAndBlock.NoOwnership))
             {
                 status = MyGunStatusEnum.AccessDenied;
                 return false;
             }
-            if (!MySessionComponentSafeZones.IsActionAllowed(_comp.Grid, CastHax(MySessionComponentSafeZones.AllowedActions, (int)_comp.Mode), shooter))
+            if (!MySessionComponentSafeZones.IsActionAllowed(_comp.Parent, CastHax(MySessionComponentSafeZones.AllowedActions, (int)_comp.Mode), shooter))
             {
                 status = MyGunStatusEnum.Failed;
                 return false;

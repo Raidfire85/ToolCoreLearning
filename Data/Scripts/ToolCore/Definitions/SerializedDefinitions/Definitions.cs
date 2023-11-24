@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Sandbox.Definitions;
+using System;
 using System.Xml.Serialization;
 using VRage;
 using VRage.ObjectBuilders;
@@ -195,21 +196,11 @@ namespace ToolCore.Definitions.Serialised
     public class Definitions
     {
         public Definition[] CubeBlocks;
-        public Component[] Components;
-        public PhysicalItem[] PhysicalItems;
-        public Definition[] Definition;
+        [XmlArrayItem("HandItem")]
+        public HandItemDefinition[] HandItems;
     }
 
-
-    public class PhysicalItem : Definition
-    {
-
-    }
-
-    public class Component : Definition
-    {
-
-    }
+    public class HandItemDefinition : Definition { }
 
     public class Definition
     {
