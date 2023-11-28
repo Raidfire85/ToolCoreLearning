@@ -86,8 +86,7 @@ namespace ToolCore.Comp
 
         internal bool IsBlock;
         internal bool HasEmitter;
-        internal bool Draw;
-        internal bool Debug;
+        internal bool Draw = true;
 
         internal int WorkTick;
         internal int CompTick10;
@@ -777,7 +776,7 @@ namespace ToolCore.Comp
                 UpdateState(Trigger.Hit, isHitting);
                 WasHitting = isHitting;
 
-                if (Debug && !isHitting)
+                if (Definition.Debug && !isHitting)
                 {
                     Logs.WriteLine("read: " + Session.DsUtil.GetValue("read").ToString());
                     Logs.WriteLine("sort: " + Session.DsUtil.GetValue("sort").ToString());
@@ -863,16 +862,20 @@ namespace ToolCore.Comp
 
         internal void Close()
         {
-            if (IsBlock)
-            {
-                BlockTool.EnabledChanged -= EnabledChanged;
-                BlockTool.IsWorkingChanged -= IsWorkingChanged;
-            }
-
             if (!MyAPIGateway.Session.IsServer)
                 Session.Networking.SendPacketToServer(new ReplicationPacket { EntityId = ToolEntity.EntityId, Add = false, PacketType = (byte)PacketType.Replicate });
 
             Clean();
+
+            if (IsBlock)
+            {
+                BlockTool.EnabledChanged -= EnabledChanged;
+                BlockTool.IsWorkingChanged -= IsWorkingChanged;
+
+                return;
+            }
+
+            Session.HandTools.Remove(this);
         }
 
         internal void Clean()

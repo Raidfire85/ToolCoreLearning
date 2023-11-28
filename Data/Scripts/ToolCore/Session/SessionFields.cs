@@ -42,6 +42,7 @@ namespace ToolCore.Session
 
         internal readonly Dictionary<string, List<MyVoxelMaterialDefinition>> MaterialCategoryMap = new Dictionary<string, List<MyVoxelMaterialDefinition>>();
 
+        internal readonly List<ToolComp> HandTools = new List<ToolComp>();
         internal readonly List<GridComp> GridList = new List<GridComp>();
         internal readonly ConcurrentDictionary<IMyCubeGrid, GridComp> GridMap = new ConcurrentDictionary<IMyCubeGrid, GridComp>();
 

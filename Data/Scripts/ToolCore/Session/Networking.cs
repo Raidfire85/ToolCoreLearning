@@ -2,7 +2,6 @@
 using Sandbox.ModAPI;
 using System;
 using System.Collections.Generic;
-using System.Net.Configuration;
 using ToolCore.Comp;
 using ToolCore.Definitions;
 using ToolCore.Utils;
@@ -58,7 +57,7 @@ namespace ToolCore.Session
                     case PacketType.Update:
                         var uPacket = packet as UpdatePacket;
                         UpdateComp(uPacket, comp);
-                        SendPacketToClients(uPacket, comp.ReplicatedClients);
+                        if (Session.IsServer) SendPacketToClients(uPacket, comp.ReplicatedClients);
                         break;
                     case PacketType.Replicate:
                         var rPacket = packet as ReplicationPacket;

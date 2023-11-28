@@ -3,10 +3,12 @@ using Sandbox.Definitions;
 using Sandbox.Game.Entities;
 using Sandbox.Game.Entities.Character;
 using Sandbox.Game.Weapons;
+using Sandbox.Game.World;
 using Sandbox.Game.WorldEnvironment;
 using Sandbox.ModAPI;
 using SpaceEngineers.Game.Entities.Blocks;
 using System;
+using System.Net;
 using System.Security.Cryptography;
 using ToolCore.Comp;
 using ToolCore.Definitions;
@@ -36,31 +38,36 @@ namespace ToolCore.Session
 
                 for (int j = 0; j < gridComp.ToolComps.Count; j++)
                 {
-                    var comp = gridComp.ToolComps[j];
-                    var def = comp.Definition;
-
-                    UpdateTool(comp, gridComp);
-
-                    var avState = comp.AvState & def.EventFlags;
-                    if (!comp.AvActive && avState > 0)
-                    {
-                        AvComps.Add(comp);
-                        comp.AvActive = true;
-                    }
-
-                    if (comp.Mode != ToolComp.ToolMode.Drill && comp.WorkTick == Tick % def.UpdateInterval)
-                        UpdateHitState(comp);
-
-                    if (!IsDedicated && comp.Draw)
-                        DrawComp(comp);
-
-
+                    UpdateComp(gridComp.ToolComps[j]);
                 } //Tools loop
-
-
 
             } //Grids loop
 
+            for (int i = 0; i < HandTools.Count; i++)
+            {
+                UpdateComp(HandTools[i]);
+            }//Handtools loop
+
+        }
+
+        private void UpdateComp(ToolComp comp)
+        {
+            var def = comp.Definition;
+
+            UpdateTool(comp);
+
+            var avState = comp.AvState & def.EventFlags;
+            if (!comp.AvActive && avState > 0)
+            {
+                AvComps.Add(comp);
+                comp.AvActive = true;
+            }
+
+            if (comp.Mode != ToolComp.ToolMode.Drill && comp.WorkTick == Tick % def.UpdateInterval)
+                UpdateHitState(comp);
+
+            if (!IsDedicated && comp.Draw)
+                DrawComp(comp);
         }
 
         private void DrawComp(ToolComp comp)
@@ -100,6 +107,7 @@ namespace ToolCore.Session
                 Vector3D.Rotate(ref def.Offset, ref toolMatrix, out offset);
                 worldPos += offset;
             }
+            MyAPIGateway.Utilities.ShowNotification(worldPos.ToString("F1"), 16);
 
             var toolValues = comp.Values;
 
@@ -145,7 +153,7 @@ namespace ToolCore.Session
             comp.Working = false;
         }
 
-        private void UpdateTool(ToolComp comp, GridComp gridComp)
+        private void UpdateTool(ToolComp comp)
         {
             var def = comp.Definition;
             var workTick = comp.WorkTick == Tick % def.UpdateInterval;
@@ -154,7 +162,6 @@ namespace ToolCore.Session
             var block = comp.BlockTool;
             var handTool = comp.HandTool;
             var isBlock = comp.IsBlock;
-            var parentGrid = gridComp.Grid;
 
             if (isBlock && comp.Functional != block.IsFunctional)
             {
@@ -193,8 +200,8 @@ namespace ToolCore.Session
                 comp.ReloadModels();
             }
 
-            if (gridComp.ConveyorsDirty)
-                comp.UpdateConnections();
+            //if (gridComp.ConveyorsDirty)
+            //    comp.UpdateConnections();
 
             if (isBlock && !block.Enabled)
                 return;
@@ -264,7 +271,22 @@ namespace ToolCore.Session
                 worldPos += offset;
             }
 
+            var ownerId = isBlock ? block.OwnerId : handTool.OwnerIdentityId;
 
+            if (!isBlock && !IsDedicated && ownerId == MyAPIGateway.Session.LocalHumanPlayer?.IdentityId)
+            {
+                var leftMousePressed = MyAPIGateway.Input.IsNewLeftMousePressed();
+                if (leftMousePressed || MyAPIGateway.Input.IsNewRightMousePressed())
+                {
+                    var action = leftMousePressed ? ToolComp.ToolAction.Primary : ToolComp.ToolAction.Secondary;
+                    if (action != comp.Action)
+                    {
+                        comp.Action = action;
+                        Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.Action, (int)comp.Action));
+                        return;
+                    }
+                }
+            }
 
             var toolValues = comp.Values;
 
@@ -300,7 +322,7 @@ namespace ToolCore.Session
 
             if (!workTick)
                 return;
-
+            
             if (comp.Mode == ToolComp.ToolMode.Drill && comp.ActiveDrillThreads > 0)
                 return;
 
@@ -332,7 +354,6 @@ namespace ToolCore.Session
             }
 
             var damageType = (int)def.ToolType < 2 ? MyDamageType.Drill : (int)def.ToolType < 4 ? MyDamageType.Grind : MyDamageType.Weld;
-            var ownerId = isBlock ? block.OwnerId : handTool.OwnerId;
 
             _debugBlocks.Clear();
             _debugBlocks.UnionWith(_hitBlocks);
@@ -519,7 +540,7 @@ namespace ToolCore.Session
                 {
                     var grid = entity as MyCubeGrid;
 
-                    if (!def.AffectOwnGrid && grid == parentGrid)
+                    if (isBlock && !def.AffectOwnGrid && grid == comp.Grid)
                         continue;
 
                     var exit = (comp.Mode != ToolComp.ToolMode.Weld && (grid.Immune || !grid.DestructibleBlocks)) || !grid.Editable;
@@ -699,9 +720,9 @@ namespace ToolCore.Session
 
                         var current = inventory.GetItemAmount(defId);
                         var difference = required - current;
-                        if (difference > 0 && inventory.CargoPercentage < 0.999f)
+                        if (isBlock && difference > 0 && inventory.CargoPercentage < 0.999f)
                         {
-                            current += parentGrid.ConveyorSystem.PullItem(defId, difference, tool, inventory, false);
+                            current += comp.Grid.ConveyorSystem.PullItem(defId, difference, tool, inventory, false);
                         }
 
                     }
@@ -709,7 +730,7 @@ namespace ToolCore.Session
                     buildCount = buildCount > 0 ? buildCount : 1;
                     var weldScaler = 0.25f / (float)Math.Min(4, buildCount);
                     var weldAmount = weldScaler * toolValues.Speed * MyAPIGateway.Session.WelderSpeedMultiplier;
-
+                    Logs.WriteLine(ownerId.ToString());
                     //var welder = null as IMyShipWelder;
                     for (int a = 0; a < _hitBlocks.Count; a++)
                     {
@@ -837,6 +858,7 @@ namespace ToolCore.Session
                         var comp = new ToolComp(entity, def, this);
                         ToolMap[entity.EntityId] = comp;
                         comp.Init();
+                        HandTools.Add(comp);
                     }
                 }
                 _startComps.ClearImmediate();

@@ -29,14 +29,6 @@ namespace ToolCore.Comp
 
         internal ToolComp.ToolAction GunAction;
 
-        internal enum ShootState
-        {
-            None = 0,
-            Primary = 1,
-            Secondary = 2,
-            Tertiary = 3,
-        }
-
         public float BackkickForcePerSecond
         {
             get { return 0f; }
