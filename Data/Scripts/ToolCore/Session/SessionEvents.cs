@@ -16,6 +16,8 @@ namespace ToolCore.Session
     {
         private void OnEntityCreate(MyEntity entity)
         {
+            //if (!Inited) lock (InitObj) Init();
+
             var grid = entity as MyCubeGrid;
             if (grid != null)
             {
@@ -51,6 +53,12 @@ namespace ToolCore.Session
                 controller.AddedToScene += addToStart => _startComps.Add(controller);
             }
 
+        }
+
+        internal void Init()
+        {
+            if (Inited) return;
+            Inited = true;
         }
 
         private void OnGridClose(IMyEntity entity)

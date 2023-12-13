@@ -83,6 +83,7 @@ namespace ToolCore.Definitions.Serialised
         Emitter = 1,
         Hit = 2,
         Forward = 3,
+        Parent = 4,
     }
 
     public class ActionValues

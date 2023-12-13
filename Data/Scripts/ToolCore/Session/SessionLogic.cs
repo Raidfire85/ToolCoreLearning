@@ -1,4 +1,5 @@
-﻿using Sandbox.Common.ObjectBuilders;
+﻿using ParallelTasks;
+using Sandbox.Common.ObjectBuilders;
 using Sandbox.Definitions;
 using Sandbox.Game.Entities;
 using Sandbox.Game.Entities.Character;
@@ -74,40 +75,9 @@ namespace ToolCore.Session
         {
             var def = comp.Definition;
             var tool = comp.ToolEntity;
-            var pos = tool.PositionComp;
-            var toolMatrix = pos.WorldMatrixRef;
 
-            Vector3D worldPos = pos.WorldAABB.Center;
-            Vector3D worldForward = toolMatrix.Forward;
-            Vector3D worldUp = toolMatrix.Up;
-
-            if (comp.HasEmitter)
-            {
-                var muzzleMatrix = (MatrixD)comp.Muzzle.Matrix;
-                var partMatrix = comp.MuzzlePart.PositionComp.WorldMatrixRef;
-
-                var localPos = muzzleMatrix.Translation;
-
-                if (!Vector3D.IsZero(def.Offset))
-                {
-                    //Vector3D offset;
-                    //Vector3D.Rotate(ref def.Offset, ref muzzleMatrix, out offset);
-                    localPos += def.Offset;
-                }
-                var muzzleForward = Vector3D.Normalize(muzzleMatrix.Forward);
-                var muzzleUp = Vector3D.Normalize(muzzleMatrix.Up);
-
-                Vector3D.Transform(ref localPos, ref partMatrix, out worldPos);
-                Vector3D.TransformNormal(ref muzzleForward, ref partMatrix, out worldForward);
-                Vector3D.TransformNormal(ref muzzleUp, ref partMatrix, out worldUp);
-            }
-            else if (!Vector3D.IsZero(def.Offset))
-            {
-                Vector3D offset;
-                Vector3D.Rotate(ref def.Offset, ref toolMatrix, out offset);
-                worldPos += offset;
-            }
-            MyAPIGateway.Utilities.ShowNotification(worldPos.ToString("F1"), 16);
+            Vector3D worldPos, worldForward, worldUp;
+            CalculateWorldVectors(comp, out worldPos, out worldForward, out worldUp);
 
             var toolValues = comp.Values;
 
@@ -151,6 +121,57 @@ namespace ToolCore.Session
             }
 
             comp.Working = false;
+        }
+
+        private void CalculateWorldVectors(ToolComp comp, out Vector3D worldPos, out Vector3D worldForward, out Vector3D worldUp)
+        {
+            var def = comp.Definition;
+            var pos = comp.ToolEntity.PositionComp;
+
+            switch (def.Location)
+            {
+                case Location.Emitter:
+                    var partMatrix = comp.MuzzlePart.PositionComp.WorldMatrixRef;
+                    var muzzleMatrix = (MatrixD)comp.Muzzle.Matrix;
+
+                    var localPos = muzzleMatrix.Translation;
+                    var muzzleForward = Vector3D.Normalize(muzzleMatrix.Forward);
+                    var muzzleUp = Vector3D.Normalize(muzzleMatrix.Up);
+
+                    if (!Vector3D.IsZero(def.Offset))
+                    {
+                        localPos += def.Offset;
+                    }
+
+                    Vector3D.Transform(ref localPos, ref partMatrix, out worldPos);
+                    Vector3D.TransformNormal(ref muzzleForward, ref partMatrix, out worldForward);
+                    Vector3D.TransformNormal(ref muzzleUp, ref partMatrix, out worldUp);
+                    break;
+                case Location.Parent:
+                    var parentMatrix = comp.IsBlock ? comp.Parent.PositionComp.WorldMatrixRef : ((IMyCharacter)comp.Parent).GetHeadMatrix(true);
+                    worldPos = comp.IsBlock ? comp.Parent.PositionComp.WorldAABB.Center : ((IMyCharacter)comp.Parent).GetHeadMatrix(true).Translation;
+                    Vector3D offset;
+                    Vector3D.Rotate(ref def.Offset, ref parentMatrix, out offset);
+                    worldPos += offset;
+
+                    worldForward = parentMatrix.Forward;
+                    worldUp = parentMatrix.Up;
+                    break;
+                case Location.Centre:
+                    var toolMatrix = pos.WorldMatrixRef;
+                    worldPos = pos.WorldAABB.Center;
+                    Vector3D.Rotate(ref def.Offset, ref toolMatrix, out offset);
+                    worldPos += offset;
+
+                    worldForward = toolMatrix.Forward;
+                    worldUp = toolMatrix.Up;
+                    break;
+                default:
+                    worldPos = Vector3D.Zero;
+                    worldForward = Vector3D.Forward;
+                    worldUp = Vector3D.Up;
+                    break;
+            }
         }
 
         private void UpdateTool(ToolComp comp)
@@ -237,39 +258,9 @@ namespace ToolCore.Session
                 //}
             }
 
-            var pos = tool.PositionComp;
-            var toolMatrix = pos.WorldMatrixRef;
+            Vector3D worldPos, worldForward, worldUp;
+            CalculateWorldVectors(comp, out worldPos, out worldForward, out worldUp);
 
-            Vector3D worldPos = pos.WorldAABB.Center;
-            Vector3D worldForward = toolMatrix.Forward;
-            Vector3D worldUp = toolMatrix.Up;
-
-            if (comp.HasEmitter)
-            {
-                var muzzleMatrix = (MatrixD)comp.Muzzle.Matrix;
-                var partMatrix = comp.MuzzlePart.PositionComp.WorldMatrixRef;
-
-                var localPos = muzzleMatrix.Translation;
-
-                if (!Vector3D.IsZero(def.Offset))
-                {
-                    //Vector3D offset;
-                    //Vector3D.Rotate(ref def.Offset, ref muzzleMatrix, out offset);
-                    localPos += def.Offset;
-                }
-                var muzzleForward = Vector3D.Normalize(muzzleMatrix.Forward);
-                var muzzleUp = Vector3D.Normalize(muzzleMatrix.Up);
-
-                Vector3D.Transform(ref localPos, ref partMatrix, out worldPos);
-                Vector3D.TransformNormal(ref muzzleForward, ref partMatrix, out worldForward);
-                Vector3D.TransformNormal(ref muzzleUp, ref partMatrix, out worldUp);
-            }
-            else if (!Vector3D.IsZero(def.Offset))
-            {
-                Vector3D offset;
-                Vector3D.Rotate(ref def.Offset, ref toolMatrix, out offset);
-                worldPos += offset;
-            }
 
             var ownerId = isBlock ? block.OwnerId : handTool.OwnerIdentityId;
 
@@ -730,7 +721,7 @@ namespace ToolCore.Session
                     buildCount = buildCount > 0 ? buildCount : 1;
                     var weldScaler = 0.25f / (float)Math.Min(4, buildCount);
                     var weldAmount = weldScaler * toolValues.Speed * MyAPIGateway.Session.WelderSpeedMultiplier;
-                    Logs.WriteLine(ownerId.ToString());
+
                     //var welder = null as IMyShipWelder;
                     for (int a = 0; a < _hitBlocks.Count; a++)
                     {
@@ -826,11 +817,14 @@ namespace ToolCore.Session
                         var tool = block as IMyConveyorSorter;
                         if (tool != null)
                         {
-                            var def = DefinitionMap[tool.BlockDefinition];
+                            ToolDefinition def;
+                            if (!DefinitionMap.TryGetValue(tool.BlockDefinition, out def))
+                                continue;
+
                             var comp = new ToolComp(entity, def, this);
                             ToolMap[block.EntityId] = comp;
                             comp.Init();
-                            ((IMyCubeGrid)gridComp.Grid).WeaponSystem.Register(comp.GunBase);
+                            //((IMyCubeGrid)gridComp.Grid).WeaponSystem.Register(comp.GunBase);
                             gridComp.FatBlockAdded(block);
 
                             continue;

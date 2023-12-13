@@ -391,6 +391,9 @@ namespace ToolCore.Definitions
 
         private Trigger DefineEvents(Event[] events, ToolSession session, float maxLength)
         {
+            if (events == null || events.Length == 0)
+                return Trigger.None;
+
             Trigger flags = 0;
             foreach (var eventDef in events)
             {

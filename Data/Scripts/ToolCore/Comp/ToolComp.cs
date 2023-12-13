@@ -22,6 +22,7 @@ using VRage.Utils;
 using VRage.Voxels;
 using VRageMath;
 using static ToolCore.Definitions.ToolDefinition;
+using static VRage.Game.ObjectBuilders.Definitions.MyObjectBuilder_GameDefinition;
 
 namespace ToolCore.Comp
 {
@@ -706,11 +707,14 @@ namespace ToolCore.Comp
                         MuzzlePart = (MyEntity)entity;
                     }
                 }
-
                 dummies.Clear();
             }
 
             HasEmitter = Muzzle != null;
+
+            var functional = !IsBlock || BlockTool.IsFunctional;
+            if (functional && !HasEmitter && Definition.Location == Location.Emitter)
+                Definition.Location = Location.Centre;
 
             Dirty = false;
         }
