@@ -383,7 +383,10 @@ namespace ToolCore.Definitions
 
                 foreach (var mat in matList.Value)
                 {
-                    subtypes.TryGetValue(mat.Id.SubtypeName, out mods);
+                    MaterialModifierDefinition subtypeMods;
+                    if (subtypes.TryGetValue(mat.Id.SubtypeName, out subtypeMods))
+                        MaterialModifiers.Add(mat, subtypeMods);
+
                     MaterialModifiers.Add(mat, mods);
                 }
             }

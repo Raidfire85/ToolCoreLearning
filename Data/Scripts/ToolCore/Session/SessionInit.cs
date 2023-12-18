@@ -1,4 +1,5 @@
-﻿using Sandbox.Definitions;
+﻿using Sandbox.Common.ObjectBuilders;
+using Sandbox.Definitions;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using System;
@@ -9,6 +10,7 @@ using ToolCore.Definitions.Serialised;
 using ToolCore.Utils;
 using VRage.Game;
 using VRage.Game.ModAPI;
+using VRage.ObjectBuilders;
 using VRage.Utils;
 
 namespace ToolCore.Session
@@ -184,6 +186,7 @@ namespace ToolCore.Session
         {
             if (definitions == null || definitions.Length == 0) return;
 
+            var sorterType = new MyObjectBuilderType(typeof(MyObjectBuilder_ConveyorSorter));
             for (int i = 0; i < definitions.Length; i++)
             {
                 var definition = definitions[i];
@@ -191,7 +194,29 @@ namespace ToolCore.Session
 
                 var toolDef = new ToolDefinition(definition.ToolValues, this);
                 DefinitionMap[definition.Id] = toolDef;
+
+                if (definition.Id.TypeId == sorterType)
+                    continue;
+
+                ModifyHandToolDefinition(definition.Id);
             }
+        }
+
+        private void ModifyHandToolDefinition(MyDefinitionId id)
+        {
+            var def = MyDefinitionManager.Static.TryGetHandItemDefinition(ref id) as MyEngineerToolBaseDefinition;
+            if (def == null)
+                return;
+
+            if (def is MyHandDrillDefinition)
+            {
+                var drill = (MyHandDrillDefinition)def;
+                drill.DistanceMultiplier = 0f;
+                drill.HarvestRatioMultiplier = 0f;
+                return;
+            }
+
+            def.SpeedMultiplier = 0f;
         }
 
         private void InitPlayers()

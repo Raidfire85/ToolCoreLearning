@@ -87,7 +87,7 @@ namespace ToolCore.Comp
 
         internal bool IsBlock;
         internal bool HasEmitter;
-        internal bool Draw = true;
+        internal bool Draw;
 
         internal int WorkTick;
         internal int CompTick10;
@@ -145,6 +145,8 @@ namespace ToolCore.Comp
                 Inventory = Parent.GetInventory(0);
                 if (Inventory == null)
                     Logs.WriteLine("Hand tool owner inventory null on init");
+
+                Draw = def.Debug;
 
                 return;
             }
@@ -763,10 +765,14 @@ namespace ToolCore.Comp
         internal void OnDrillComplete()
         {
             Session.DsUtil.Start("notify");
+            if (DrillData?.Voxel?.Storage == null)
+            {
+                Logs.WriteLine($"Null reference in OnDrillComplete - DrillData null: {DrillData == null} - Voxel null: {DrillData?.Voxel == null}");
+            }
             for (int i = StorageDatas.Count - 1; i >= 0; i--)
             {
                 var info = StorageDatas[i];
-                DrillData.Voxel.Storage.NotifyRangeChanged(ref info.Min, ref info.Max, MyStorageDataTypeFlags.ContentAndMaterial);
+                DrillData?.Voxel?.Storage?.NotifyRangeChanged(ref info.Min, ref info.Max, MyStorageDataTypeFlags.ContentAndMaterial);
             }
             StorageDatas.Clear();
             Session.DsUtil.Complete("notify", true);

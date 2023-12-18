@@ -73,16 +73,13 @@ namespace ToolCore.Session
 
         private void DrawComp(ToolComp comp)
         {
-            var def = comp.Definition;
-            var tool = comp.ToolEntity;
-
             Vector3D worldPos, worldForward, worldUp;
             CalculateWorldVectors(comp, out worldPos, out worldForward, out worldUp);
 
             var toolValues = comp.Values;
 
             MatrixD drawMatrix;
-            switch (def.EffectShape)
+            switch (comp.Definition.EffectShape)
             {
                 case EffectShape.Sphere:
                     drawMatrix = MatrixD.CreateWorld(worldPos, worldForward, worldUp);
@@ -360,6 +357,9 @@ namespace ToolCore.Session
                     if (entity is IMyCharacter && !def.DamageCharacters)
                         continue;
 
+                    if (!isBlock && !def.AffectOwnGrid && entity == comp.Parent)
+                        continue;
+
                     var obb = new MyOrientedBoundingBoxD(entity.PositionComp.LocalAABB, entity.PositionComp.WorldMatrixRef);
                     if (def.Debug) DrawBox(obb, Color.Red, false, 8);
                     switch (def.EffectShape)
@@ -481,12 +481,11 @@ namespace ToolCore.Session
                         DrawBox(drawObb, Color.IndianRed, false, 4, 0.005f);
                     }
 
-                    ToolComp.Drills data;
+                    var data = comp.DrillData;
+                    data.Voxel = voxel;
                     switch (def.EffectShape)
                     {
                         case EffectShape.Sphere:
-                            data = comp.DrillData;
-                            data.Voxel = voxel;
                             data.Min = min;
                             data.Max = max;
                             data.Origin = localCentre;
@@ -494,8 +493,6 @@ namespace ToolCore.Session
                             MyAPIGateway.Parallel.StartBackground(comp.DrillSphere, comp.OnDrillComplete);
                             break;
                         case EffectShape.Cylinder:
-                            data = comp.DrillData;
-                            data.Voxel = voxel;
                             data.Min = min;
                             data.Max = max;
                             data.Origin = localCentre;
@@ -503,8 +500,6 @@ namespace ToolCore.Session
                             MyAPIGateway.Parallel.StartBackground(comp.DrillCylinder, comp.OnDrillComplete);
                             break;
                         case EffectShape.Cuboid:
-                            data = comp.DrillData;
-                            data.Voxel = voxel;
                             data.Min = min;
                             data.Max = max;
                             data.Origin = localCentre;
@@ -512,10 +507,6 @@ namespace ToolCore.Session
                             MyAPIGateway.Parallel.StartBackground(comp.DrillCuboid, comp.OnDrillComplete);
                             break;
                         case EffectShape.Line:
-                            data = comp.DrillData;
-                            data.Voxel = voxel;
-                            //data.Min = min;
-                            //data.Max = max;
                             data.Origin = worldPos;
                             data.Direction = worldForward;
                             MyAPIGateway.Parallel.StartBackground(comp.DrillLine, comp.OnDrillComplete);
