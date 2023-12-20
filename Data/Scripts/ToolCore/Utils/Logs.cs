@@ -64,8 +64,11 @@ namespace ToolCore.Utils
         internal static void WriteLine(string text)
         {
             string line = $"{ToolSession.Tick,6} - " + text;
-            TextWriter.WriteLine(line);
-            TextWriter.Flush();
+            lock (TextWriter)
+            {
+                TextWriter.WriteLine(line);
+                TextWriter.Flush();
+            }
         }
 
         internal static void Close()

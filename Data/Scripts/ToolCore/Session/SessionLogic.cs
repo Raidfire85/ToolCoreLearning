@@ -481,7 +481,7 @@ namespace ToolCore.Session
                         DrawBox(drawObb, Color.IndianRed, false, 4, 0.005f);
                     }
 
-                    var data = comp.DrillData;
+                    var data = DrillDataPool.Count > 0 ? DrillDataPool.Pop() : new DrillData();
                     data.Voxel = voxel;
                     switch (def.EffectShape)
                     {
@@ -490,26 +490,26 @@ namespace ToolCore.Session
                             data.Max = max;
                             data.Origin = localCentre;
                             data.Direction = localForward;
-                            MyAPIGateway.Parallel.StartBackground(comp.DrillSphere, comp.OnDrillComplete);
+                            MyAPIGateway.Parallel.Start(comp.DrillSphere, comp.OnDrillComplete, data);
                             break;
                         case EffectShape.Cylinder:
                             data.Min = min;
                             data.Max = max;
                             data.Origin = localCentre;
                             data.Direction = localForward;
-                            MyAPIGateway.Parallel.StartBackground(comp.DrillCylinder, comp.OnDrillComplete);
+                            MyAPIGateway.Parallel.Start(comp.DrillCylinder, comp.OnDrillComplete, data);
                             break;
                         case EffectShape.Cuboid:
                             data.Min = min;
                             data.Max = max;
                             data.Origin = localCentre;
                             data.Direction = localForward;
-                            MyAPIGateway.Parallel.StartBackground(comp.DrillCuboid, comp.OnDrillComplete);
+                            MyAPIGateway.Parallel.Start(comp.DrillCuboid, comp.OnDrillComplete, data);
                             break;
                         case EffectShape.Line:
                             data.Origin = worldPos;
                             data.Direction = worldForward;
-                            MyAPIGateway.Parallel.StartBackground(comp.DrillLine, comp.OnDrillComplete);
+                            MyAPIGateway.Parallel.Start(comp.DrillLine, comp.OnDrillComplete, data);
                             break;
                         default:
                             break;

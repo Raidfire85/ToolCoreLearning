@@ -1,4 +1,5 @@
-﻿using Sandbox.Definitions;
+﻿using ParallelTasks;
+using Sandbox.Definitions;
 using Sandbox.Game;
 using Sandbox.Game.Entities;
 using Sandbox.Game.EntityComponents;
@@ -58,13 +59,9 @@ namespace ToolCore.Comp
         internal ToolMode Mode;
         internal ToolAction Action;
         internal Trigger AvState;
-        internal Drills DrillData;
 
         internal readonly Dictionary<Trigger, Effects> EventEffects = new Dictionary<Trigger, Effects>();
         internal readonly List<Effects> ActiveEffects = new List<Effects>();
-        internal readonly Dictionary<int, List<PositionData>> WorkLayers = new Dictionary<int, List<PositionData>>();
-        internal readonly List<byte> MaxContent = new List<byte>();
-        internal readonly List<StorageInfo> StorageDatas = new List<StorageInfo>();
         internal readonly ConcurrentDictionary<MyObjectBuilder_Ore, float> Yields = new ConcurrentDictionary<MyObjectBuilder_Ore, float>();
         internal readonly List<ulong> ReplicatedClients = new List<ulong>();
         internal readonly List<Action<int, bool>> EventMonitors = new List<Action<int, bool>>();
@@ -112,8 +109,6 @@ namespace ToolCore.Comp
 
             var type = (int)Definition.ToolType;
             Mode = type < 2 ? ToolMode.Drill : type < 4 ? ToolMode.Grind : ToolMode.Weld;
-            if ((type & 1) > 0)
-                DrillData = new Drills();
 
             var hasSound = false;
             foreach (var pair in def.EventEffectDefs)
@@ -448,15 +443,6 @@ namespace ToolCore.Comp
             }
         }
 
-        internal class Drills
-        {
-            internal IMyVoxelBase Voxel;
-            internal Vector3I Min;
-            internal Vector3I Max;
-            internal Vector3D Origin;
-            internal Vector3D Direction;
-        }
-
         internal class PositionData
         {
             internal int Index;
@@ -762,19 +748,24 @@ namespace ToolCore.Comp
             Action = (ToolAction)repo.Action;
         }
 
-        internal void OnDrillComplete()
+        internal void OnDrillComplete(WorkData data)
         {
             Session.DsUtil.Start("notify");
-            if (DrillData?.Voxel?.Storage == null)
+            var drillData = (DrillData)data;
+            var storageDatas = drillData.StorageDatas;
+            if (drillData?.Voxel?.Storage == null)
             {
-                Logs.WriteLine($"Null reference in OnDrillComplete - DrillData null: {DrillData == null} - Voxel null: {DrillData?.Voxel == null}");
+                Logs.WriteLine($"Null reference in OnDrillComplete - DrillData null: {drillData == null} - Voxel null: {drillData?.Voxel == null}");
             }
-            for (int i = StorageDatas.Count - 1; i >= 0; i--)
+            for (int i = storageDatas.Count - 1; i >= 0; i--)
             {
-                var info = StorageDatas[i];
-                DrillData?.Voxel?.Storage?.NotifyRangeChanged(ref info.Min, ref info.Max, MyStorageDataTypeFlags.ContentAndMaterial);
+                var info = storageDatas[i];
+                drillData?.Voxel?.Storage?.NotifyRangeChanged(ref info.Min, ref info.Max, MyStorageDataTypeFlags.ContentAndMaterial);
             }
-            StorageDatas.Clear();
+
+            drillData.Clean();
+            Session.DrillDataPool.Push(drillData);
+
             Session.DsUtil.Complete("notify", true);
 
             ActiveDrillThreads--;

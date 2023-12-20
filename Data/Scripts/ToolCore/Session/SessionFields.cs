@@ -27,6 +27,7 @@ namespace ToolCore.Session
         internal readonly MyDefinitionId SteelPlate = new MyDefinitionId(typeof(MyObjectBuilder_Component), "SteelPlate");
 
         private readonly Stack<GridComp> _gridCompPool = new Stack<GridComp>(128);
+        internal readonly Stack<DrillData> DrillDataPool = new Stack<DrillData>(128);
         internal readonly MyConcurrentPool<InventoryItem> InventoryItemPool = new MyConcurrentPool<InventoryItem>(4096);
 
 

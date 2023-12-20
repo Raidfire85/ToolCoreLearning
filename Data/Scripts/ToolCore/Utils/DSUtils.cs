@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using ToolCore.Session;
+using VRage.Collections;
 
 namespace ToolCore.Utils
 {
@@ -36,7 +37,7 @@ namespace ToolCore.Utils
             public double Average;
             public int Events;
             public uint MaxTick;
-            public readonly List<int> Values = new List<int>();
+            public readonly ConcurrentCachingList<int> Values = new ConcurrentCachingList<int>();
             public int[] TmpArray = new int[1];
 
             internal void Clean()
@@ -92,7 +93,7 @@ namespace ToolCore.Utils
                 for (int i = 0; i < itemCnt; i++)
                     times.TmpArray[i] = times.Values[i];
 
-                times.Values.Clear();
+                times.Values.ClearImmediate();
                 var median = GetMedian(times.TmpArray);
 
                 return new Results { Median = median / 1000000.0, Min = times.Min, Max = times.Max, MaxTick = times.MaxTick };
@@ -135,6 +136,7 @@ namespace ToolCore.Utils
                     timings.Min = ms;
                     _timings[name] = timings;
                 }
+                timings.Values.ApplyAdditions();
             }
             Sw.Reset();
             if (display)
