@@ -16,6 +16,7 @@ namespace ToolCore.Session
         private readonly List<IMyTerminalAction> _customActions = new List<IMyTerminalAction>();
         private readonly List<IMyTerminalControl> _customControls = new List<IMyTerminalControl>();
 
+        private const string SHOOT_ACTION = "ToolCore_Shoot_Action";
         private readonly HashSet<string> _controlsToHide = new HashSet<string>()
         {
             "DrainAll",
@@ -49,16 +50,7 @@ namespace ToolCore.Session
             if (!(block is IMyConveyorSorter) || !_session.DefinitionMap.ContainsKey(block.BlockDefinition))
                 return;
 
-            var sep = false;
-            foreach (var control in controls)
-            {
-                if (!sep && !_controlsToHide.Contains(control.Id))
-                    continue;
-                sep = false;
-                if (control.Id == "DrainAll") sep = true;
-
-                control.Visible = IsFalse;
-            }
+            controls.RemoveRange(28, 7);
 
             foreach (var newControl in _customControls)
                 controls.Add(newControl);
@@ -70,19 +62,26 @@ namespace ToolCore.Session
 
         internal void CustomActionGetter(IMyTerminalBlock block, List<IMyTerminalAction> actions)
         {
-            if (block is IMyConveyorSorter && _session.DefinitionMap.ContainsKey(block.BlockDefinition))
+            if (!(block is IMyConveyorSorter))
+                return;
+
+            if (_session.DefinitionMap.ContainsKey(block.BlockDefinition))
             {
-                foreach (var action in actions)
-                {
-                    if (!_controlsToHide.Contains(action.Id))
-                        continue;
-
-                    action.Enabled = IsFalse;
-                }
-
-                //foreach (var newAction in _customActions)
-                //    actions.Add(newAction);
+                actions.RemoveAt(13);
+                return;
             }
+
+            int index;
+            for (index = 0; index < actions.Count; index++)
+            {
+                var action = actions[index];
+                if (action.Id == SHOOT_ACTION)
+                {
+                    break;
+                }
+            }
+
+            actions.RemoveRange(index, 4);
         }
 
         internal void CreateTerminalControls<T>() where T : IMyConveyorSorter
@@ -147,7 +146,7 @@ namespace ToolCore.Session
 
         internal IMyTerminalAction CreateActivateOnOffAction<T>() where T : IMyConveyorSorter
         {
-            var action = MyAPIGateway.TerminalControls.CreateAction<T>("ToolCore_Shoot_Action");
+            var action = MyAPIGateway.TerminalControls.CreateAction<T>(SHOOT_ACTION);
             action.Icon = @"Textures\GUI\Icons\Actions\Toggle.dds";
             action.Name = new StringBuilder("Activate On/Off");
             action.Action = ToggleActivated;
