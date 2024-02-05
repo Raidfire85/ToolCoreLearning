@@ -25,9 +25,9 @@ namespace ToolCore.Comp
         internal MyResourceSinkComponent ElectricSink;
         internal MyConveyorSorter SinkBlock;
 
-        internal readonly ConcurrentCachingList<InventoryData> Inventories = new ConcurrentCachingList<InventoryData>();
         internal readonly ConcurrentDictionary<MyCubeBlock, InventoryData> InventoryMap = new ConcurrentDictionary<MyCubeBlock, InventoryData>();
 
+        internal readonly ConcurrentCachingList<InventoryData> Inventories = new ConcurrentCachingList<InventoryData>();
         internal readonly ConcurrentCachingList<ToolComp> UnassignedTools = new ConcurrentCachingList<ToolComp>();
         internal readonly ConcurrentCachingList<ConcurrentCachingList<ToolComp>> ToolGroups = new ConcurrentCachingList<ConcurrentCachingList<ToolComp>>();
         internal readonly ConcurrentCachingList<ConcurrentCachingList<ToolComp>> ToolGroupsSmall = new ConcurrentCachingList<ConcurrentCachingList<ToolComp>>();

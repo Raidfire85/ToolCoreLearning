@@ -28,7 +28,9 @@ namespace ToolCore.Definitions.Serialised
         public float Length = 1f; //Cylinder, Line
         public float Speed = 1f;
         public float HarvestRatio = 1f;
+        public int WorkRate = int.MaxValue;
         public int UpdateInterval = 20;
+
 
         public float IdlePower = 0f;
         public float ActivePower = 1f;

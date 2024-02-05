@@ -1,67 +1,118 @@
-﻿using Sandbox.Definitions;
+﻿using ParallelTasks;
+using Sandbox.Definitions;
 using Sandbox.Game;
 using Sandbox.Game.Entities;
+using Sandbox.Game.Entities.Character;
+using Sandbox.Game.World;
 using Sandbox.ModAPI;
+using System;
 using System.Collections.Generic;
+using ToolCore.Comp;
+using ToolCore.Definitions.Serialised;
 using VRage.Collections;
+using VRage;
 using VRage.Game;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
 using VRage.ModAPI;
 using VRageMath;
+using static ToolCore.Comp.ToolComp;
 using static ToolCore.Utils.Draw;
+using ToolCore.Utils;
 
 namespace ToolCore
 {
-    internal class GridUtils
+    internal static class GridUtils
     {
 
-        private readonly List<MyPhysicalInventoryItem> _tmpItemList = new List<MyPhysicalInventoryItem>();
-        private readonly HashSet<IMySlimBlock> _hitBlocksHash = new HashSet<IMySlimBlock>();
-        private readonly List<Vector3I> _hitPositions = new List<Vector3I>();
-
-        internal void EmptyBlockInventories(MyCubeBlock block, MyInventory toolInventory)
+        internal static void GetBlocksInVolume(this ToolComp comp, WorkData workData)
         {
-            for (int i = 0; i < block.InventoryCount; i++)
+            try
             {
-                MyInventory inventory = block.GetInventory(i);
-                if (!inventory.Empty())
+                var def = comp.Definition;
+                var toolValues = comp.Values;
+                var data = workData as ToolData;
+                var grid = data.Entity as MyCubeGrid;
+
+                var gridMatrixNI = grid.PositionComp.WorldMatrixNormalizedInv;
+                var localCentre = grid.WorldToGridScaledLocal(data.Position);
+                Vector3D localForward;
+                Vector3D.TransformNormal(ref data.Forward, ref gridMatrixNI, out localForward);
+
+                var gridSizeR = grid.GridSizeR;
+                var radius = toolValues.BoundingRadius * gridSizeR;
+
+                Vector3D minExtent;
+                Vector3D maxExtent;
+
+                if (def.EffectShape == EffectShape.Cuboid)
                 {
-                    _tmpItemList.Clear();
-                    _tmpItemList.AddRange(inventory.GetItems());
-                    foreach (var item in _tmpItemList)
+                    Vector3D localUp;
+                    Vector3D.TransformNormal(ref data.Up, ref gridMatrixNI, out localUp);
+                    var orientation = Quaternion.CreateFromForwardUp(localForward, localUp);
+
+                    comp.Obb.Center = localCentre;
+                    comp.Obb.Orientation = orientation;
+                    comp.Obb.HalfExtent = toolValues.HalfExtent * gridSizeR;
+
+                    var box = comp.Obb.GetAABB();
+
+                    minExtent = localCentre - box.HalfExtents;
+                    maxExtent = localCentre + box.HalfExtents;
+
+                    if (def.Debug)
                     {
-                        MyInventory.Transfer(inventory, toolInventory, item.ItemId, -1, null, false);
+                        var gridSize = grid.GridSize;
+                        var drawBox = new BoundingBoxD(minExtent * gridSize, maxExtent * gridSize);
+                        var drawObb = new MyOrientedBoundingBoxD(drawBox, grid.PositionComp.LocalMatrixRef);
+                        comp.DrawBoxes.Add(new MyTuple<MyOrientedBoundingBoxD, Color>(drawObb, Color.LightBlue));
                     }
                 }
+                else
+                {
+                    minExtent = localCentre - radius;
+                    maxExtent = localCentre + radius;
+                }
+
+                var sMin = Vector3I.Round(minExtent);
+                var sMax = Vector3I.Round(maxExtent);
+
+                var gMin = grid.Min;
+                var gMax = grid.Max;
+
+                var min = Vector3I.Max(sMin, gMin);
+                var max = Vector3I.Min(sMax, gMax);
+
+                switch (def.EffectShape)
+                {
+                    case EffectShape.Sphere:
+                        comp.GetBlocksInSphere(data, grid, min, max, localCentre, radius);
+                        break;
+                    case EffectShape.Cylinder:
+                        comp.GetBlocksInCylinder(data, grid, min, max, localCentre, localForward, toolValues.Radius * gridSizeR, toolValues.Length * gridSizeR);
+                        break;
+                    case EffectShape.Cuboid:
+                        comp.GetBlocksInCuboid(data, grid, min, max, comp.Obb);
+                        break;
+                    case EffectShape.Line:
+                        comp.GetBlocksOverlappingLine(data, grid, data.Position, data.Position + data.Forward * toolValues.Length);
+                        break;
+                    case EffectShape.Ray:
+                        comp.GetBlockInRayPath(data, grid, data.Position + data.Forward * (data.RayLength + 0.01));
+                        break;
+                    default:
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logs.LogException(ex);
+                comp.ActiveThreads--;
             }
         }
 
-        public bool IsWithinWorldLimits(out string failedBlockType, long ownerID, string blockName, int pcuToBuild, int blocksToBuild = 0, int blocksCount = 0, Dictionary<string, int> blocksPerType = null)
-        {
-            var sessionSettings = MyAPIGateway.Session.SessionSettings;
-            var blockLimitsEnabled = sessionSettings.BlockLimitsEnabled;
-            failedBlockType = null;
-            if (blockLimitsEnabled == MyBlockLimitsEnabledEnum.NONE)
-            {
-                return true;
-            }
-
-            ulong steamId = MyAPIGateway.Players.TryGetSteamId(ownerID);
-            if (steamId != 0UL && MyAPIGateway.Session.IsUserAdmin(steamId))
-            {
-                return MyAPIGateway.Session.IsUserIgnorePCULimit(steamId);
-            }
-
-            if (sessionSettings.MaxGridSize != 0 && blocksCount + blocksToBuild > sessionSettings.MaxGridSize)
-            {
-                return false;
-            }
-
-            return true;
-        }
-
-        internal void GetBlocksInSphere(MyCubeGrid grid, Vector3I min, Vector3I max, Vector3D centre, double radius, ConcurrentCachingList<IMySlimBlock> hitBlocks)
+        private static void GetBlocksInSphere(this ToolComp comp, ToolData data, MyCubeGrid grid, 
+            Vector3I min, Vector3I max, Vector3D centre, double radius)
         {
             int i, j, k;
             for (i = min.X; i <= max.X; i++)
@@ -84,38 +135,34 @@ namespace ToolCore
                             continue;
 
                         var slim = (IMySlimBlock)cube.CubeBlock;
-                        if (_hitBlocksHash.Contains(slim))
+                        if (!data.HitBlocksHash.Add(slim))
                             continue;
 
-                        var projector = ((MyCubeGrid)slim.CubeGrid).Projector as IMyProjector;
-                        if (projector != null && projector.CanBuild(slim, true) != BuildCheckResult.OK)
+                        if (comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation)
                             continue;
 
-                        hitBlocks.Add(slim);
-                        _hitBlocksHash.Add(slim);
-
+                        comp.HitBlocks.Add(new MyTuple<IMySlimBlock, float>(slim, (float)distSqr));
                     }
                 }
             }
-
-            _hitBlocksHash.Clear();
         }
 
-        internal void GetBlocksInCylinder(MyCubeGrid grid, Vector3I min, Vector3I max, Vector3D centre, Vector3D forward, double radius, double length, ConcurrentCachingList<IMySlimBlock> hitBlocks, bool debug = false)
+        private static void GetBlocksInCylinder(this ToolComp comp, ToolData data, MyCubeGrid grid, 
+            Vector3I min, Vector3I max, Vector3D centre, Vector3D forward, double radius, double length)
         {
             var endOffset = forward * (length / 2);
             var endOffsetAbs = Vector3D.Abs(endOffset);
 
-            if (debug)
-            {
-                var centrepoint = grid.GridIntegerToWorld(centre);
-                DrawScaledPoint(centrepoint, 0.3f, Color.Green);
-                var end1 = grid.GridIntegerToWorld(centre + endOffset);
-                var end2 = grid.GridIntegerToWorld(centre - endOffset);
-                DrawScaledPoint(end1, 0.3f, Color.Green);
-                DrawScaledPoint(end2, 0.3f, Color.Green);
-                DrawLine(end1, end2, Color.Green, 0.05f);
-            }
+            //if (debug)
+            //{
+            //    var centrepoint = grid.GridIntegerToWorld(centre);
+            //    DrawScaledPoint(centrepoint, 0.3f, Color.Green);
+            //    var end1 = grid.GridIntegerToWorld(centre + endOffset);
+            //    var end2 = grid.GridIntegerToWorld(centre - endOffset);
+            //    DrawScaledPoint(end1, 0.3f, Color.Green);
+            //    DrawScaledPoint(end2, 0.3f, Color.Green);
+            //    DrawLine(end1, end2, Color.Green, 0.05f);
+            //}
 
             int i, j, k;
             for (i = min.X; i <= max.X; i++)
@@ -133,16 +180,16 @@ namespace ToolCore
                         var clampedIntersect = Vector3D.Clamp(posD - blockDir, centre - endOffsetAbs, centre + endOffsetAbs);
                         var corner = Vector3D.Clamp(clampedIntersect, posD - 0.5, posD + 0.5);
 
-                        if (debug)
-                        {
-                            var a = grid.GridIntegerToWorld(clampedIntersect);
-                            DrawScaledPoint(a, 0.1f, Color.Blue);
+                        //if (debug)
+                        //{
+                        //    var a = grid.GridIntegerToWorld(clampedIntersect);
+                        //    DrawScaledPoint(a, 0.1f, Color.Blue);
 
-                            var b = grid.GridIntegerToWorld(corner);
-                            DrawScaledPoint(b, 0.2f, Color.Red);
+                        //    var b = grid.GridIntegerToWorld(corner);
+                        //    DrawScaledPoint(b, 0.2f, Color.Red);
 
-                            DrawLine(a, b, Color.Yellow, 0.02f);
-                        }
+                        //    DrawLine(a, b, Color.Yellow, 0.02f);
+                        //}
 
                         var distSqr = Vector3D.DistanceSquared(corner, clampedIntersect);
                         if (distSqr > radius * radius)
@@ -159,24 +206,21 @@ namespace ToolCore
                             continue;
 
                         var slim = (IMySlimBlock)cube.CubeBlock;
-                        if (_hitBlocksHash.Contains(slim))
+                        if (!data.HitBlocksHash.Add(slim))
                             continue;
 
-                        var projector = ((MyCubeGrid)slim.CubeGrid).Projector as IMyProjector;
-                        if (projector != null && projector.CanBuild(slim, true) != BuildCheckResult.OK)
+                        if (comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation)
                             continue;
 
-                        hitBlocks.Add(slim);
-                        _hitBlocksHash.Add(slim);
+                        comp.HitBlocks.Add(new MyTuple<IMySlimBlock, float>(slim, (float)distSqr));
 
                     }
                 }
             }
-
-            _hitBlocksHash.Clear();
         }
 
-        internal void GetBlocksInCuboid(MyCubeGrid grid, Vector3I min, Vector3I max, MyOrientedBoundingBoxD obb, ConcurrentCachingList<IMySlimBlock> hitBlocks)
+        private static void GetBlocksInCuboid(this ToolComp comp, ToolData data, MyCubeGrid grid, 
+            Vector3I min, Vector3I max, MyOrientedBoundingBoxD obb)
         {
             int i, j, k;
             for (i = min.X; i <= max.X; i++)
@@ -198,72 +242,432 @@ namespace ToolCore
                             continue;
 
                         var slim = (IMySlimBlock)cube.CubeBlock;
-                        if (_hitBlocksHash.Contains(slim))
+                        if (!data.HitBlocksHash.Add(slim))
                             continue;
 
-                        var projector = ((MyCubeGrid)slim.CubeGrid).Projector as IMyProjector;
-                        if (projector != null && projector.CanBuild(slim, true) != BuildCheckResult.OK)
+                        if (comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation)
                             continue;
 
-                        hitBlocks.Add(slim);
-                        _hitBlocksHash.Add(slim);
+                        var distSqr = Vector3D.DistanceSquared(posD, obb.Center);
+                        comp.HitBlocks.Add(new MyTuple<IMySlimBlock, float>(slim, (float)distSqr));
 
                     }
                 }
             }
-
-            _hitBlocksHash.Clear();
         }
 
-        internal void GetBlocksOverlappingLine(MyCubeGrid grid, Vector3D start, Vector3D end, ConcurrentCachingList<IMySlimBlock> hitBlocks)
+        private static void GetBlocksOverlappingLine(this ToolComp comp, ToolData data, MyCubeGrid grid, 
+            Vector3D start, Vector3D end)
         {
-            grid.RayCastCells(start, end, _hitPositions);
+            var hitPositions = new List<Vector3I>();
+            grid.RayCastCells(start, end, hitPositions);
 
-            for (int i = 0; i < _hitPositions.Count; i++)
+            for (int i = 0; i < hitPositions.Count; i++)
             {
-                var pos = _hitPositions[i];
+                var pos = hitPositions[i];
 
                 MyCube cube;
                 if (!grid.TryGetCube(pos, out cube))
                     continue;
 
                 var slim = (IMySlimBlock)cube.CubeBlock;
-                if (_hitBlocksHash.Contains(slim))
+                if (!data.HitBlocksHash.Add(slim))
                     continue;
 
-                var projector = ((MyCubeGrid)slim.CubeGrid).Projector as IMyProjector;
-                if (projector != null && projector.CanBuild(slim, true) != BuildCheckResult.OK)
+                if (comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation)
                     continue;
 
-                hitBlocks.Add(slim);
-                _hitBlocksHash.Add(slim);
+                var distSqr = Vector3D.DistanceSquared(start, pos);
+                comp.HitBlocks.Add(new MyTuple<IMySlimBlock, float>(slim, (float)distSqr));
             }
-
-            _hitBlocksHash.Clear();
         }
 
-        internal void GetBlockInRayPath(MyCubeGrid grid, Vector3D pos, ConcurrentCachingList<IMySlimBlock> hitBlocks, bool debug = false)
+        private static void GetBlockInRayPath(this ToolComp comp, ToolData data, MyCubeGrid grid, 
+            Vector3D pos)
         {
             var localPos = Vector3D.Transform(pos, grid.PositionComp.WorldMatrixNormalizedInv);
             var cellPos = Vector3I.Round(localPos * grid.GridSizeR);
-
-            if (debug)
-                DrawScaledPoint(pos, 0.25, Color.Violet);
 
             MyCube cube;
             if (!grid.TryGetCube(cellPos, out cube))
                 return;
 
             var slim = (IMySlimBlock)cube.CubeBlock;
-            //if (_hitBlocksHash.Contains(slim))
-            //    return;
 
-            var projector = ((MyCubeGrid)slim.CubeGrid).Projector as IMyProjector;
-            if (projector != null && projector.CanBuild(slim, true) != BuildCheckResult.OK)
+            if (comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation)
                 return;
 
-            hitBlocks.Add(slim);
-            //_hitBlocksHash.Add(slim);
+            comp.HitBlocks.Add(new MyTuple<IMySlimBlock, float>(slim, data.RayLength));
+        }
+
+        internal static void OnGetBlocksComplete(this ToolComp comp, WorkData workData)
+        {
+            try
+            {
+                var toolData = (ToolData)workData;
+                toolData.Clean();
+                comp.Session.ToolDataPool.Push(toolData);
+
+                comp.ActiveThreads--;
+                if (comp.ActiveThreads != 0)
+                    return;
+
+                var sortedBlocks = comp.HitBlocksSorted;
+                var blocks = comp.HitBlocks;
+                blocks.ApplyAdditions();
+                if (blocks.Count == 0)
+                    return;
+
+                for (int i = 0; i < blocks.Count; i++)
+                {
+                    var key = blocks[i];
+
+                    int k;
+                    for (k = 0; k < sortedBlocks.Count; k++)
+                    {
+                        var blockData = sortedBlocks[k];
+                        if (blockData.Item2 > key.Item2)
+                            break;
+                    }
+                    sortedBlocks.Insert(k, key);
+
+                    if (comp.Definition.Debug)
+                    {
+                        var slim = key.Item1;
+                        var grid = (MyCubeGrid)slim.CubeGrid;
+                        var worldPos = grid.GridIntegerToWorld(slim.Position);
+                        var matrix = grid.PositionComp.WorldMatrixRef;
+                        matrix.Translation = worldPos;
+
+                        var sizeHalf = grid.GridSizeHalf - 0.05;
+                        var halfExtent = new Vector3D(sizeHalf, sizeHalf, sizeHalf);
+                        var bb = new BoundingBoxD(-halfExtent, halfExtent);
+                        var obb = new MyOrientedBoundingBoxD(bb, matrix);
+                        comp.DrawBoxes.Add(new MyTuple<MyOrientedBoundingBoxD, Color>(obb, Color.Red));
+                    }
+                }
+                blocks.ClearImmediate();
+
+
+                switch (comp.Mode)
+                {
+                    case ToolMode.Drill:
+                        break;
+                    case ToolMode.Grind:
+                        comp.GrindBlocks();
+                        break;
+                    case ToolMode.Weld:
+                        if (comp.Definition.Rate > 4)
+                        {
+                            comp.WeldBlocksBulk();
+                            break;
+                        }
+                        comp.WeldBlocks();
+                        break;
+                    default:
+                        break;
+                }
+
+                sortedBlocks.Clear();
+            }
+            catch (Exception ex)
+            {
+                Logs.LogException(ex);
+            }
+
+        }
+
+        internal static void GrindBlocks(this ToolComp comp)
+        {
+            var inventory = comp.Inventory;
+            var toolValues = comp.Values;
+            var sortedBlocks = comp.HitBlocksSorted;
+            var hitCount = sortedBlocks.Count;
+            var tool = comp.ToolEntity;
+            var validBlocks = 0;
+            var maxBlocks = comp.Definition.Rate;
+
+            var grindCount = Math.Min(hitCount, maxBlocks);
+            grindCount = grindCount > 0 ? grindCount : 1;
+
+            var grindScaler = 0.25f / (float)Math.Min(4, grindCount);
+            var grindAmount = grindScaler * toolValues.Speed * MyAPIGateway.Session.GrinderSpeedMultiplier * 4f;
+            for (int a = 0; a < hitCount; a++)
+            {
+                var slim = sortedBlocks[a].Item1;
+
+                var hitGrid = slim.CubeGrid as MyCubeGrid;
+                if (!hitGrid.Editable || hitGrid.Immune)
+                    continue;
+
+                comp.Working = true;
+                validBlocks++;
+
+                MyCubeBlockDefinition.PreloadConstructionModels((MyCubeBlockDefinition)slim.BlockDefinition);
+
+                MyDamageInformation damageInfo = new MyDamageInformation(false, grindAmount, MyDamageType.Grind, tool.EntityId);
+                if (slim.UseDamageSystem) comp.Session.Session.DamageSystem.RaiseBeforeDamageApplied(slim, ref damageInfo);
+
+                slim.DecreaseMountLevel(damageInfo.Amount, inventory, false);
+                slim.MoveItemsFromConstructionStockpile(inventory, MyItemFlags.None);
+
+                if (slim.UseDamageSystem) comp.Session.Session.DamageSystem.RaiseAfterDamageApplied(slim, damageInfo);
+
+                if (slim.IsFullyDismounted)
+                {
+                    if (slim.FatBlock != null && slim.FatBlock.HasInventory)
+                    {
+                        Utils.Utils.EmptyBlockInventories((MyCubeBlock)slim.FatBlock, inventory);
+                    }
+
+                    slim.SpawnConstructionStockpile();
+                    slim.CubeGrid.RazeBlock(slim.Min);
+                }
+
+                if (validBlocks >= maxBlocks)
+                    break;
+            }
+        }
+
+        internal static void WeldBlocks(this ToolComp comp)
+        {
+            var inventory = comp.Inventory;
+            var toolValues = comp.Values;
+            var sortedBlocks = comp.HitBlocksSorted;
+            var hitCount = sortedBlocks.Count;
+            var tool = comp.ToolEntity;
+            var validBlocks = 0;
+            var maxBlocks = comp.Definition.Rate;
+            var ownerId = comp.IsBlock ? comp.BlockTool.OwnerId : comp.HandTool.OwnerIdentityId;
+
+            var missingComponents = comp.Session.MissingComponents;
+            var buildCount = Math.Min(hitCount, maxBlocks);
+            var weldScaler = 0.25f / (float)Math.Min(4, buildCount);
+            var weldAmount = weldScaler * toolValues.Speed * MyAPIGateway.Session.WelderSpeedMultiplier;
+
+            for (int a = 0; a < hitCount; a++)
+            {
+                if (validBlocks >= maxBlocks)
+                    return;
+
+                var slim = sortedBlocks[a].Item1;
+                var grid = (MyCubeGrid)slim.CubeGrid;
+                var projector = grid.Projector as IMyProjector;
+                var blockDef = slim.BlockDefinition as MyCubeBlockDefinition;
+                missingComponents.Clear();
+
+                if (projector != null)
+                {
+                    var components = blockDef.Components;
+                    if (components != null && components.Length != 0)
+                    {
+                        var firstComp = components[0].Definition.Id.SubtypeName;
+                        if (missingComponents.ContainsKey(firstComp))
+                            missingComponents[firstComp] += 1;
+                        else missingComponents[firstComp] = 1;
+                    }
+                    continue;
+                }
+
+                if (slim.IsFullIntegrity)
+                {
+                    continue;
+                }
+
+                slim.GetMissingComponents(missingComponents);
+
+                if (!MyAPIGateway.Session.CreativeMode && !comp.TryPullComponents())
+                    continue;
+
+                if (projector != null)
+                {
+                    if (projector.CanBuild(slim, true) != BuildCheckResult.OK)
+                        continue;
+
+                    if (!MyAPIGateway.Session.CreativeMode && inventory.RemoveItemsOfType(1, blockDef.Components[0].Definition.Id) < 1)
+                        continue;
+
+                    var builtBy = comp.IsBlock ? comp.BlockTool.SlimBlock.BuiltBy : ownerId;
+                    projector.Build(slim, ownerId, tool.EntityId, true, builtBy);
+
+                    comp.Working = true;
+                    validBlocks++;
+                    continue;
+                }
+
+                if (!slim.CanContinueBuild(inventory))
+                    continue;
+
+                //if (welder != null)
+                //{
+                //    if (slim.WillBecomeFunctional(weldAmount) && !welder.IsWithinWorldLimits(gridComp.Projector, "", cubeDef.PCU - 1))
+                //        continue;
+                //}
+
+                comp.Working = true;
+                validBlocks++;
+
+                slim.MoveItemsToConstructionStockpile(inventory);
+
+                slim.IncreaseMountLevel(weldAmount, ownerId, inventory, 0.15f, false);
+            }
+
+        }
+
+        private static bool TryPullComponents(this ToolComp comp)
+        {
+            var inventory = comp.Inventory;
+            var tool = comp.ToolEntity;
+
+            var first = true;
+            foreach (var component in comp.Session.MissingComponents)
+            {
+                var required = component.Value;
+                var defId = new MyDefinitionId(typeof(MyObjectBuilder_Component), component.Key);
+
+                var current = inventory.GetItemAmount(defId);
+                var difference = required - current;
+                if (comp.IsBlock && difference > 0 && inventory.CargoPercentage < 0.999f)
+                {
+                    current += comp.Grid.ConveyorSystem.PullItem(defId, difference, tool, inventory, false);
+                }
+
+                if (current < 1)
+                {
+                    if (first)
+                        return false;
+
+                    return true;
+                }
+                first = false;
+            }
+            return true;
+        }
+
+        internal static void WeldBlocksBulk(this ToolComp comp)
+        {
+            var inventory = comp.Inventory;
+            var toolValues = comp.Values;
+            var sortedBlocks = comp.HitBlocksSorted;
+            var hitCount = sortedBlocks.Count;
+            var tool = comp.ToolEntity;
+            var validBlocks = 0;
+            var maxBlocks = comp.Definition.Rate;
+            var ownerId = comp.IsBlock ? comp.BlockTool.OwnerId : comp.HandTool.OwnerIdentityId;
+
+            var missingComponents = comp.Session.MissingComponents;
+            var buildCount = hitCount;
+
+            var start = 0;
+            var end = Math.Min(maxBlocks, hitCount);
+            while (validBlocks < maxBlocks && start < hitCount)
+            {
+                for (int a = start; a < end; a++)
+                {
+                    var slim = sortedBlocks[a].Item1;
+
+                    if (((MyCubeGrid)slim.CubeGrid).Projector != null)
+                    {
+                        var components = ((MyCubeBlockDefinition)slim.BlockDefinition).Components;
+                        if (components != null && components.Length != 0)
+                        {
+                            var first = components[0].Definition.Id.SubtypeName;
+                            if (missingComponents.ContainsKey(first))
+                                missingComponents[first] += 1;
+                            else missingComponents[first] = 1;
+                        }
+                        continue;
+                    }
+
+                    if (slim.IsFullIntegrity)
+                    {
+                        buildCount--;
+                        continue;
+                    }
+
+                    slim.GetMissingComponents(missingComponents);
+                }
+
+                foreach (var component in missingComponents)
+                {
+                    var required = component.Value;
+                    if (required == 0)
+                    {
+                        Logs.WriteLine("Required component is zero");
+                        continue;
+                    }
+
+                    MyDefinitionId defId = new MyDefinitionId(typeof(MyObjectBuilder_Component), component.Key);
+
+                    var current = inventory.GetItemAmount(defId);
+                    var difference = required - current;
+                    if (comp.IsBlock && difference > 0 && inventory.CargoPercentage < 0.999f)
+                    {
+                        current += comp.Grid.ConveyorSystem.PullItem(defId, difference, tool, inventory, false);
+                    }
+
+                }
+                missingComponents.Clear();
+
+                buildCount = buildCount > 0 ? buildCount : 1;
+                buildCount = Math.Min(buildCount, maxBlocks);
+                var weldScaler = 0.25f / (float)Math.Min(4, buildCount);
+                var weldAmount = weldScaler * toolValues.Speed * MyAPIGateway.Session.WelderSpeedMultiplier;
+
+                //var welder = null as IMyShipWelder;
+                for (int a = start; a < end; a++)
+                {
+                    var slim = sortedBlocks[a].Item1;
+                    var grid = (MyCubeGrid)slim.CubeGrid;
+
+                    var cubeDef = slim.BlockDefinition as MyCubeBlockDefinition;
+                    if (grid.Projector != null)
+                    {
+                        var projector = (IMyProjector)grid.Projector;
+                        if (projector.CanBuild(slim, true) != BuildCheckResult.OK)
+                            continue;
+
+                        if (!MyAPIGateway.Session.CreativeMode && inventory.RemoveItemsOfType(1, cubeDef.Components[0].Definition.Id) < 1)
+                            continue;
+
+                        var builtBy = comp.IsBlock ? comp.BlockTool.SlimBlock.BuiltBy : ownerId;
+                        projector.Build(slim, ownerId, tool.EntityId, true, builtBy);
+
+                        comp.Working = true;
+                        validBlocks++;
+                        continue;
+                    }
+
+                    if (!slim.CanContinueBuild(inventory))
+                        continue;
+
+                    //if (welder != null)
+                    //{
+                    //    if (slim.WillBecomeFunctional(weldAmount) && !welder.IsWithinWorldLimits(gridComp.Projector, "", cubeDef.PCU - 1))
+                    //        continue;
+                    //}
+
+                    comp.Working = true;
+                    validBlocks++;
+
+                    slim.MoveItemsToConstructionStockpile(inventory);
+
+                    try
+                    {
+                        slim.IncreaseMountLevel(weldAmount, ownerId, inventory, 0.15f, false);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logs.WriteLine($"Exception welding block {slim.BlockDefinition.DisplayNameText}");
+                        Logs.LogException(ex);
+                    }
+
+                }
+
+                start += maxBlocks;
+                end = Math.Min(end + maxBlocks, hitCount);
+            }
+
         }
     }
 }

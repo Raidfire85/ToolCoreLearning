@@ -31,37 +31,6 @@ namespace ToolCore.Session
             }
         }
 
-        internal void SettingsLoad(ToolCoreSettings settings)
-        {
-            Settings.LoadSettings(settings);
-            LoadVoxelMaterials();
-            foreach (var def in DefinitionMap.Values)
-            {
-                def.DefineMaterialModifiers(this);
-            }
-        }
-
-        internal void PostLoad()
-        {
-            MaterialCategoryMap.Clear();
-        }
-
-        internal void LoadVoxelMaterials()
-        {
-            foreach (var category in Settings.CategoryModifiers.Keys)
-            {
-                MaterialCategoryMap.Add(category, new List<MyVoxelMaterialDefinition>());
-            }
-
-            foreach (var def in MyDefinitionManager.Static?.GetVoxelMaterialDefinitions())
-            {
-                if (def == null || !def.Enabled)
-                    continue;
-
-                LoadVoxelMaterial(def);
-            }
-        }
-
         internal void LoadPhysicalMaterial(MyPhysicalMaterialDefinition def)
         {
             var start = MyStringId.GetOrCompute("Start");
@@ -81,6 +50,34 @@ namespace ToolCore.Session
             ParticleMap.Add(def.Id.SubtypeName, pMap);
             SoundMap.Add(def.Id.SubtypeName, sMap);
             Logs.WriteLine($"Added {pMap.Count} material properties for material {def.Id.SubtypeName}");
+        }
+
+        internal void SettingsLoad(ToolCoreSettings settings)
+        {
+            Settings.LoadSettings(settings);
+            LoadVoxelMaterials();
+            foreach (var def in DefinitionMap.Values)
+            {
+                def.DefineMaterialModifiers(this);
+            }
+
+            MaterialCategoryMap.Clear();
+        }
+
+        internal void LoadVoxelMaterials()
+        {
+            foreach (var category in Settings.CategoryModifiers.Keys)
+            {
+                MaterialCategoryMap.Add(category, new List<MyVoxelMaterialDefinition>());
+            }
+
+            foreach (var def in MyDefinitionManager.Static?.GetVoxelMaterialDefinitions())
+            {
+                if (def == null || !def.Enabled)
+                    continue;
+
+                LoadVoxelMaterial(def);
+            }
         }
 
         internal void LoadVoxelMaterial(MyVoxelMaterialDefinition def)

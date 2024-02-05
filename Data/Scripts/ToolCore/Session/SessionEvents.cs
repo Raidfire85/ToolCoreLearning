@@ -22,29 +22,26 @@ namespace ToolCore.Session
             if (grid != null)
             {
                 grid.AddedToScene += addToStart => _startGrids.Add(grid);
+                return;
             }
-
-            //var tool = entity as IMyConveyorSorter;
-            //if (tool != null && DefinitionMap.ContainsKey(tool.BlockDefinition))
-            //{
-            //    var cube = tool as MyCubeBlock;
-            //    cube.AddedToScene += addToStart => _startComps.Add(cube);
-            //}
 
             var sorter = entity as IMyConveyorSorter;
             var handTool = entity as IMyHandheldGunObject<MyDeviceBase>;
             if (sorter != null || handTool != null)
             {
-                //var defId = sorter?.BlockDefinition ?? entity.DefinitionId;
-                //if (!defId.HasValue)
-                //{
-                //    Logs.WriteLine("Entity DefinitionId null in OnEntityCreate");
-                //    return;
-                //}
-                //if (!DefinitionMap.ContainsKey(defId.Value))
-                //    return;
-
                 entity.AddedToScene += addToStart => _startComps.Add(entity);
+
+                if (sorter == null)
+                    return;
+
+                lock (InitObj)
+                {
+                    if (ControlsInited)
+                        return;
+
+                    MyAPIGateway.Utilities.InvokeOnGameThread(() => Controls.CreateTerminalControls<IMyConveyorSorter>());
+                    ControlsInited = true;
+                }
             }
 
             var controller = entity as MyShipController;

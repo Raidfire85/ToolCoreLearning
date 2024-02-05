@@ -23,6 +23,7 @@ namespace ToolCore.Definitions
         internal Location Location;
         internal Vector3D Offset;
         internal string EmitterName;
+        internal int Rate;
         internal int UpdateInterval;
         internal float ActivePower;
         internal float IdlePower;
@@ -254,6 +255,7 @@ namespace ToolCore.Definitions
             Location = values.WorkOrigin;
             Offset = values.Offset;
             EmitterName = values.Emitter;
+            Rate = values.WorkRate > 0 ? values.WorkRate : int.MaxValue;
             UpdateInterval = values.UpdateInterval;
             ActivePower = values.ActivePower;
             IdlePower = values.IdlePower;

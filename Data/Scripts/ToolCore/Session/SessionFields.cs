@@ -28,6 +28,7 @@ namespace ToolCore.Session
 
         private readonly Stack<GridComp> _gridCompPool = new Stack<GridComp>(128);
         internal readonly Stack<DrillData> DrillDataPool = new Stack<DrillData>(128);
+        internal readonly Stack<ToolComp.ToolData> ToolDataPool = new Stack<ToolComp.ToolData>(128);
         internal readonly MyConcurrentPool<InventoryItem> InventoryItemPool = new MyConcurrentPool<InventoryItem>(4096);
 
 
@@ -58,12 +59,10 @@ namespace ToolCore.Session
         private readonly ConcurrentCachingList<IMySlimBlock> _hitBlocks = new ConcurrentCachingList<IMySlimBlock>();
 
         private readonly HashSet<IMySlimBlock> _debugBlocks = new HashSet<IMySlimBlock>();
-        internal readonly ConcurrentCachingList<MyTuple<MyOrientedBoundingBoxD, Color>> DrawBoxes = new ConcurrentCachingList<MyTuple<MyOrientedBoundingBoxD, Color>>();
 
 
-        private readonly Dictionary<string, int> _missingComponents = new Dictionary<string, int>();
+        internal readonly Dictionary<string, int> MissingComponents = new Dictionary<string, int>();
 
-        internal readonly GridUtils GridUtils = new GridUtils();
         internal readonly Settings Settings = new Settings();
         internal readonly DSUtils DsUtil;
         internal readonly DSUtils DsUtil2;
@@ -73,8 +72,9 @@ namespace ToolCore.Session
         internal readonly APIServer APIServer;
         internal object InitObj = new object();
 
-        internal bool Inited;
-        internal bool PbApiInited;
+        internal volatile bool Inited;
+        internal volatile bool ControlsInited;
+        internal volatile bool PbApiInited;
 
 
         public ToolSession()

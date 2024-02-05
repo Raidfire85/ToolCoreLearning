@@ -77,11 +77,10 @@ namespace ToolCore.Session
                 var action = actions[index];
                 if (action.Id == SHOOT_ACTION)
                 {
+                    actions.RemoveRange(index, 4);
                     break;
                 }
             }
-
-            actions.RemoveRange(index, 4);
         }
 
         internal void CreateTerminalControls<T>() where T : IMyConveyorSorter

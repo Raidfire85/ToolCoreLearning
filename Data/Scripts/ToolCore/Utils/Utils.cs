@@ -1,4 +1,5 @@
 ﻿using Sandbox.Definitions;
+using Sandbox.Game;
 using Sandbox.Game.Entities;
 using Sandbox.Game.Entities.Blocks;
 using Sandbox.Game.World;
@@ -8,12 +9,56 @@ using VRage.Game;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
 using VRage.ModAPI;
+using VRageMath;
 
 namespace ToolCore.Utils
 {
-    internal class Utils
+    internal static class Utils
     {
-        public static T CastHax<T>(T typeRef, object castObj) => (T)castObj;
+        internal static T CastHax<T>(T typeRef, object castObj) => (T)castObj;
+
+        private static readonly List<MyPhysicalInventoryItem> _tmpItemList = new List<MyPhysicalInventoryItem>();
+
+        internal static void EmptyBlockInventories(MyCubeBlock block, MyInventory toolInventory)
+        {
+            for (int i = 0; i < block.InventoryCount; i++)
+            {
+                MyInventory inventory = block.GetInventory(i);
+                if (!inventory.Empty())
+                {
+                    _tmpItemList.AddRange(inventory.GetItems());
+                    foreach (var item in _tmpItemList)
+                    {
+                        MyInventory.Transfer(inventory, toolInventory, item.ItemId, -1, null, false);
+                    }
+                    _tmpItemList.Clear();
+                }
+            }
+        }
+
+        internal static bool IsWithinWorldLimits(out string failedBlockType, long ownerID, string blockName, int pcuToBuild, int blocksToBuild = 0, int blocksCount = 0, Dictionary<string, int> blocksPerType = null)
+        {
+            var sessionSettings = MyAPIGateway.Session.SessionSettings;
+            var blockLimitsEnabled = sessionSettings.BlockLimitsEnabled;
+            failedBlockType = null;
+            if (blockLimitsEnabled == MyBlockLimitsEnabledEnum.NONE)
+            {
+                return true;
+            }
+
+            ulong steamId = MyAPIGateway.Players.TryGetSteamId(ownerID);
+            if (steamId != 0UL && MyAPIGateway.Session.IsUserAdmin(steamId))
+            {
+                return MyAPIGateway.Session.IsUserIgnorePCULimit(steamId);
+            }
+
+            if (sessionSettings.MaxGridSize != 0 && blocksCount + blocksToBuild > sessionSettings.MaxGridSize)
+            {
+                return false;
+            }
+
+            return true;
+        }
     }
 
     internal static class Extensions

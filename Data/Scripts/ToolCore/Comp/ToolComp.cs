@@ -68,6 +68,8 @@ namespace ToolCore.Comp
 
         internal readonly HashSet<Vector3I> PreviousPositions = new HashSet<Vector3I>();
         internal readonly ConcurrentCachingList<MyTuple<MyOrientedBoundingBoxD, Color>> DrawBoxes = new ConcurrentCachingList<MyTuple<MyOrientedBoundingBoxD, Color>>();
+        internal readonly ConcurrentCachingList<MyTuple<IMySlimBlock, float>> HitBlocks = new ConcurrentCachingList<MyTuple<IMySlimBlock, float>>();
+        internal readonly List<MyTuple<IMySlimBlock, float>> HitBlocksSorted = new List<MyTuple<IMySlimBlock, float>>();
 
         internal bool Enabled = true;
         internal bool Functional = true;
@@ -92,7 +94,7 @@ namespace ToolCore.Comp
         internal int CompTick60;
         internal int CompTick120;
         internal int LastPushTick;
-        internal int ActiveDrillThreads;
+        internal int ActiveThreads;
 
         internal ToolComp(MyEntity tool, ToolDefinition def, ToolSession session)
         {
@@ -156,6 +158,59 @@ namespace ToolCore.Comp
             Enabled = BlockTool.Enabled;
             Functional = BlockTool.IsFunctional;
 
+        }
+
+        internal class ToolData : WorkData
+        {
+            internal MyEntity Entity;
+            internal Vector3D Position;
+            internal Vector3D Forward;
+            internal Vector3D Up;
+            internal float RayLength;
+            
+            internal readonly HashSet<IMySlimBlock> HitBlocksHash = new HashSet<IMySlimBlock>();
+
+            internal void Clean()
+            {
+                Entity = null;
+                HitBlocksHash.Clear();
+            }
+        }
+
+        internal class PositionData
+        {
+            internal int Index;
+            internal float Distance;
+            internal float Distance2;
+            internal bool Contained;
+            internal Vector3D Position;
+
+            public PositionData(int index, float distance, float distance2 = 0f)
+            {
+                Index = index;
+                Distance = distance;
+                Distance2 = distance2;
+            }
+
+            public PositionData(int index, float distance, Vector3D position, bool contained)
+            {
+                Index = index;
+                Distance = distance;
+                Position = position;
+                Contained = contained;
+            }
+        }
+
+        internal class StorageInfo
+        {
+            internal Vector3I Min;
+            internal Vector3I Max;
+
+            public StorageInfo(Vector3I min, Vector3I max)
+            {
+                Min = min;
+                Max = max;
+            }
         }
 
         internal ActionDefinition Values
@@ -440,42 +495,6 @@ namespace ToolCore.Comp
                     EndParent = endParent;
                 }
 
-            }
-        }
-
-        internal class PositionData
-        {
-            internal int Index;
-            internal float Distance;
-            internal float Distance2;
-            internal bool Contained;
-            internal Vector3D Position;
-
-            public PositionData(int index, float distance, float distance2 = 0f)
-            {
-                Index = index;
-                Distance = distance;
-                Distance2 = distance2;
-            }
-
-            public PositionData(int index, float distance, Vector3D position, bool contained)
-            {
-                Index = index;
-                Distance = distance;
-                Position = position;
-                Contained = contained;
-            }
-        }
-
-        internal class StorageInfo
-        {
-            internal Vector3I Min;
-            internal Vector3I Max;
-
-            public StorageInfo(Vector3I min, Vector3I max)
-            {
-                Min = min;
-                Max = max;
             }
         }
 
@@ -768,8 +787,8 @@ namespace ToolCore.Comp
 
             Session.DsUtil.Complete("notify", true);
 
-            ActiveDrillThreads--;
-            if (ActiveDrillThreads > 0) return;
+            ActiveThreads--;
+            if (ActiveThreads > 0) return;
 
             var isHitting = Functional && Powered && Enabled && Working && (Activated || GunBase.Shooting);
             if (isHitting != WasHitting)

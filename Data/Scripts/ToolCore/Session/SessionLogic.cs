@@ -25,6 +25,7 @@ using VRage.Utils;
 using VRageMath;
 using static ToolCore.Utils.Draw;
 using static ToolCore.Utils.Utils;
+using static VRage.Game.ObjectBuilders.Definitions.MyObjectBuilder_GameDefinition;
 
 namespace ToolCore.Session
 {
@@ -69,6 +70,11 @@ namespace ToolCore.Session
 
             if (!IsDedicated && comp.Draw)
                 DrawComp(comp);
+
+            if (!IsDedicated && comp.Definition.Debug)
+            {
+                DrawDebug(comp);
+            }
         }
 
         private void DrawComp(ToolComp comp)
@@ -102,6 +108,16 @@ namespace ToolCore.Session
                     break;
                 default:
                     return;
+            }
+        }
+
+        private void DrawDebug(ToolComp comp)
+        {
+            comp.DrawBoxes.ApplyAdditions();
+            foreach (var tuple in comp.DrawBoxes)
+            {
+                //DrawLine(tuple.Item1.Center, Vector3D.One, tuple.Item2, 0.02f, 0.1f);
+                DrawBox(tuple.Item1, tuple.Item2, false, 2, 0.01f);
             }
         }
 
@@ -241,20 +257,6 @@ namespace ToolCore.Session
             if (isBlock && IsServer && comp.CompTick120 == TickMod120 && comp.Mode != ToolComp.ToolMode.Weld)
                 comp.ManageInventory();
 
-            if (comp.Definition.Debug)
-            {
-                DrawBoxes.ApplyAdditions();
-                foreach (var tuple in DrawBoxes)
-                    DrawLine(tuple.Item1.Center, Vector3D.One, tuple.Item2, 0.02f, 0.1f);
-                    //DrawBox(tuple.Item1, tuple.Item2, false, 1, 0.01f);
-
-                //if (comp.Hitting)
-                //{
-                //    DrawScaledPoint(comp.HitInfo.Position, 0.5, Color.Red);
-                //    MyAPIGateway.Utilities.ShowNotification(comp.HitInfo.Position.ToString("F0"), 16);
-                //}
-            }
-
             Vector3D worldPos, worldForward, worldUp;
             CalculateWorldVectors(comp, out worldPos, out worldForward, out worldUp);
 
@@ -311,7 +313,7 @@ namespace ToolCore.Session
             if (!workTick)
                 return;
             
-            if (comp.Mode == ToolComp.ToolMode.Drill && comp.ActiveDrillThreads > 0)
+            if (comp.Mode == ToolComp.ToolMode.Drill && comp.ActiveThreads > 0)
                 return;
 
             var line = false;
@@ -342,6 +344,8 @@ namespace ToolCore.Session
             }
 
             var damageType = (int)def.ToolType < 2 ? MyDamageType.Drill : (int)def.ToolType < 4 ? MyDamageType.Grind : MyDamageType.Weld;
+
+            comp.DrawBoxes.ClearList();
 
             _debugBlocks.Clear();
             _debugBlocks.UnionWith(_hitBlocks);
@@ -514,7 +518,7 @@ namespace ToolCore.Session
                         default:
                             break;
                     }
-                    comp.ActiveDrillThreads++;
+                    comp.ActiveThreads++;
 
                 }
 
@@ -525,232 +529,24 @@ namespace ToolCore.Session
                     if (isBlock && !def.AffectOwnGrid && grid == comp.Grid)
                         continue;
 
-                    var exit = (comp.Mode != ToolComp.ToolMode.Weld && (grid.Immune || !grid.DestructibleBlocks)) || !grid.Editable;
+                    var exit = (comp.Mode != ToolComp.ToolMode.Weld && (grid.Immune || !grid.DestructibleBlocks || grid.Projector != null)) || !grid.Editable;
                     if (exit) continue;
 
-                    var gridMatrixNI = grid.PositionComp.WorldMatrixNormalizedInv;
-                    var localCentre = grid.WorldToGridScaledLocal(worldPos);
-                    Vector3D localForward;
-                    Vector3D.TransformNormal(ref worldForward, ref gridMatrixNI, out localForward);
+                    var toolData = ToolDataPool.Count > 0 ? ToolDataPool.Pop() : new ToolComp.ToolData();
+                    toolData.Entity = entity;
+                    toolData.Position = worldPos;
+                    toolData.Forward = worldForward;
+                    toolData.Up = worldUp;
+                    toolData.RayLength = rayLength;
 
-                    var gridSizeR = grid.GridSizeR;
-                    var radius = toolValues.BoundingRadius * gridSizeR;
-
-                    Vector3D minExtent;
-                    Vector3D maxExtent;
-
-                    if (def.EffectShape == EffectShape.Cuboid)
-                    {
-                        Vector3D localUp;
-                        Vector3D.TransformNormal(ref worldUp, ref gridMatrixNI, out localUp);
-                        var orientation = Quaternion.CreateFromForwardUp(localForward, localUp);
-
-                        comp.Obb.Center = localCentre;
-                        comp.Obb.Orientation = orientation;
-                        comp.Obb.HalfExtent = toolValues.HalfExtent * gridSizeR;
-
-                        var box = comp.Obb.GetAABB();
-
-                        minExtent = localCentre - box.HalfExtents;
-                        maxExtent = localCentre + box.HalfExtents;
-
-                        if (def.Debug)
-                        {
-                            var gridSize = grid.GridSize;
-                            var drawBox = new BoundingBoxD(minExtent * gridSize, maxExtent * gridSize);
-                            var drawObb = new MyOrientedBoundingBoxD(drawBox, grid.PositionComp.LocalMatrixRef);
-                            DrawBox(drawObb, Color.CornflowerBlue, false, 4, 0.005f);
-                        }
-                    }
-                    else
-                    {
-                        minExtent = localCentre - radius;
-                        maxExtent = localCentre + radius;
-                    }
-
-                    var sMin = Vector3I.Round(minExtent);
-                    var sMax = Vector3I.Round(maxExtent);
-
-                    var gMin = grid.Min;
-                    var gMax = grid.Max;
-
-                    var min = Vector3I.Max(sMin, gMin);
-                    var max = Vector3I.Min(sMax, gMax);
-
-                    switch (def.EffectShape)
-                    {
-                        case EffectShape.Sphere:
-                            GridUtils.GetBlocksInSphere(grid, min, max, localCentre, radius, _hitBlocks);
-                            break;
-                        case EffectShape.Cylinder:
-                            GridUtils.GetBlocksInCylinder(grid, min, max, localCentre, localForward, toolValues.Radius * gridSizeR, toolValues.Length * gridSizeR, _hitBlocks, comp.Definition.Debug);
-                            break;
-                        case EffectShape.Cuboid:
-                            GridUtils.GetBlocksInCuboid(grid, min, max, comp.Obb, _hitBlocks);
-                            break;
-                        case EffectShape.Line:
-                            GridUtils.GetBlocksOverlappingLine(grid, worldPos, worldPos + worldForward * toolValues.Length, _hitBlocks);
-                            break;
-                        case EffectShape.Ray:
-                            GridUtils.GetBlockInRayPath(grid, worldPos + worldForward * (rayLength + 0.01), _hitBlocks, comp.Definition.Debug);
-                            break;
-                        default:
-                            break;
-                    }
-
-                    continue;
+                    MyAPIGateway.Parallel.Start(comp.GetBlocksInVolume, comp.OnGetBlocksComplete, toolData);
+                    comp.ActiveThreads++;
                 }
 
             } //Hits loop
 
             _entities.Clear();
             _lineOverlaps.Clear();
-            _missingComponents.Clear();
-            _hitBlocks.ApplyAdditions();
-
-            var inventory = comp.Inventory;
-            switch (comp.Mode)
-            {
-                case ToolComp.ToolMode.Drill:
-                    break;
-                case ToolComp.ToolMode.Grind:
-                    #region Grind
-
-                    var grindCount = _hitBlocks.Count;
-                    grindCount = grindCount > 0 ? grindCount : 1;
-
-                    var grindScaler = 0.25f / (float)Math.Min(4, grindCount);
-                    var grindAmount = grindScaler * toolValues.Speed * MyAPIGateway.Session.GrinderSpeedMultiplier * 4f;
-                    for (int a = 0; a < _hitBlocks.Count; a++)
-                    {
-                        var slim = _hitBlocks[a];
-
-                        var hitGrid = slim.CubeGrid as MyCubeGrid;
-                        if (!hitGrid.Editable || hitGrid.Immune)
-                            continue;
-
-                        comp.Working = true;
-
-                        MyDamageInformation damageInfo = new MyDamageInformation(false, grindAmount, MyDamageType.Grind, tool.EntityId);
-                        if (slim.UseDamageSystem) Session.DamageSystem.RaiseBeforeDamageApplied(slim, ref damageInfo);
-
-                        slim.DecreaseMountLevel(damageInfo.Amount, inventory, false);
-                        slim.MoveItemsFromConstructionStockpile(inventory, MyItemFlags.None);
-
-                        if (slim.UseDamageSystem) Session.DamageSystem.RaiseAfterDamageApplied(slim, damageInfo);
-
-                        if (slim.IsFullyDismounted)
-                        {
-                            if (slim.FatBlock != null && slim.FatBlock.HasInventory)
-                            {
-                                GridUtils.EmptyBlockInventories((MyCubeBlock)slim.FatBlock, inventory);
-                            }
-
-                            slim.SpawnConstructionStockpile();
-                            slim.CubeGrid.RazeBlock(slim.Min);
-                        }
-
-                    }
-
-                    #endregion
-                    break;
-                case ToolComp.ToolMode.Weld:
-                    #region Weld
-
-                    var buildCount = _hitBlocks.Count;
-                    for (int a = 0; a < _hitBlocks.Count; a++)
-                    {
-                        var slim = _hitBlocks[a];
-                        
-                        if (((MyCubeGrid)slim.CubeGrid).Projector != null)
-                        {
-                            var components = ((MyCubeBlockDefinition)slim.BlockDefinition).Components;
-                            if (components != null && components.Length != 0)
-                            {
-                                var first = components[0].Definition.Id.SubtypeName;
-                                if (_missingComponents.ContainsKey(first))
-                                    _missingComponents[first] += 1;
-                                else _missingComponents[first] = 1;
-                            }
-                            continue;
-                        }
-
-                        if (slim.IsFullIntegrity)
-                        {
-                            buildCount--;
-                            if (!slim.HasDeformation)
-                            {
-                                _hitBlocks.Remove(slim);
-                            }
-                            continue;
-                        }
-
-                        slim.GetMissingComponents(_missingComponents);
-                    }
-                    _hitBlocks.ApplyRemovals();
-
-                    foreach (var component in _missingComponents)
-                    {
-                        var required = component.Value;
-                        if (required == 0)
-                        {
-                            Logs.WriteLine("Required component is zero");
-                            continue;
-                        }
-
-                        MyDefinitionId defId = new MyDefinitionId(typeof(MyObjectBuilder_Component), component.Key);
-
-                        var current = inventory.GetItemAmount(defId);
-                        var difference = required - current;
-                        if (isBlock && difference > 0 && inventory.CargoPercentage < 0.999f)
-                        {
-                            current += comp.Grid.ConveyorSystem.PullItem(defId, difference, tool, inventory, false);
-                        }
-
-                    }
-
-                    buildCount = buildCount > 0 ? buildCount : 1;
-                    var weldScaler = 0.25f / (float)Math.Min(4, buildCount);
-                    var weldAmount = weldScaler * toolValues.Speed * MyAPIGateway.Session.WelderSpeedMultiplier;
-
-                    //var welder = null as IMyShipWelder;
-                    for (int a = 0; a < _hitBlocks.Count; a++)
-                    {
-                        var slim = _hitBlocks[a];
-                        var grid = (MyCubeGrid)slim.CubeGrid;
-
-                        var cubeDef = slim.BlockDefinition as MyCubeBlockDefinition;
-                        if (grid.Projector != null)
-                        {
-                            if (!MyAPIGateway.Session.CreativeMode && inventory.RemoveItemsOfType(1, cubeDef.Components[0].Definition.Id) < 1)
-                                continue;
-
-                            ((IMyProjector)grid.Projector).Build(slim, ownerId, tool.EntityId, true, isBlock ? block.SlimBlock.BuiltBy : ownerId);
-                            continue;
-                        }
-
-                        if (!slim.CanContinueBuild(inventory))
-                            continue;
-
-                        //if (welder != null)
-                        //{
-                        //    if (slim.WillBecomeFunctional(weldAmount) && !welder.IsWithinWorldLimits(gridComp.Projector, "", cubeDef.PCU - 1))
-                        //        continue;
-                        //}
-
-                        comp.Working = true;
-
-                        slim.MoveItemsToConstructionStockpile(inventory);
-
-                        slim.IncreaseMountLevel(weldAmount, ownerId, inventory, 0.15f, false);
-
-                    }
-                    #endregion
-
-                    break;
-                default:
-                    break;
-            }
 
 
 

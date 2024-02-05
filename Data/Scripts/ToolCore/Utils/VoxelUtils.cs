@@ -59,7 +59,7 @@ namespace ToolCore
                 var max = drillData.Max;
                 var centre = drillData.Origin - (Vector3D)min;
 
-                if (def.Debug) session.DrawBoxes.ClearImmediate();
+                //if (def.Debug) session.DrawBoxes.ClearImmediate();
 
                 var reduction = (int)(toolValues.Speed * 255);
                 using ((voxel as MyVoxelBase).Pin())
@@ -480,7 +480,7 @@ namespace ToolCore
             var totalLen = 0f;
             var segmentLen = 2f * radius;
 
-            comp.Session.DrawBoxes.ClearImmediate();
+            //comp.Session.DrawBoxes.ClearImmediate();
 
             Vector3I pos = new Vector3I();
 
@@ -712,7 +712,7 @@ namespace ToolCore
                 var max = drillData.Max;
                 var centre = drillData.Origin;
 
-                if (def.Debug) session.DrawBoxes.ClearImmediate();
+                //if (def.Debug) session.DrawBoxes.ClearImmediate();
 
                 var reduction = (int)(toolValues.Speed * 255);
                 using ((voxel as MyVoxelBase).Pin())

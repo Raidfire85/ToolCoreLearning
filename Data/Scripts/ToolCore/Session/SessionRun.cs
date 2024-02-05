@@ -39,10 +39,12 @@ namespace ToolCore.Session
 
             LoadDefinitions();
             LoadToolCoreDefs();
-            PostLoad();
 
-            MyAPIGateway.TerminalControls.CustomActionGetter += Controls.CustomActionGetter;
-            MyAPIGateway.TerminalControls.CustomControlGetter += Controls.CustomControlGetter;
+            if (!IsDedicated)
+            {
+                MyAPIGateway.TerminalControls.CustomActionGetter += Controls.CustomActionGetter;
+                MyAPIGateway.TerminalControls.CustomControlGetter += Controls.CustomControlGetter;
+            }
         }
 
         public override void BeforeStart()
@@ -50,9 +52,16 @@ namespace ToolCore.Session
             if (IsMultiPlayer)
             {
                 if (IsServer)
+                {
                     MyAPIGateway.Multiplayer.RegisterSecureMessageHandler(Networking.ServerPacketId, Networking.ProcessPacket);
+
+                    MyVisualScriptLogicProvider.PlayerDisconnected += PlayerDisconnected;
+                    MyVisualScriptLogicProvider.PlayerRespawnRequest += PlayerConnected;
+                }
                 else
+                {
                     MyAPIGateway.Multiplayer.RegisterSecureMessageHandler(Networking.ClientPacketId, Networking.ProcessPacket);
+                }
             }
 
             if (IsServer)
@@ -60,10 +69,8 @@ namespace ToolCore.Session
                 Settings.LoadConfig();
                 SettingsLoad(Settings.CoreSettings);
             }
-            Controls.CreateTerminalControls<IMyConveyorSorter>();
+            //Controls.CreateTerminalControls<IMyConveyorSorter>();
 
-            MyVisualScriptLogicProvider.PlayerDisconnected += PlayerDisconnected;
-            MyVisualScriptLogicProvider.PlayerRespawnRequest += PlayerConnected;
         }
 
         public override void UpdateBeforeSimulation()
@@ -118,15 +125,19 @@ namespace ToolCore.Session
             if (IsMultiPlayer)
             {
                 if (IsServer)
+                {
                     MyAPIGateway.Multiplayer.UnregisterSecureMessageHandler(Networking.ServerPacketId, Networking.ProcessPacket);
+
+                    MyVisualScriptLogicProvider.PlayerDisconnected -= PlayerDisconnected;
+                    MyVisualScriptLogicProvider.PlayerRespawnRequest -= PlayerConnected;
+                }
                 else
+                {
                     MyAPIGateway.Multiplayer.UnregisterSecureMessageHandler(Networking.ClientPacketId, Networking.ProcessPacket);
+                }
             }
 
             MyEntities.OnEntityCreate -= OnEntityCreate;
-
-            MyVisualScriptLogicProvider.PlayerDisconnected -= PlayerDisconnected;
-            MyVisualScriptLogicProvider.PlayerRespawnRequest -= PlayerConnected;
 
             MyAPIGateway.TerminalControls.CustomActionGetter -= Controls.CustomActionGetter;
             MyAPIGateway.TerminalControls.CustomControlGetter -= Controls.CustomControlGetter;
