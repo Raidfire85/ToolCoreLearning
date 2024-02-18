@@ -138,10 +138,13 @@ namespace ToolCore
                         if (!data.HitBlocksHash.Add(slim))
                             continue;
 
-                        if (comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation)
+                        if (comp.Mode != ToolMode.Weld && grid.IsPreview)
+                            return;
+
+                        if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
                             continue;
 
-                        comp.HitBlocks.Add(new MyTuple<IMySlimBlock, float>(slim, (float)distSqr));
+                        comp.HitBlocks.TryAdd(slim, (float)distSqr);
                     }
                 }
             }
@@ -209,10 +212,13 @@ namespace ToolCore
                         if (!data.HitBlocksHash.Add(slim))
                             continue;
 
-                        if (comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation)
+                        if (comp.Mode != ToolMode.Weld && grid.IsPreview)
+                            return;
+
+                        if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
                             continue;
 
-                        comp.HitBlocks.Add(new MyTuple<IMySlimBlock, float>(slim, (float)distSqr));
+                        comp.HitBlocks.TryAdd(slim, (float)distSqr);
 
                     }
                 }
@@ -245,11 +251,14 @@ namespace ToolCore
                         if (!data.HitBlocksHash.Add(slim))
                             continue;
 
-                        if (comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation)
+                        if (comp.Mode != ToolMode.Weld && grid.IsPreview)
+                            return;
+
+                        if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
                             continue;
 
                         var distSqr = Vector3D.DistanceSquared(posD, obb.Center);
-                        comp.HitBlocks.Add(new MyTuple<IMySlimBlock, float>(slim, (float)distSqr));
+                        comp.HitBlocks.TryAdd(slim, (float)distSqr);
 
                     }
                 }
@@ -274,11 +283,14 @@ namespace ToolCore
                 if (!data.HitBlocksHash.Add(slim))
                     continue;
 
-                if (comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation)
+                if (comp.Mode != ToolMode.Weld && grid.IsPreview)
+                    return;
+
+                if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
                     continue;
 
                 var distSqr = Vector3D.DistanceSquared(start, pos);
-                comp.HitBlocks.Add(new MyTuple<IMySlimBlock, float>(slim, (float)distSqr));
+                comp.HitBlocks.TryAdd(slim, (float)distSqr);
             }
         }
 
@@ -294,46 +306,60 @@ namespace ToolCore
 
             var slim = (IMySlimBlock)cube.CubeBlock;
 
-            if (comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation)
+            if (comp.Mode != ToolMode.Weld && grid.IsPreview)
                 return;
 
-            comp.HitBlocks.Add(new MyTuple<IMySlimBlock, float>(slim, data.RayLength));
+            if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
+                return;
+
+            comp.HitBlocks.TryAdd(slim, data.RayLength);
         }
 
         internal static void OnGetBlocksComplete(this ToolComp comp, WorkData workData)
         {
             try
             {
-                var toolData = (ToolData)workData;
-                toolData.Clean();
-                comp.Session.ToolDataPool.Push(toolData);
+                if (workData != null)
+                {
+                    var toolData = (ToolData)workData;
+                    toolData.Clean();
+                    comp.Session.ToolDataPool.Push(toolData);
+                    comp.ActiveThreads--;
+                }
 
-                comp.ActiveThreads--;
                 if (comp.ActiveThreads != 0)
                     return;
 
-                var sortedBlocks = comp.HitBlocksSorted;
+                var workSet = comp.WorkSet;
                 var blocks = comp.HitBlocks;
-                blocks.ApplyAdditions();
-                if (blocks.Count == 0)
+                var sortedBlocks = comp.HitBlocksSorted;
+                if (blocks.Count == 0 && workSet.Count == 0)
                     return;
 
-                for (int i = 0; i < blocks.Count; i++)
+                var start = 0;
+                if (workSet.Count > 0)
                 {
-                    var key = blocks[i];
+                    sortedBlocks.AddRange(workSet);
+                    start = workSet.Count;
+                    workSet.Clear();
+                }
+
+                foreach (var entry in blocks)
+                {
+                    var key = entry.Key;
 
                     int k;
-                    for (k = 0; k < sortedBlocks.Count; k++)
+                    for (k = start; k < sortedBlocks.Count; k++)
                     {
-                        var blockData = sortedBlocks[k];
-                        if (blockData.Item2 > key.Item2)
+                        var block = sortedBlocks[k];
+                        if (blocks[block] > entry.Value)
                             break;
                     }
                     sortedBlocks.Insert(k, key);
 
                     if (comp.Definition.Debug)
                     {
-                        var slim = key.Item1;
+                        var slim = key;
                         var grid = (MyCubeGrid)slim.CubeGrid;
                         var worldPos = grid.GridIntegerToWorld(slim.Position);
                         var matrix = grid.PositionComp.WorldMatrixRef;
@@ -346,7 +372,7 @@ namespace ToolCore
                         comp.DrawBoxes.Add(new MyTuple<MyOrientedBoundingBoxD, Color>(obb, Color.Red));
                     }
                 }
-                blocks.ClearImmediate();
+                blocks.Clear();
 
 
                 switch (comp.Mode)
@@ -392,9 +418,9 @@ namespace ToolCore
 
             var grindScaler = 0.25f / (float)Math.Min(4, grindCount);
             var grindAmount = grindScaler * toolValues.Speed * MyAPIGateway.Session.GrinderSpeedMultiplier * 4f;
-            for (int a = 0; a < hitCount; a++)
+            for (int i = 0; i < hitCount; i++)
             {
-                var slim = sortedBlocks[a].Item1;
+                var slim = sortedBlocks[i];
 
                 var hitGrid = slim.CubeGrid as MyCubeGrid;
                 if (!hitGrid.Editable || hitGrid.Immune)
@@ -423,6 +449,10 @@ namespace ToolCore
                     slim.SpawnConstructionStockpile();
                     slim.CubeGrid.RazeBlock(slim.Min);
                 }
+                else
+                {
+                    comp.WorkSet.Add(slim);
+                }
 
                 if (validBlocks >= maxBlocks)
                     break;
@@ -445,12 +475,12 @@ namespace ToolCore
             var weldScaler = 0.25f / (float)Math.Min(4, buildCount);
             var weldAmount = weldScaler * toolValues.Speed * MyAPIGateway.Session.WelderSpeedMultiplier;
 
-            for (int a = 0; a < hitCount; a++)
+            for (int i = 0; i < hitCount; i++)
             {
                 if (validBlocks >= maxBlocks)
                     return;
 
-                var slim = sortedBlocks[a].Item1;
+                var slim = sortedBlocks[i];
                 var grid = (MyCubeGrid)slim.CubeGrid;
                 var projector = grid.Projector as IMyProjector;
                 var blockDef = slim.BlockDefinition as MyCubeBlockDefinition;
@@ -466,17 +496,15 @@ namespace ToolCore
                             missingComponents[firstComp] += 1;
                         else missingComponents[firstComp] = 1;
                     }
-                    continue;
                 }
-
-                if (slim.IsFullIntegrity)
+                else if (slim.IsFullIntegrity && !slim.HasDeformation)
                 {
                     continue;
                 }
 
                 slim.GetMissingComponents(missingComponents);
 
-                if (!MyAPIGateway.Session.CreativeMode && !comp.TryPullComponents())
+                if (!MyAPIGateway.Session.CreativeMode && comp.Session.MissingComponents.Count > 0 && !comp.TryPullComponents())
                     continue;
 
                 if (projector != null)
@@ -489,6 +517,13 @@ namespace ToolCore
 
                     var builtBy = comp.IsBlock ? comp.BlockTool.SlimBlock.BuiltBy : ownerId;
                     projector.Build(slim, ownerId, tool.EntityId, true, builtBy);
+
+                    var pos = projector.CubeGrid.WorldToGridInteger(slim.CubeGrid.GridIntegerToWorld(slim.Position));
+                    var newSlim = projector.CubeGrid.GetCubeBlock(pos);
+                    if (newSlim != null && !newSlim.IsFullIntegrity)
+                    {
+                        comp.WorkSet.Add(newSlim);
+                    }
 
                     comp.Working = true;
                     validBlocks++;
@@ -510,6 +545,11 @@ namespace ToolCore
                 slim.MoveItemsToConstructionStockpile(inventory);
 
                 slim.IncreaseMountLevel(weldAmount, ownerId, inventory, 0.15f, false);
+
+                if (!slim.IsFullIntegrity || slim.HasDeformation)
+                {
+                    comp.WorkSet.Add(slim);
+                }
             }
 
         }
@@ -562,9 +602,9 @@ namespace ToolCore
             var end = Math.Min(maxBlocks, hitCount);
             while (validBlocks < maxBlocks && start < hitCount)
             {
-                for (int a = start; a < end; a++)
+                for (int i = start; i < end; i++)
                 {
-                    var slim = sortedBlocks[a].Item1;
+                    var slim = sortedBlocks[i];
 
                     if (((MyCubeGrid)slim.CubeGrid).Projector != null)
                     {
@@ -615,9 +655,9 @@ namespace ToolCore
                 var weldAmount = weldScaler * toolValues.Speed * MyAPIGateway.Session.WelderSpeedMultiplier;
 
                 //var welder = null as IMyShipWelder;
-                for (int a = start; a < end; a++)
+                for (int j = start; j < end; j++)
                 {
-                    var slim = sortedBlocks[a].Item1;
+                    var slim = sortedBlocks[j];
                     var grid = (MyCubeGrid)slim.CubeGrid;
 
                     var cubeDef = slim.BlockDefinition as MyCubeBlockDefinition;
@@ -632,6 +672,13 @@ namespace ToolCore
 
                         var builtBy = comp.IsBlock ? comp.BlockTool.SlimBlock.BuiltBy : ownerId;
                         projector.Build(slim, ownerId, tool.EntityId, true, builtBy);
+
+                        var pos = projector.CubeGrid.WorldToGridInteger(slim.CubeGrid.GridIntegerToWorld(slim.Position));
+                        var newSlim = projector.CubeGrid.GetCubeBlock(pos);
+                        if (newSlim != null && !newSlim.IsFullIntegrity)
+                        {
+                            comp.WorkSet.Add(newSlim);
+                        }
 
                         comp.Working = true;
                         validBlocks++;
@@ -652,14 +699,11 @@ namespace ToolCore
 
                     slim.MoveItemsToConstructionStockpile(inventory);
 
-                    try
+                    slim.IncreaseMountLevel(weldAmount, ownerId, inventory, 0.15f, false);
+
+                    if (!slim.IsFullIntegrity || slim.HasDeformation)
                     {
-                        slim.IncreaseMountLevel(weldAmount, ownerId, inventory, 0.15f, false);
-                    }
-                    catch (Exception ex)
-                    {
-                        Logs.WriteLine($"Exception welding block {slim.BlockDefinition.DisplayNameText}");
-                        Logs.LogException(ex);
+                        comp.WorkSet.Add(slim);
                     }
 
                 }
@@ -667,7 +711,6 @@ namespace ToolCore
                 start += maxBlocks;
                 end = Math.Min(end + maxBlocks, hitCount);
             }
-
         }
     }
 }

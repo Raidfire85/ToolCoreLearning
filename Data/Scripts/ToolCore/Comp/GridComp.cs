@@ -21,33 +21,14 @@ namespace ToolCore.Comp
         internal ToolSession Session;
 
         internal MyCubeGrid Grid;
-        internal MyResourceDistributorComponent Distributor;
-        internal MyResourceSinkComponent ElectricSink;
-        internal MyConveyorSorter SinkBlock;
-
-        internal readonly ConcurrentDictionary<MyCubeBlock, InventoryData> InventoryMap = new ConcurrentDictionary<MyCubeBlock, InventoryData>();
-
-        internal readonly ConcurrentCachingList<InventoryData> Inventories = new ConcurrentCachingList<InventoryData>();
-        internal readonly ConcurrentCachingList<ToolComp> UnassignedTools = new ConcurrentCachingList<ToolComp>();
-        internal readonly ConcurrentCachingList<ConcurrentCachingList<ToolComp>> ToolGroups = new ConcurrentCachingList<ConcurrentCachingList<ToolComp>>();
-        internal readonly ConcurrentCachingList<ConcurrentCachingList<ToolComp>> ToolGroupsSmall = new ConcurrentCachingList<ConcurrentCachingList<ToolComp>>();
-
 
         internal readonly List<ToolComp> ToolComps = new List<ToolComp>();
-
-        internal MyPlanet ClosestPlanet;
-
-        internal float Power;
 
         internal long CompTick60;
         internal long CompTick20;
 
         internal bool UnderControl;
         internal bool Dirty;
-        internal bool ConveyorsDirty;
-
-        internal IMyShipWelder Welder;
-        internal IMyProjector Projector;
 
         internal void Init(MyCubeGrid grid, ToolSession session)
         {
@@ -84,81 +65,19 @@ namespace ToolCore.Comp
             Grid.OnFatBlockRemoved -= FatBlockRemoved;
 
             Grid = null;
-            Distributor = null;
-            ElectricSink = null;
-            SinkBlock = null;
-            ClosestPlanet = null;
 
-            Inventories.ClearImmediate();
-            InventoryMap.Clear();
             ToolComps.Clear();
         }
 
         internal void FatBlockAdded(MyCubeBlock block)
         {
-
-            if (block is MyConveyor || block is MyConveyorConnector)
+            if (block is IMyConveyorSorter)
             {
-                block.IsWorkingChanged += ConveyorWorkingChanged;
-            }
-
-            if (block is IMyShipWelder)
-                Welder = (IMyShipWelder)block;
-
-            if (block is IMyProjector)
-                Projector = (IMyProjector)block;
-
-            MyInventory inventory;
-            if (block.HasInventory && block.TryGetInventory(out inventory))
-            {
-                var assembler = block as IMyAssembler;
-                if (assembler != null)
-                    inventory = assembler.GetInventory(1) as MyInventory;
-
-                if (inventory != null)
+                ToolComp comp;
+                if (Session.ToolMap.TryGetValue(block.EntityId, out comp) && !ToolComps.Contains(comp))
                 {
-                    var data = new InventoryData(inventory, Session);
-                    if (InventoryMap.TryAdd(block, data))
-                    {
-                        Inventories.Add(data);
-                        Inventories.ApplyAdditions();
-                    }
-                    //else Logs.WriteLine("FatBlockAdded() - Failed to add inventory to map");
-
-                    block.IsWorkingChanged += (cube) => ConveyorsDirty = true;
-                }
-
-                if (block is IMyConveyorSorter)
-                {
-                    ToolComp comp;
-                    if (Session.ToolMap.TryGetValue(block.EntityId, out comp) && !ToolComps.Contains(comp))
-                    {
-                        ToolComps.Add(comp);
-                        ((IMyCubeGrid)Grid).WeaponSystem.Register(comp.GunBase);
-
-                        if (ToolComps.Count == 1)
-                        {
-                            var toolGroup = new ConcurrentCachingList<ToolComp>();
-                            comp.ToolGroup = toolGroup;
-                            toolGroup.Add(comp);
-                            ToolGroups.Add(toolGroup);
-                        }
-                        else
-                        {
-                            for (int i = 0; i < ToolGroups.Count; i++)
-                            {
-                                var group = ToolGroups[i];
-                                var firstTool = group[0];
-                                if ((inventory as IMyInventory).CanTransferItemTo(firstTool.Inventory, Session.SteelPlate))
-                                {
-                                    comp.ToolGroup = group;
-                                    group.Add(comp);
-                                    break;
-                                }
-                        }
-                        }
-
-                    }
+                    ToolComps.Add(comp);
+                    ((IMyCubeGrid)Grid).WeaponSystem.Register(comp.GunBase);
                 }
             }
         }
@@ -168,37 +87,9 @@ namespace ToolCore.Comp
             if (block is IMyConveyorSorter)
             {
                 ToolComp comp;
-                if (Session.ToolMap.TryGetValue(block.EntityId, out comp))
+                if (Session.ToolMap.TryGetValue(block.EntityId, out comp) && comp?.GunBase != null && ToolComps.Remove(comp))
                 {
-                    ToolComps.Remove(comp);
                     ((IMyCubeGrid)Grid).WeaponSystem.Unregister(comp.GunBase);
-                }
-            }
-
-            if (block is MyConveyor || block is MyConveyorConnector)
-            {
-                block.IsWorkingChanged -= ConveyorWorkingChanged;
-            }
-
-            MyInventory inventory;
-            if (block.HasInventory && block.TryGetInventory(out inventory))
-            {
-                var assembler = block as IMyAssembler;
-                if (assembler != null)
-                    inventory = assembler.GetInventory(1) as MyInventory;
-
-                if (inventory != null)
-                {
-                    InventoryData data;
-                    if (InventoryMap.TryRemove(block, out data))
-                    {
-                        data.Close();
-                        Inventories.Remove(data);
-                        Inventories.ApplyRemovals();
-                    }
-                    else Logs.WriteLine("FatBlockRemoved() - Failed to remove inventory from map");
-
-                    block.IsWorkingChanged -= ConveyorWorkingChanged;
                 }
             }
         }
@@ -211,57 +102,6 @@ namespace ToolCore.Comp
         private void BlockRemoved(IMySlimBlock slim)
         {
             Dirty = true;
-        }
-
-        private void ConveyorWorkingChanged(MyCubeBlock block)
-        {
-            ConveyorsDirty = true;
-        }
-
-        internal void SinkInit(MyConveyorSorter sinkBlock)
-        {
-            var sinkInfo = new MyResourceSinkInfo()
-            {
-                MaxRequiredInput = 0,
-                RequiredInputFunc = PowerFunc,
-                ResourceTypeId = MyResourceDistributorComponent.ElectricityId
-            };
-
-            if (SinkBlock != null && ElectricSink != null)
-            {
-                ElectricSink.SetRequiredInputFuncByType(sinkInfo.ResourceTypeId, () => 0f);
-            }
-
-            SinkBlock = sinkBlock;
-
-            ElectricSink = SinkBlock.Components?.Get<MyResourceSinkComponent>();
-            if (ElectricSink != null)
-            {
-                //ElectricSink.RemoveType(ref sinkInfo.ResourceTypeId);
-                //ElectricSink.AddType(ref sinkInfo);
-                ElectricSink.SetRequiredInputFuncByType(sinkInfo.ResourceTypeId, PowerFunc);
-                Logs.WriteLine("sink found");
-            }
-            else
-            {
-                ElectricSink = new MyResourceSinkComponent();
-                ElectricSink.Init(MyStringHash.GetOrCompute("Thrust"), sinkInfo);
-                SinkBlock.Components.Add(ElectricSink);
-                Logs.WriteLine("sink added");
-            }
-
-            Distributor = (Grid as IMyCubeGrid).ResourceDistributor as MyResourceDistributorComponent;
-            if (Distributor != null)
-                Distributor.AddSink(ElectricSink);
-            else
-                Logs.WriteLine($"GridComp.SinkInit() - Distributor null");
-
-            ElectricSink.Update();
-        }
-
-        private float PowerFunc()
-        {
-            return Power;
         }
 
     }

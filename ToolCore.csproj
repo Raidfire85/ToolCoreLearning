@@ -162,9 +162,6 @@
     <Compile Include="Data\Scripts\ToolCore\Comp\CompData.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>
-    <Compile Include="Data\Scripts\ToolCore\Comp\InventoryData.cs">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Compile>
     <Compile Include="Data\Scripts\ToolCore\Comp\CoreGun.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>

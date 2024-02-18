@@ -23,13 +23,12 @@ namespace ToolCore.Session
         private const string PATH = "Data\\ToolCoreFiles.txt";
         internal readonly Guid CompDataGuid = new Guid("75BBB4F5-4FB9-4230-AAAA-BB79C9811618");
         internal readonly float VoxelHarvestRatio = 0.009f;
-
+        
         internal readonly MyDefinitionId SteelPlate = new MyDefinitionId(typeof(MyObjectBuilder_Component), "SteelPlate");
 
         private readonly Stack<GridComp> _gridCompPool = new Stack<GridComp>(128);
         internal readonly Stack<DrillData> DrillDataPool = new Stack<DrillData>(128);
         internal readonly Stack<ToolComp.ToolData> ToolDataPool = new Stack<ToolComp.ToolData>(128);
-        internal readonly MyConcurrentPool<InventoryItem> InventoryItemPool = new MyConcurrentPool<InventoryItem>(4096);
 
 
         private readonly HashSet<MyCubeGrid> _controlledGrids = new HashSet<MyCubeGrid>();
@@ -55,11 +54,6 @@ namespace ToolCore.Session
 
         private readonly List<MyEntity> _entities = new List<MyEntity>();
         private readonly List<MyLineSegmentOverlapResult<MyEntity>> _lineOverlaps = new List<MyLineSegmentOverlapResult<MyEntity>>();
-
-        private readonly ConcurrentCachingList<IMySlimBlock> _hitBlocks = new ConcurrentCachingList<IMySlimBlock>();
-
-        private readonly HashSet<IMySlimBlock> _debugBlocks = new HashSet<IMySlimBlock>();
-
 
         internal readonly Dictionary<string, int> MissingComponents = new Dictionary<string, int>();
 

@@ -68,8 +68,9 @@ namespace ToolCore.Comp
 
         internal readonly HashSet<Vector3I> PreviousPositions = new HashSet<Vector3I>();
         internal readonly ConcurrentCachingList<MyTuple<MyOrientedBoundingBoxD, Color>> DrawBoxes = new ConcurrentCachingList<MyTuple<MyOrientedBoundingBoxD, Color>>();
-        internal readonly ConcurrentCachingList<MyTuple<IMySlimBlock, float>> HitBlocks = new ConcurrentCachingList<MyTuple<IMySlimBlock, float>>();
-        internal readonly List<MyTuple<IMySlimBlock, float>> HitBlocksSorted = new List<MyTuple<IMySlimBlock, float>>();
+        internal readonly ConcurrentDictionary<IMySlimBlock, float> HitBlocks = new ConcurrentDictionary<IMySlimBlock, float>();
+        internal readonly List<IMySlimBlock> HitBlocksSorted = new List<IMySlimBlock>();
+        internal readonly HashSet<IMySlimBlock> WorkSet = new HashSet<IMySlimBlock>();
 
         internal bool Enabled = true;
         internal bool Functional = true;

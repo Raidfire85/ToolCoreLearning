@@ -316,6 +316,14 @@ namespace ToolCore.Session
             if (comp.Mode == ToolComp.ToolMode.Drill && comp.ActiveThreads > 0)
                 return;
 
+            comp.DrawBoxes.ClearList();
+
+            if (comp.Mode != ToolComp.ToolMode.Drill && comp.WorkSet.Count == def.Rate)
+            {
+                comp.OnGetBlocksComplete(null);
+                return;
+            }
+
             var line = false;
             var rayLength = toolValues.Length;
             switch (def.EffectShape)
@@ -344,12 +352,6 @@ namespace ToolCore.Session
             }
 
             var damageType = (int)def.ToolType < 2 ? MyDamageType.Drill : (int)def.ToolType < 4 ? MyDamageType.Grind : MyDamageType.Weld;
-
-            comp.DrawBoxes.ClearList();
-
-            _debugBlocks.Clear();
-            _debugBlocks.UnionWith(_hitBlocks);
-            _hitBlocks.ClearImmediate();
 
             var count = line ? _lineOverlaps.Count : _entities.Count;
             for (int k = 0; k < count; k++)
@@ -548,20 +550,6 @@ namespace ToolCore.Session
             _entities.Clear();
             _lineOverlaps.Clear();
 
-
-
-            //for (int a = 0; a < _hitBlocks.Count; a++)
-            //{
-            //    var slim = _hitBlocks[a];
-
-            //    if (!_debugBlocks.Remove(slim)) //wasn't there last tick
-            //        slim.Dithering = -0.1f;
-            //}
-
-            //foreach (var slim in _debugBlocks)
-            //{
-            //    slim.Dithering = 0;
-            //}
         }
 
         internal void StartComps()
