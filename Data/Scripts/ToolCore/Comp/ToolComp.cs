@@ -560,13 +560,18 @@ namespace ToolCore.Comp
 
         internal bool IsPowered()
         {
+            if (Sink == null)
+            {
+                return Powered = false;
+            }
+
             Sink.Update();
             var required = RequiredInput();
             var elec = MyResourceDistributorComponent.ElectricityId;
-            var distributor = (MyResourceDistributorComponent)((IMyCubeGrid)Grid).ResourceDistributor;
-            Powered = MyUtils.IsEqual(required, 0f) || Sink.IsPoweredByType(elec) && (Sink.ResourceAvailableByType(elec) >= required || distributor != null && distributor.MaxAvailableResourceByType(elec) >= required);
+            var distributor = (MyResourceDistributorComponent)(BlockTool.CubeGrid).ResourceDistributor;
+            var isPowered = MyUtils.IsEqual(required, 0f) || Sink.IsPoweredByType(elec) && (Sink.ResourceAvailableByType(elec) >= required || distributor != null && distributor.MaxAvailableResourceByType(elec) >= required);
 
-            return Powered;
+            return Powered = isPowered;
         }
 
         private void EnabledChanged(IMyTerminalBlock block)
