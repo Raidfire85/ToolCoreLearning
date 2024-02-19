@@ -39,8 +39,8 @@ namespace ToolCore.Session
                     if (ControlsInited)
                         return;
 
-                    MyAPIGateway.Utilities.InvokeOnGameThread(() => Controls.CreateTerminalControls<IMyConveyorSorter>());
                     ControlsInited = true;
+                    MyAPIGateway.Utilities.InvokeOnGameThread(() => Controls.CreateTerminalControls<IMyConveyorSorter>());
                 }
             }
 

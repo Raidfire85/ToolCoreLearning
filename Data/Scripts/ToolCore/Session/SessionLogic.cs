@@ -313,7 +313,7 @@ namespace ToolCore.Session
             if (!workTick)
                 return;
             
-            if (comp.Mode == ToolComp.ToolMode.Drill && comp.ActiveThreads > 0)
+            if (comp.ActiveThreads > 0)
                 return;
 
             comp.DrawBoxes.ClearList();
@@ -531,9 +531,10 @@ namespace ToolCore.Session
                     if (isBlock && !def.AffectOwnGrid && grid == comp.Grid)
                         continue;
 
-                    var exit = (comp.Mode != ToolComp.ToolMode.Weld && (grid.Immune || !grid.DestructibleBlocks || grid.Projector != null)) || !grid.Editable;
-                    if (exit) continue;
-
+                    var immune = (comp.Mode != ToolComp.ToolMode.Weld && (grid.Immune || !grid.DestructibleBlocks || grid.Projector != null)) || !grid.Editable;
+                    var invalid = comp.Mode != ToolComp.ToolMode.Weld && (grid.Physics == null || !grid.Physics.Enabled);
+                    if (immune || invalid || grid.MarkedForClose) continue;
+                    
                     var toolData = ToolDataPool.Count > 0 ? ToolDataPool.Pop() : new ToolComp.ToolData();
                     toolData.Entity = entity;
                     toolData.Position = worldPos;

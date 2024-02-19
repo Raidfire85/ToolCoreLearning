@@ -1,24 +1,17 @@
 ﻿using ParallelTasks;
 using Sandbox.Definitions;
-using Sandbox.Game;
 using Sandbox.Game.Entities;
-using Sandbox.Game.Entities.Character;
-using Sandbox.Game.World;
 using Sandbox.ModAPI;
 using System;
 using System.Collections.Generic;
 using ToolCore.Comp;
 using ToolCore.Definitions.Serialised;
-using VRage.Collections;
+using ToolCore.Utils;
 using VRage;
 using VRage.Game;
-using VRage.Game.Entity;
 using VRage.Game.ModAPI;
-using VRage.ModAPI;
 using VRageMath;
 using static ToolCore.Comp.ToolComp;
-using static ToolCore.Utils.Draw;
-using ToolCore.Utils;
 
 namespace ToolCore
 {
@@ -138,11 +131,11 @@ namespace ToolCore
                         if (!data.HitBlocksHash.Add(slim))
                             continue;
 
-                        if (comp.Mode != ToolMode.Weld && grid.IsPreview)
+                        if (slim.FatBlock != null && (slim.FatBlock.MarkedForClose || slim.FatBlock.Closed))
                             return;
 
                         if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
-                            continue;
+                            return;
 
                         comp.HitBlocks.TryAdd(slim, (float)distSqr);
                     }
@@ -212,11 +205,11 @@ namespace ToolCore
                         if (!data.HitBlocksHash.Add(slim))
                             continue;
 
-                        if (comp.Mode != ToolMode.Weld && grid.IsPreview)
+                        if (slim.FatBlock != null && (slim.FatBlock.MarkedForClose || slim.FatBlock.Closed))
                             return;
 
                         if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
-                            continue;
+                            return;
 
                         comp.HitBlocks.TryAdd(slim, (float)distSqr);
 
@@ -251,11 +244,11 @@ namespace ToolCore
                         if (!data.HitBlocksHash.Add(slim))
                             continue;
 
-                        if (comp.Mode != ToolMode.Weld && grid.IsPreview)
+                        if (slim.FatBlock != null && (slim.FatBlock.MarkedForClose || slim.FatBlock.Closed))
                             return;
 
                         if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
-                            continue;
+                            return;
 
                         var distSqr = Vector3D.DistanceSquared(posD, obb.Center);
                         comp.HitBlocks.TryAdd(slim, (float)distSqr);
@@ -283,11 +276,11 @@ namespace ToolCore
                 if (!data.HitBlocksHash.Add(slim))
                     continue;
 
-                if (comp.Mode != ToolMode.Weld && grid.IsPreview)
+                if (slim.FatBlock != null && (slim.FatBlock.MarkedForClose || slim.FatBlock.Closed))
                     return;
 
                 if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
-                    continue;
+                    return;
 
                 var distSqr = Vector3D.DistanceSquared(start, pos);
                 comp.HitBlocks.TryAdd(slim, (float)distSqr);
@@ -306,7 +299,7 @@ namespace ToolCore
 
             var slim = (IMySlimBlock)cube.CubeBlock;
 
-            if (comp.Mode != ToolMode.Weld && grid.IsPreview)
+            if (slim.FatBlock != null && (slim.FatBlock.MarkedForClose || slim.FatBlock.Closed))
                 return;
 
             if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
@@ -347,6 +340,9 @@ namespace ToolCore
                 foreach (var entry in blocks)
                 {
                     var key = entry.Key;
+                    var fat = key.FatBlock;
+                    if (key.CubeGrid.Closed || key.CubeGrid.MarkedForClose || key.IsFullyDismounted || fat != null && (fat.Closed || fat.MarkedForClose))
+                        continue;
 
                     int k;
                     for (k = start; k < sortedBlocks.Count; k++)
@@ -399,6 +395,8 @@ namespace ToolCore
             catch (Exception ex)
             {
                 Logs.LogException(ex);
+                comp.HitBlocks.Clear();
+                comp.HitBlocksSorted.Clear();
             }
 
         }

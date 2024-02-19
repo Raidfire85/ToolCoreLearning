@@ -139,8 +139,11 @@ namespace ToolCore.Session
 
             MyEntities.OnEntityCreate -= OnEntityCreate;
 
-            MyAPIGateway.TerminalControls.CustomActionGetter -= Controls.CustomActionGetter;
-            MyAPIGateway.TerminalControls.CustomControlGetter -= Controls.CustomControlGetter;
+            if (!IsDedicated)
+            {
+                MyAPIGateway.TerminalControls.CustomActionGetter -= Controls.CustomActionGetter;
+                MyAPIGateway.TerminalControls.CustomControlGetter -= Controls.CustomControlGetter;
+            }
 
             Controls.Clean();
             Settings.Clean();

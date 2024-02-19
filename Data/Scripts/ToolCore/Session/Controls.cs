@@ -85,6 +85,13 @@ namespace ToolCore.Session
 
         internal void CreateTerminalControls<T>() where T : IMyConveyorSorter
         {
+            if (MyAPIGateway.TerminalControls == null)
+            {
+
+                _session.ControlsInited = false;
+                return;
+            }
+
             _customControls.Add(Separator<T>());
             _customControls.Add(ToolShootSwitch<T>());
             _customControls.Add(SelectMode<T>());
