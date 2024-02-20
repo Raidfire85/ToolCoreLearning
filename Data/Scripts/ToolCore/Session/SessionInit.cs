@@ -1,6 +1,7 @@
 ﻿using Sandbox.Common.ObjectBuilders;
 using Sandbox.Definitions;
 using Sandbox.Game.Entities;
+using Sandbox.Game.World;
 using Sandbox.ModAPI;
 using System;
 using System.Collections.Generic;
@@ -17,6 +18,10 @@ namespace ToolCore.Session
 {
     internal partial class ToolSession
     {
+        internal void LoadBlockLimits()
+        {
+            var limits = Session.SessionSettings.BlockTypeLimits;
+        }
 
         internal void LoadDefinitions()
         {

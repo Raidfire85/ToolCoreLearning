@@ -319,7 +319,7 @@ namespace ToolCore
                     comp.Session.ToolDataPool.Push(toolData);
                     comp.ActiveThreads--;
                 }
-
+                
                 if (comp.ActiveThreads != 0)
                     return;
 
@@ -332,7 +332,14 @@ namespace ToolCore
                 var start = 0;
                 if (workSet.Count > 0)
                 {
-                    sortedBlocks.AddRange(workSet);
+                    foreach (var slim in workSet)
+                    {
+                        var fat = slim.FatBlock;
+                        if (slim.IsFullyDismounted || slim.CubeGrid.Closed || slim.CubeGrid.MarkedForClose || fat != null && (fat.Closed || fat.MarkedForClose))
+                            continue;
+
+                        sortedBlocks.Add(slim);
+                    }
                     start = workSet.Count;
                     workSet.Clear();
                 }
@@ -341,7 +348,7 @@ namespace ToolCore
                 {
                     var key = entry.Key;
                     var fat = key.FatBlock;
-                    if (key.CubeGrid.Closed || key.CubeGrid.MarkedForClose || key.IsFullyDismounted || fat != null && (fat.Closed || fat.MarkedForClose))
+                    if (key.IsFullyDismounted || key.CubeGrid.Closed || key.CubeGrid.MarkedForClose || fat != null && (fat.Closed || fat.MarkedForClose))
                         continue;
 
                     int k;
@@ -408,24 +415,16 @@ namespace ToolCore
             var sortedBlocks = comp.HitBlocksSorted;
             var hitCount = sortedBlocks.Count;
             var tool = comp.ToolEntity;
-            var validBlocks = 0;
             var maxBlocks = comp.Definition.Rate;
-
             var grindCount = Math.Min(hitCount, maxBlocks);
-            grindCount = grindCount > 0 ? grindCount : 1;
 
-            var grindScaler = 0.25f / (float)Math.Min(4, grindCount);
+            var grindScaler = 0.25f / (float)Math.Min(4, grindCount > 0 ? grindCount : 1);
             var grindAmount = grindScaler * toolValues.Speed * MyAPIGateway.Session.GrinderSpeedMultiplier * 4f;
-            for (int i = 0; i < hitCount; i++)
+            for (int i = 0; i < grindCount; i++)
             {
                 var slim = sortedBlocks[i];
 
-                var hitGrid = slim.CubeGrid as MyCubeGrid;
-                if (!hitGrid.Editable || hitGrid.Immune)
-                    continue;
-
                 comp.Working = true;
-                validBlocks++;
 
                 MyCubeBlockDefinition.PreloadConstructionModels((MyCubeBlockDefinition)slim.BlockDefinition);
 
@@ -451,9 +450,6 @@ namespace ToolCore
                 {
                     comp.WorkSet.Add(slim);
                 }
-
-                if (validBlocks >= maxBlocks)
-                    break;
             }
         }
 
