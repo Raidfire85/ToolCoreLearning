@@ -37,6 +37,7 @@ namespace ToolCore.Definitions.Serialised
 
         public bool DamageCharacters = true;
         public bool AffectOwnGrid = false;
+        public bool CacheBlocks = false;
         //public bool Turret = false;
         public bool Debug = false;
 
@@ -52,6 +53,7 @@ namespace ToolCore.Definitions.Serialised
 
     public enum ToolType
     {
+        None = 0,
         Drill = 1,
         Grind = 2,
         GrindDrill = 3,
@@ -111,6 +113,8 @@ namespace ToolCore.Definitions.Serialised
     {
         [XmlAttribute]
         public Trigger Trigger;
+        [XmlAttribute]
+        public ToolType Modes;
         [XmlElement("Animation")]
         public Animation[] Animations;
         [XmlElement("ParticleEffect")]

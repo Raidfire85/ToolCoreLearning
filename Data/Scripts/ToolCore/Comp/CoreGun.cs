@@ -253,7 +253,7 @@ namespace ToolCore.Comp
         {
             Shooting = WantsToShoot && _comp.Functional && _comp.Powered && _comp.Enabled && !_comp.Activated;
 
-            _comp.UpdateState(state, Shooting);
+            _comp.UpdateAvState(state, Shooting);
         }
 
         public void UpdateSoundEmitter()

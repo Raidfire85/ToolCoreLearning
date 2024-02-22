@@ -1,6 +1,7 @@
 ﻿using Sandbox.Common.ObjectBuilders;
 using Sandbox.Game.Entities;
 using System;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using ToolCore.API;
@@ -12,6 +13,8 @@ using VRage.Collections;
 using VRage.Game;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
+using VRage.Library.Collections;
+using VRage.Library.Threading;
 using VRage.ObjectBuilders;
 using VRage.Utils;
 using VRageMath;

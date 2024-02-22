@@ -132,10 +132,10 @@ namespace ToolCore
                             continue;
 
                         if (slim.FatBlock != null && (slim.FatBlock.MarkedForClose || slim.FatBlock.Closed))
-                            return;
+                            continue;
 
                         if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
-                            return;
+                            continue;
 
                         comp.HitBlocks.TryAdd(slim, (float)distSqr);
                     }
@@ -206,10 +206,10 @@ namespace ToolCore
                             continue;
 
                         if (slim.FatBlock != null && (slim.FatBlock.MarkedForClose || slim.FatBlock.Closed))
-                            return;
+                            continue;
 
                         if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
-                            return;
+                            continue;
 
                         comp.HitBlocks.TryAdd(slim, (float)distSqr);
 
@@ -245,10 +245,10 @@ namespace ToolCore
                             continue;
 
                         if (slim.FatBlock != null && (slim.FatBlock.MarkedForClose || slim.FatBlock.Closed))
-                            return;
+                            continue;
 
                         if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
-                            return;
+                            continue;
 
                         var distSqr = Vector3D.DistanceSquared(posD, obb.Center);
                         comp.HitBlocks.TryAdd(slim, (float)distSqr);
@@ -277,10 +277,10 @@ namespace ToolCore
                     continue;
 
                 if (slim.FatBlock != null && (slim.FatBlock.MarkedForClose || slim.FatBlock.Closed))
-                    return;
+                    continue;
 
                 if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
-                    return;
+                    continue;
 
                 var distSqr = Vector3D.DistanceSquared(start, pos);
                 comp.HitBlocks.TryAdd(slim, (float)distSqr);
@@ -330,7 +330,7 @@ namespace ToolCore
                     return;
 
                 var start = 0;
-                if (workSet.Count > 0)
+                if (comp.Definition.CacheBlocks && workSet.Count > 0)
                 {
                     foreach (var slim in workSet)
                     {
@@ -340,7 +340,7 @@ namespace ToolCore
 
                         sortedBlocks.Add(slim);
                     }
-                    start = workSet.Count;
+                    start = sortedBlocks.Count;
                     workSet.Clear();
                 }
 
@@ -446,7 +446,7 @@ namespace ToolCore
                     slim.SpawnConstructionStockpile();
                     slim.CubeGrid.RazeBlock(slim.Min);
                 }
-                else
+                else if (comp.Definition.CacheBlocks)
                 {
                     comp.WorkSet.Add(slim);
                 }
@@ -514,7 +514,7 @@ namespace ToolCore
 
                     var pos = projector.CubeGrid.WorldToGridInteger(slim.CubeGrid.GridIntegerToWorld(slim.Position));
                     var newSlim = projector.CubeGrid.GetCubeBlock(pos);
-                    if (newSlim != null && !newSlim.IsFullIntegrity)
+                    if (comp.Definition.CacheBlocks && newSlim != null && !newSlim.IsFullIntegrity)
                     {
                         comp.WorkSet.Add(newSlim);
                     }
@@ -540,7 +540,7 @@ namespace ToolCore
 
                 slim.IncreaseMountLevel(weldAmount, ownerId, inventory, 0.15f, false);
 
-                if (!slim.IsFullIntegrity || slim.HasDeformation)
+                if (comp.Definition.CacheBlocks && !slim.IsFullIntegrity || slim.HasDeformation)
                 {
                     comp.WorkSet.Add(slim);
                 }
@@ -669,7 +669,7 @@ namespace ToolCore
 
                         var pos = projector.CubeGrid.WorldToGridInteger(slim.CubeGrid.GridIntegerToWorld(slim.Position));
                         var newSlim = projector.CubeGrid.GetCubeBlock(pos);
-                        if (newSlim != null && !newSlim.IsFullIntegrity)
+                        if (comp.Definition.CacheBlocks && newSlim != null && !newSlim.IsFullIntegrity)
                         {
                             comp.WorkSet.Add(newSlim);
                         }
@@ -695,7 +695,7 @@ namespace ToolCore
 
                     slim.IncreaseMountLevel(weldAmount, ownerId, inventory, 0.15f, false);
 
-                    if (!slim.IsFullIntegrity || slim.HasDeformation)
+                    if (comp.Definition.CacheBlocks && !slim.IsFullIntegrity || slim.HasDeformation)
                     {
                         comp.WorkSet.Add(slim);
                     }

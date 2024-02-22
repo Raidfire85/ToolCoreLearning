@@ -1,5 +1,4 @@
 ﻿using Sandbox.Game.Entities;
-using System;
 using System.Collections.Generic;
 using ToolCore.Comp;
 using ToolCore.Definitions.Serialised;
@@ -9,6 +8,7 @@ using VRage;
 using VRage.Game;
 using VRage.Utils;
 using VRageMath;
+using static ToolCore.Comp.ToolComp;
 
 namespace ToolCore.Definitions
 {
@@ -30,6 +30,7 @@ namespace ToolCore.Definitions
         internal bool Turret;
         internal bool DamageCharacters;
         internal bool AffectOwnGrid;
+        internal bool CacheBlocks;
         internal bool Debug;
         internal bool HasMaterialModifiers;
 
@@ -48,14 +49,14 @@ namespace ToolCore.Definitions
         internal BoundingSphereD EffectSphere;
         internal BoundingBox EffectBox;
 
-        internal readonly List<ToolComp.ToolMode> ToolModes = new List<ToolComp.ToolMode>();
-        internal readonly List<ToolComp.ToolAction> ToolActions = new List<ToolComp.ToolAction>();
-        internal readonly Dictionary<ToolComp.ToolAction, ActionDefinition> ActionMap = new Dictionary<ToolComp.ToolAction, ActionDefinition>();
+        internal readonly List<ToolMode> ToolModes = new List<ToolMode>();
+        internal readonly List<ToolAction> ToolActions = new List<ToolAction>();
+        internal readonly Dictionary<ToolAction, ActionDefinition> ActionMap = new Dictionary<ToolAction, ActionDefinition>();
         internal readonly List<List<Vector3I>> Layers = new List<List<Vector3I>>();
 
         internal readonly Trigger EventFlags;
         internal readonly List<Trigger> Triggers = new List<Trigger>();
-        internal readonly Dictionary<Trigger, MyTuple<List<AnimationDef>, List<ParticleEffectDef>, List<BeamDef>, SoundDef>> EventEffectDefs = new Dictionary<Trigger, MyTuple<List<AnimationDef>, List<ParticleEffectDef>, List<BeamDef>, SoundDef>>();
+        internal readonly Dictionary<MyTuple<Trigger, ToolMode>, MyTuple<List<AnimationDef>, List<ParticleEffectDef>, List<BeamDef>, SoundDef>> EventEffectDefs = new Dictionary<MyTuple<Trigger, ToolMode>, MyTuple<List<AnimationDef>, List<ParticleEffectDef>, List<BeamDef>, SoundDef>>();
         internal readonly Dictionary<MyVoxelMaterialDefinition, MaterialModifierDefinition> MaterialModifiers = new Dictionary<MyVoxelMaterialDefinition, MaterialModifierDefinition>();
 
         private MaterialModifiers[] _tempModifiers;
@@ -261,6 +262,7 @@ namespace ToolCore.Definitions
             IdlePower = values.IdlePower;
             //Turret = values.Turret;
             DamageCharacters = values.DamageCharacters;
+            CacheBlocks = values.CacheBlocks;
             AffectOwnGrid = values.AffectOwnGrid;
             Debug = !session.IsDedicated && values.Debug;
 
@@ -402,6 +404,18 @@ namespace ToolCore.Definitions
             Trigger flags = 0;
             foreach (var eventDef in events)
             {
+                var modes = eventDef.Modes;
+                if (modes == ToolType.None)
+                    modes = ToolType;
+
+                List<ToolMode> effectModes = new List<ToolMode>();
+                if ((modes & ToolType.Drill) > 0)
+                    effectModes.Add(ToolMode.Drill);
+                if ((modes & ToolType.Grind) > 0)
+                    effectModes.Add(ToolMode.Grind);
+                if ((modes & ToolType.Weld) > 0)
+                    effectModes.Add(ToolMode.Weld);
+
                 var hasAnimations = eventDef.Animations != null && eventDef.Animations.Length > 0;
                 var hasParticleEffects = eventDef.ParticleEffects != null && eventDef.ParticleEffects.Length > 0;
                 var hasBeams = eventDef.Beams != null && eventDef.Beams.Length > 0;
@@ -440,7 +454,12 @@ namespace ToolCore.Definitions
                 if (hasSound)
                     soundDef = new SoundDef(eventDef.Sound, session);
 
-                EventEffectDefs[eventDef.Trigger] = new MyTuple<List<AnimationDef>, List<ParticleEffectDef>, List<BeamDef>, SoundDef>(animationDefs, particleEffectDefs, beamDefs, soundDef);
+                var value = new MyTuple<List<AnimationDef>, List<ParticleEffectDef>, List<BeamDef>, SoundDef>(animationDefs, particleEffectDefs, beamDefs, soundDef);
+                foreach (var mode in effectModes)
+                {
+                    var key = new MyTuple<Trigger, ToolMode>(eventDef.Trigger, mode);
+                    EventEffectDefs[key] = value;
+                }
                 Triggers.Add(eventDef.Trigger);
                 flags |= eventDef.Trigger;
             }

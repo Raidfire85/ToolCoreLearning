@@ -60,7 +60,7 @@ namespace ToolCore.Comp
         internal ToolAction Action;
         internal Trigger AvState;
 
-        internal readonly Dictionary<Trigger, Effects> EventEffects = new Dictionary<Trigger, Effects>();
+        internal readonly Dictionary<Trigger, Dictionary<ToolMode, Effects>> EventEffects = new Dictionary<Trigger, Dictionary<ToolMode, Effects>>();
         internal readonly List<Effects> ActiveEffects = new List<Effects>();
         internal readonly ConcurrentDictionary<MyObjectBuilder_Ore, float> Yields = new ConcurrentDictionary<MyObjectBuilder_Ore, float>();
         internal readonly List<ulong> ReplicatedClients = new List<ulong>();
@@ -116,9 +116,20 @@ namespace ToolCore.Comp
             var hasSound = false;
             foreach (var pair in def.EventEffectDefs)
             {
-                var myTuple = pair.Value;
-                EventEffects[pair.Key] = new Effects(myTuple.Item1, myTuple.Item2, myTuple.Item3, myTuple.Item4, this);
-                hasSound = myTuple.Item3 != null;
+                var key = pair.Key;
+                var value = pair.Value;
+
+                Dictionary<ToolMode, Effects> effectMap;
+                if (!EventEffects.TryGetValue(key.Item1, out effectMap))
+                {
+                    effectMap = new Dictionary<ToolMode, Effects>();
+                    EventEffects.Add(key.Item1, effectMap);
+                }
+
+                var effects = new Effects(value.Item1, value.Item2, value.Item3, value.Item4, this);
+                effectMap[key.Item2] = effects;
+
+                hasSound = value.Item3 != null;
             }
 
             if (hasSound)
@@ -168,7 +179,7 @@ namespace ToolCore.Comp
             internal Vector3D Forward;
             internal Vector3D Up;
             internal float RayLength;
-            
+
             internal readonly HashSet<IMySlimBlock> HitBlocksHash = new HashSet<IMySlimBlock>();
 
             internal void Clean()
@@ -216,7 +227,7 @@ namespace ToolCore.Comp
 
         internal ActionDefinition Values
         {
-            get 
+            get
             {
                 var action = GunBase.Shooting ? GunBase.GunAction : Action;
                 return Definition.ActionMap[action];
@@ -236,7 +247,7 @@ namespace ToolCore.Comp
 
                 _activated = value;
 
-                UpdateState(Trigger.Activated, value);
+                UpdateAvState(Trigger.Activated, value);
                 if (!value)
                 {
                     //WasHitting = false;
@@ -278,7 +289,7 @@ namespace ToolCore.Comp
                 if (HitInfo.IsValid)
                     return;
 
-                UpdateState(Trigger.RayHit, true);
+                UpdateAvState(Trigger.RayHit, true);
                 HitInfo.IsValid = true;
                 return;
             }
@@ -286,59 +297,62 @@ namespace ToolCore.Comp
             if (!HitInfo.IsValid)
                 return;
 
-            UpdateState(Trigger.RayHit, false);
+            UpdateAvState(Trigger.RayHit, false);
             HitInfo.IsValid = false;
         }
 
         internal void ReloadModels()
         {
-            foreach (var effect in EventEffects.Values)
+            foreach (var effectMap in EventEffects.Values)
             {
-                if (effect.HasAnimations)
+                foreach (var effect in effectMap.Values)
                 {
-                    foreach (var anim in effect.Animations)
+                    if (effect.HasAnimations)
                     {
-                        MyEntitySubpart subpart;
-                        if (ToolEntity.TryGetSubpartRecursive(anim.Definition.Subpart, out subpart))
-                            anim.Subpart = subpart;
-                    }
-                }
-
-                if (effect.HasParticles)
-                {
-                    foreach (var particle in effect.ParticleEffects)
-                    {
-                        IMyModelDummy dummy;
-                        MyEntity parent;
-                        if (ToolEntity.TryGetDummy(particle.Definition.Dummy, out dummy, out parent))
+                        foreach (var anim in effect.Animations)
                         {
-                            particle.Dummy = dummy;
-                            particle.Parent = parent;
+                            MyEntitySubpart subpart;
+                            if (ToolEntity.TryGetSubpartRecursive(anim.Definition.Subpart, out subpart))
+                                anim.Subpart = subpart;
                         }
                     }
-                }
 
-                if (effect.HasBeams)
-                {
-                    foreach (var beam in effect.Beams)
+                    if (effect.HasParticles)
                     {
-                        IMyModelDummy start;
-                        MyEntity startParent;
-                        if (ToolEntity.TryGetDummy(beam.Definition.Start, out start, out startParent))
+                        foreach (var particle in effect.ParticleEffects)
                         {
-                            beam.Start = start;
-                            beam.StartParent = startParent;
+                            IMyModelDummy dummy;
+                            MyEntity parent;
+                            if (ToolEntity.TryGetDummy(particle.Definition.Dummy, out dummy, out parent))
+                            {
+                                particle.Dummy = dummy;
+                                particle.Parent = parent;
+                            }
                         }
+                    }
 
-                        if (beam.Definition.EndLocation != Location.Emitter)
-                            continue;
-
-                        IMyModelDummy end;
-                        MyEntity endParent;
-                        if (ToolEntity.TryGetDummy(beam.Definition.End, out end, out endParent))
+                    if (effect.HasBeams)
+                    {
+                        foreach (var beam in effect.Beams)
                         {
-                            beam.End = end;
-                            beam.EndParent = endParent;
+                            IMyModelDummy start;
+                            MyEntity startParent;
+                            if (ToolEntity.TryGetDummy(beam.Definition.Start, out start, out startParent))
+                            {
+                                beam.Start = start;
+                                beam.StartParent = startParent;
+                            }
+
+                            if (beam.Definition.EndLocation != Location.Emitter)
+                                continue;
+
+                            IMyModelDummy end;
+                            MyEntity endParent;
+                            if (ToolEntity.TryGetDummy(beam.Definition.End, out end, out endParent))
+                            {
+                                beam.End = end;
+                                beam.EndParent = endParent;
+                            }
                         }
                     }
                 }
@@ -499,30 +513,43 @@ namespace ToolCore.Comp
             }
         }
 
-        internal void UpdateState(Trigger state, bool add)
+        internal void SetMode(ToolMode mode)
+        {
+            var state = AvState;
+            UpdateAvState(state, false, true);
+            Mode = mode;
+            UpdateAvState(state, true, true);
+
+        }
+
+        internal void UpdateAvState(Trigger state, bool add, bool force = false)
         {
             var keepFiring = !add && (Activated || GunBase.Shooting) && (state & Trigger.Firing) > 0;
-            
+
             var valid = false;
             foreach (var flag in Definition.Triggers)
             {
-                if (flag >= state)
-                    valid = true;
+                if (!force)
+                {
 
-                if (!valid || keepFiring || (add && (flag & state) == 0))
-                    continue;
+                    if (flag >= state)
+                        valid = true;
 
-                if (add) AvState |= state;
-                else AvState ^= state;
+                    if (!valid || keepFiring || (add && (flag & state) == 0))
+                        continue;
 
-                foreach (var monitor in EventMonitors)
-                    monitor.Invoke((int)state, add);
+                    if (add) AvState |= state;
+                    else AvState ^= state;
+
+                    foreach (var monitor in EventMonitors)
+                        monitor.Invoke((int)state, add);
+                }
 
                 UpdateEffects(flag, add);
 
                 //Logs.WriteLine($"UpdateState() - {flag} - {add}");
 
-                if (!add) // maybe remove this later :|
+                if (!add && !force) // maybe remove this later :|
                 {
                     if (flag == Trigger.Hit) WasHitting = false;
                     if (flag == Trigger.RayHit) HitInfo.IsValid = false;
@@ -534,8 +561,9 @@ namespace ToolCore.Comp
         {
             if (Session.IsDedicated) return; //TEMPORARY!!! or not?
 
+            Dictionary<ToolMode, Effects> effectMap;
             Effects effects;
-            if (!EventEffects.TryGetValue(state, out effects))
+            if (!EventEffects.TryGetValue(state, out effectMap) || !effectMap.TryGetValue(Mode, out effects))
                 return;
 
             if (!add)
@@ -589,7 +617,7 @@ namespace ToolCore.Comp
 
             if (!Powered) return;
 
-            UpdateState(Trigger.Enabled, Enabled);
+            UpdateAvState(Trigger.Enabled, Enabled);
         }
 
         private void IsWorkingChanged(IMyCubeBlock block)
@@ -639,7 +667,7 @@ namespace ToolCore.Comp
             SubpartsInit();
 
             if (!IsBlock || BlockTool.IsFunctional)
-                UpdateState(Trigger.Functional, true);
+                UpdateAvState(Trigger.Functional, true);
 
             if (!Session.IsDedicated)
                 GetShowInToolbarSwitch();
@@ -799,7 +827,7 @@ namespace ToolCore.Comp
             var isHitting = Functional && Powered && Enabled && Working && (Activated || GunBase.Shooting);
             if (isHitting != WasHitting)
             {
-                UpdateState(Trigger.Hit, isHitting);
+                UpdateAvState(Trigger.Hit, isHitting);
                 WasHitting = isHitting;
 
                 if (Definition.Debug && !isHitting)
@@ -814,7 +842,7 @@ namespace ToolCore.Comp
             }
             Working = false;
         }
-        
+
         internal void ManageInventory()
         {
             var tryPush = LastPushSucceeded || ToolSession.Tick - LastPushTick > 1200;

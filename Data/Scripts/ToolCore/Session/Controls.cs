@@ -233,7 +233,8 @@ namespace ToolCore.Session
             if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
                 return;
 
-            comp.Mode = (ToolComp.ToolMode)id;
+            //comp.Mode = (ToolComp.ToolMode)id;
+            comp.SetMode((ToolComp.ToolMode)id);
 
             _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.Mode, (int)comp.Mode));
         }
@@ -269,7 +270,8 @@ namespace ToolCore.Session
             var index = modes.IndexOf(comp.Mode);
             var next = index + 1;
             var newIndex = next < modes.Count ? next : 0;
-            comp.Mode = comp.Definition.ToolModes[newIndex];
+            //comp.Mode = comp.Definition.ToolModes[newIndex];
+            comp.SetMode(comp.Definition.ToolModes[newIndex]);
 
             _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.Mode, (int)comp.Mode));
         }

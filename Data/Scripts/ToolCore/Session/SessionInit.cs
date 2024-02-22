@@ -21,6 +21,7 @@ namespace ToolCore.Session
         internal void LoadBlockLimits()
         {
             var limits = Session.SessionSettings.BlockTypeLimits;
+            
         }
 
         internal void LoadDefinitions()

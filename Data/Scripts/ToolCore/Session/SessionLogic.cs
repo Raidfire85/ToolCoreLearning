@@ -130,7 +130,7 @@ namespace ToolCore.Session
             if (hitting != comp.WasHitting)
             {
                 comp.WasHitting = hitting;
-                comp.UpdateState(Trigger.Hit, hitting);
+                comp.UpdateAvState(Trigger.Hit, hitting);
             }
 
             comp.Working = false;
@@ -200,7 +200,7 @@ namespace ToolCore.Session
             if (isBlock && comp.Functional != block.IsFunctional)
             {
                 comp.Functional = block.IsFunctional;
-                comp.UpdateState(Trigger.Functional, block.IsFunctional);
+                comp.UpdateAvState(Trigger.Functional, block.IsFunctional);
                 comp.Dirty = true;
             }
 
@@ -214,7 +214,7 @@ namespace ToolCore.Session
                 //if (comp.UpdatePower) Logs.WriteLine($"UpdatePower: {wasPowered} : {isPowered}");
                 if (wasPowered != isPowered)
                 {
-                    comp.UpdateState(Trigger.Powered, comp.Powered);
+                    comp.UpdateAvState(Trigger.Powered, comp.Powered);
 
                     if (!isPowered)
                     {
@@ -318,7 +318,7 @@ namespace ToolCore.Session
 
             comp.DrawBoxes.ClearList();
 
-            if (comp.Mode != ToolComp.ToolMode.Drill && comp.WorkSet.Count == def.Rate)
+            if (def.CacheBlocks && comp.Mode != ToolComp.ToolMode.Drill && comp.WorkSet.Count == def.Rate)
             {
                 comp.OnGetBlocksComplete(null);
                 return;

@@ -25,6 +25,11 @@ namespace ToolCore.Session
                 return;
             }
 
+            if (entity is MyCubeBlock)
+            {
+
+            }
+
             var sorter = entity as IMyConveyorSorter;
             var handTool = entity as IMyHandheldGunObject<MyDeviceBase>;
             if (sorter != null || handTool != null)
