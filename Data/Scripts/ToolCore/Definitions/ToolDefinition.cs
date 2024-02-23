@@ -460,7 +460,9 @@ namespace ToolCore.Definitions
                     var key = new MyTuple<Trigger, ToolMode>(eventDef.Trigger, mode);
                     EventEffectDefs[key] = value;
                 }
-                Triggers.Add(eventDef.Trigger);
+                if (!Triggers.Contains(eventDef.Trigger))
+                    Triggers.Add(eventDef.Trigger);
+
                 flags |= eventDef.Trigger;
             }
 

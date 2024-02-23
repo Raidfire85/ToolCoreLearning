@@ -324,7 +324,7 @@ namespace ToolCore
                     return;
 
                 var workSet = comp.WorkSet;
-                var blocks = comp.HitBlocks;
+                var blocks = new Dictionary<IMySlimBlock, float>(comp.HitBlocks);
                 var sortedBlocks = comp.HitBlocksSorted;
                 if (blocks.Count == 0 && workSet.Count == 0)
                     return;

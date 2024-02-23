@@ -33,8 +33,7 @@ namespace ToolCore.Session
         internal readonly Stack<DrillData> DrillDataPool = new Stack<DrillData>(128);
         internal readonly Stack<ToolComp.ToolData> ToolDataPool = new Stack<ToolComp.ToolData>(128);
 
-
-        private readonly HashSet<MyCubeGrid> _controlledGrids = new HashSet<MyCubeGrid>();
+        private readonly FastLookupCachingList<IMySlimBlock> _slimList = new FastLookupCachingList<IMySlimBlock>();
 
         private readonly ConcurrentCachingList<MyEntity> _startComps = new ConcurrentCachingList<MyEntity>();
         private readonly ConcurrentCachingList<MyCubeGrid> _startGrids = new ConcurrentCachingList<MyCubeGrid>();
@@ -55,6 +54,7 @@ namespace ToolCore.Session
         internal readonly Dictionary<IMySlimBlock, float> WorkMap = new Dictionary<IMySlimBlock, float>();
         internal readonly ConcurrentDictionary<long, IMyPlayer> PlayerMap = new ConcurrentDictionary<long, IMyPlayer>();
 
+        private readonly HashSet<MyCubeGrid> _controlledGrids = new HashSet<MyCubeGrid>();
         private readonly List<MyEntity> _entities = new List<MyEntity>();
         private readonly List<MyLineSegmentOverlapResult<MyEntity>> _lineOverlaps = new List<MyLineSegmentOverlapResult<MyEntity>>();
 

@@ -23,6 +23,7 @@ using VRage.Game.ModAPI.Interfaces;
 using VRage.ModAPI;
 using VRage.Utils;
 using VRageMath;
+using VRageRender.Voxels;
 using static ToolCore.Utils.Draw;
 using static ToolCore.Utils.Utils;
 using static VRage.Game.ObjectBuilders.Definitions.MyObjectBuilder_GameDefinition;
@@ -254,7 +255,7 @@ namespace ToolCore.Session
                 }
             }
 
-            if (isBlock && IsServer && comp.CompTick120 == TickMod120 && comp.Mode != ToolComp.ToolMode.Weld)
+            if (isBlock && IsServer && comp.CompTick60 == TickMod60 && comp.Mode != ToolComp.ToolMode.Weld)
                 comp.ManageInventory();
 
             Vector3D worldPos, worldForward, worldUp;

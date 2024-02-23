@@ -27,6 +27,9 @@ namespace ToolCore.Session
 
             if (entity is MyCubeBlock)
             {
+                var block = entity as MyCubeBlock;
+                _slimList.Add(block.SlimBlock);
+                block.OnClose += ent => _slimList.Remove(((MyCubeBlock)ent).SlimBlock);
 
             }
 

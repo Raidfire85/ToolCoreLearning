@@ -126,4 +126,128 @@ namespace ToolCore.Utils
 
     }
 
+    internal class FastLookupCachingList<T> : IEnumerable<T>, IReadOnlyList<T>, IReadOnlyCollection<T>
+    {
+        private readonly List<T> _list;
+
+        private readonly List<T> _toAdd = new List<T>();
+
+        private readonly List<T> _toRemove = new List<T>();
+
+        private readonly Dictionary<T, int> _lookup = new Dictionary<T, int>();
+
+        private readonly FastResourceLock _cacheLock = new FastResourceLock();
+
+        private bool _dirty;
+
+        public bool Contains(T item)
+        {
+            return _lookup.ContainsKey(item);
+        }
+
+        public void Add(T item)
+        {
+            using (_cacheLock.AcquireSharedUsing())
+            {
+                if (_toRemove.Contains(item))
+                {
+                    _toRemove.Remove(item);
+                    return;
+                }
+
+                _toAdd.Add(item);
+                _dirty = true;
+            }
+        }
+
+        public void Remove(T item)
+        {
+            using (_cacheLock.AcquireSharedUsing())
+            {
+                if (!_toAdd.Remove(item))
+                {
+                    _toRemove.Add(item);
+                }
+            }
+            _dirty = true;
+        }
+
+        public void RemoveImmediate(T item)
+        {
+            int index;
+            if (_lookup.TryGetValue(item, out index))
+            {
+                _list.RemoveAtFast(index);
+                _lookup.Remove(item);
+                if (_list.Count == index)
+                    return;
+
+                _lookup[_list[index]] = index;
+            }
+        }
+
+        public void ApplyChanges()
+        {
+            if (_dirty)
+            {
+                _dirty = false;
+                ApplyAdditions();
+                ApplyRemovals();
+            }
+        }
+
+        public void ApplyAdditions()
+        {
+            using (_cacheLock.AcquireSharedUsing())
+            {
+                var start = _list.Count;
+                for (int i = 0; i < _toAdd.Count; i++)
+                {
+                    var item = _toAdd[i];
+                    _list.Add(item);
+                    _lookup[item] = start + i;
+                }
+
+                _toAdd.Clear();
+            }
+        }
+
+        public void ApplyRemovals()
+        {
+            using (_cacheLock.AcquireSharedUsing())
+            {
+                for (int i = 0; i < _toRemove.Count; i++)
+                {
+                    var item = _toRemove[i];
+                    int index;
+                    if (!_lookup.TryGetValue(item, out index))
+                        continue;
+
+                    _list.RemoveAtFast(index);
+                    _lookup.Remove(item);
+                    if (_list.Count == index)
+                        continue;
+
+                    _lookup[_list[index]] = index;
+                }
+
+                _toRemove.Clear();
+            }
+        }
+
+        public T this[int index] => ((IReadOnlyList<T>)_list)[index];
+
+        public int Count => ((IReadOnlyCollection<T>)_list).Count;
+
+        public IEnumerator<T> GetEnumerator()
+        {
+            return ((IEnumerable<T>)_list).GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return ((IEnumerable)_list).GetEnumerator();
+        }
+    }
+
 }

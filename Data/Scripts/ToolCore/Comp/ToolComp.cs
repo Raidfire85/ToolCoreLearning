@@ -374,6 +374,7 @@ namespace ToolCore.Comp
             internal bool Expired;
             internal bool Dirty;
             internal bool Restart;
+            internal bool SoundStopped;
             internal int LastActiveTick;
 
             internal Effects(List<AnimationDef> animationDefs, List<ParticleEffectDef> particleEffectDefs, List<BeamDef> beamDefs, SoundDef soundDef, ToolComp comp)
@@ -454,6 +455,7 @@ namespace ToolCore.Comp
                 Expired = false;
                 Dirty = false;
                 Restart = false;
+                SoundStopped = false;
                 LastActiveTick = 0;
             }
 
@@ -516,38 +518,42 @@ namespace ToolCore.Comp
         internal void SetMode(ToolMode mode)
         {
             var state = AvState;
+            //Logs.WriteLine($"SetMode() start {state} {mode}");
             UpdateAvState(state, false, true);
             Mode = mode;
             UpdateAvState(state, true, true);
-
+            //Logs.WriteLine($"SetMode() end {state} {mode}");
         }
 
         internal void UpdateAvState(Trigger state, bool add, bool force = false)
         {
-            var keepFiring = !add && (Activated || GunBase.Shooting) && (state & Trigger.Firing) > 0;
+            //Logs.WriteLine($"UpdateAvState() {state} {add} {force}");
 
-            var valid = false;
+            var keepFiring = !force && !add && (Activated || GunBase.Shooting) && (state & Trigger.Firing) > 0;
+
             foreach (var flag in Definition.Triggers)
             {
+                //Logs.WriteLine($"Checking flag {flag}");
+                if ((add || force) && (flag & state) == 0)
+                    continue;
+
                 if (!force)
                 {
-
-                    if (flag >= state)
-                        valid = true;
-
-                    if (!valid || keepFiring || (add && (flag & state) == 0))
+                    if (keepFiring || flag < state)
                         continue;
 
-                    if (add) AvState |= state;
-                    else AvState ^= state;
+                    //Logs.WriteLine($"Current state: {AvState}");
+
+                    if (add) AvState |= flag;
+                    else AvState &= ~flag;
+
+                    //Logs.WriteLine($"New state: {AvState}");
 
                     foreach (var monitor in EventMonitors)
                         monitor.Invoke((int)state, add);
                 }
-
+                //Logs.WriteLine($"UpdateEffects() {flag} {add}");
                 UpdateEffects(flag, add);
-
-                //Logs.WriteLine($"UpdateState() - {flag} - {add}");
 
                 if (!add && !force) // maybe remove this later :|
                 {
@@ -582,6 +588,7 @@ namespace ToolCore.Comp
             if (effects.Expired)
             {
                 effects.Expired = false;
+                effects.SoundStopped = false;
                 effects.Restart = true;
             }
         }

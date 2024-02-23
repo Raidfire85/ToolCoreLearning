@@ -23,7 +23,8 @@ namespace ToolCore.Session
                 var def = comp.Definition;
 
                 //MyAPIGateway.Utilities.ShowNotification($"Running {comp.ActiveEffects.Count} effects", 16);
-                for (int j = comp.ActiveEffects.Count - 1; j >= 0; j--)
+                //for (int j = comp.ActiveEffects.Count - 1; j >= 0; j--)
+                for (int j = 0; j < comp.ActiveEffects.Count; j++)
                 {
                     var effects = comp.ActiveEffects[j];
 
@@ -48,6 +49,7 @@ namespace ToolCore.Session
                     if (effects.Dirty || effects.Expired && particlesFinished && animationsFinished)
                     {
                         comp.ActiveEffects.RemoveAtFast(j);
+                        j--;
                         effects.Clean();
                     }
                 }
@@ -281,14 +283,14 @@ namespace ToolCore.Session
                 Logs.WriteLine("Sound emitter null!");
                 return;
             }
-            var sound = effects.SoundDef;
-
-            if (effects.Expired)
+            
+            if (effects.Expired && !effects.SoundStopped)
             {
                 if (emitter.IsPlaying)
                 {
                     emitter.StopSound(true);
-                    //Logs.WriteLine("Stopping sound");
+                    effects.SoundStopped = true;
+                    //Logs.WriteLine("Stopping sound (expired)");
                 }
 
                 return;
@@ -299,8 +301,11 @@ namespace ToolCore.Session
                 if (emitter.IsPlaying)
                 {
                     emitter.StopSound(true);
-                    //Logs.WriteLine("Stopping sound");
+                    //Logs.WriteLine("Stopping sound (overwrite)");
                 }
+
+                var sound = effects.SoundDef;
+
                 MySoundPair soundPair;
                 if (!sound.Lookup || !sound.SoundMap.TryGetValue(comp.HitInfo.Material, out soundPair))
                     soundPair = sound.SoundPair;
@@ -309,7 +314,7 @@ namespace ToolCore.Session
                     return;
 
                 emitter.PlaySound(soundPair);
-                //Logs.WriteLine("Playing sound");
+                //Logs.WriteLine($"Playing sound {sound.Name}");
             }
 
         }
