@@ -68,8 +68,8 @@ namespace ToolCore.Comp
 
         internal readonly HashSet<Vector3I> PreviousPositions = new HashSet<Vector3I>();
         internal readonly ConcurrentCachingList<MyTuple<MyOrientedBoundingBoxD, Color>> DrawBoxes = new ConcurrentCachingList<MyTuple<MyOrientedBoundingBoxD, Color>>();
-        internal readonly ConcurrentDictionary<IMySlimBlock, float> HitBlocks = new ConcurrentDictionary<IMySlimBlock, float>();
         internal readonly List<IMySlimBlock> HitBlocksSorted = new List<IMySlimBlock>();
+        internal readonly ConcurrentDictionary<int, ConcurrentCachingList<IMySlimBlock>> HitBlockLayers = new ConcurrentDictionary<int, ConcurrentCachingList<IMySlimBlock>>();
         internal readonly HashSet<IMySlimBlock> WorkSet = new HashSet<IMySlimBlock>();
 
         internal bool Enabled = true;
@@ -96,6 +96,8 @@ namespace ToolCore.Comp
         internal int CompTick120;
         internal int LastPushTick;
         internal int ActiveThreads;
+
+        internal volatile int MaxLayer;
 
         internal ToolComp(MyEntity tool, ToolDefinition def, ToolSession session)
         {

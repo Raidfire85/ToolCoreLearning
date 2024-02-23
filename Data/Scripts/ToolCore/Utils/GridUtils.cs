@@ -8,6 +8,7 @@ using ToolCore.Comp;
 using ToolCore.Definitions.Serialised;
 using ToolCore.Utils;
 using VRage;
+using VRage.Collections;
 using VRage.Game;
 using VRage.Game.ModAPI;
 using VRageMath;
@@ -137,7 +138,16 @@ namespace ToolCore
                         if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
                             continue;
 
-                        comp.HitBlocks.TryAdd(slim, (float)distSqr);
+                        var layer = (int)Math.Ceiling(distSqr);
+                        comp.MaxLayer = Math.Max(layer, comp.MaxLayer);
+
+                        ConcurrentCachingList<IMySlimBlock> list;
+                        if (!comp.HitBlockLayers.TryGetValue(layer, out list))
+                        {
+                            list = new ConcurrentCachingList<IMySlimBlock>();
+                            comp.HitBlockLayers[layer] = list;
+                        }
+                        list.Add(slim);
                     }
                 }
             }
@@ -211,7 +221,16 @@ namespace ToolCore
                         if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
                             continue;
 
-                        comp.HitBlocks.TryAdd(slim, (float)distSqr);
+                        var layer = (int)Math.Ceiling(distSqr);
+                        comp.MaxLayer = Math.Max(layer, comp.MaxLayer);
+
+                        ConcurrentCachingList<IMySlimBlock> list;
+                        if (!comp.HitBlockLayers.TryGetValue(layer, out list))
+                        {
+                            list = new ConcurrentCachingList<IMySlimBlock>();
+                            comp.HitBlockLayers[layer] = list;
+                        }
+                        list.Add(slim);
 
                     }
                 }
@@ -251,7 +270,17 @@ namespace ToolCore
                             continue;
 
                         var distSqr = Vector3D.DistanceSquared(posD, obb.Center);
-                        comp.HitBlocks.TryAdd(slim, (float)distSqr);
+
+                        var layer = (int)Math.Ceiling(distSqr);
+                        comp.MaxLayer = Math.Max(layer, comp.MaxLayer);
+
+                        ConcurrentCachingList<IMySlimBlock> list;
+                        if (!comp.HitBlockLayers.TryGetValue(layer, out list))
+                        {
+                            list = new ConcurrentCachingList<IMySlimBlock>();
+                            comp.HitBlockLayers[layer] = list;
+                        }
+                        list.Add(slim);
 
                     }
                 }
@@ -283,7 +312,17 @@ namespace ToolCore
                     continue;
 
                 var distSqr = Vector3D.DistanceSquared(start, pos);
-                comp.HitBlocks.TryAdd(slim, (float)distSqr);
+
+                var layer = (int)Math.Ceiling(distSqr);
+                comp.MaxLayer = Math.Max(layer, comp.MaxLayer);
+
+                ConcurrentCachingList<IMySlimBlock> list;
+                if (!comp.HitBlockLayers.TryGetValue(layer, out list))
+                {
+                    list = new ConcurrentCachingList<IMySlimBlock>();
+                    comp.HitBlockLayers[layer] = list;
+                }
+                list.Add(slim);
             }
         }
 
@@ -305,7 +344,16 @@ namespace ToolCore
             if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
                 return;
 
-            comp.HitBlocks.TryAdd(slim, data.RayLength);
+            var layer = (int)Math.Ceiling(data.RayLength);
+            comp.MaxLayer = Math.Max(layer, comp.MaxLayer);
+
+            ConcurrentCachingList<IMySlimBlock> list;
+            if (!comp.HitBlockLayers.TryGetValue(layer, out list))
+            {
+                list = new ConcurrentCachingList<IMySlimBlock>();
+                comp.HitBlockLayers[layer] = list;
+            }
+            list.Add(slim);
         }
 
         internal static void OnGetBlocksComplete(this ToolComp comp, WorkData workData)
@@ -324,9 +372,10 @@ namespace ToolCore
                     return;
 
                 var workSet = comp.WorkSet;
-                var blocks = new Dictionary<IMySlimBlock, float>(comp.HitBlocks);
+                //var blocks = new Dictionary<IMySlimBlock, float>(comp.HitBlocks);
+                var layers = comp.HitBlockLayers;
                 var sortedBlocks = comp.HitBlocksSorted;
-                if (blocks.Count == 0 && workSet.Count == 0)
+                if (layers.Count == 0 && workSet.Count == 0)
                     return;
 
                 var start = 0;
@@ -344,39 +393,39 @@ namespace ToolCore
                     workSet.Clear();
                 }
 
-                foreach (var entry in blocks)
+                for (int i = 0; i <= comp.MaxLayer; i++)
                 {
-                    var key = entry.Key;
-                    var fat = key.FatBlock;
-                    if (key.IsFullyDismounted || key.CubeGrid.Closed || key.CubeGrid.MarkedForClose || fat != null && (fat.Closed || fat.MarkedForClose))
+                    ConcurrentCachingList<IMySlimBlock> layer;
+                    if (!layers.TryGetValue(i, out layer))
                         continue;
 
-                    int k;
-                    for (k = start; k < sortedBlocks.Count; k++)
+                    layer.ApplyAdditions();
+                    for (int j = 0; j < layer.Count; j++)
                     {
-                        var block = sortedBlocks[k];
-                        if (blocks[block] > entry.Value)
-                            break;
-                    }
-                    sortedBlocks.Insert(k, key);
+                        var slim = layer[j];
+                        var fat = slim.FatBlock;
+                        if (slim.IsFullyDismounted || slim.CubeGrid.Closed || slim.CubeGrid.MarkedForClose || fat != null && (fat.Closed || fat.MarkedForClose))
+                            continue;
 
-                    if (comp.Definition.Debug)
-                    {
-                        var slim = key;
-                        var grid = (MyCubeGrid)slim.CubeGrid;
-                        var worldPos = grid.GridIntegerToWorld(slim.Position);
-                        var matrix = grid.PositionComp.WorldMatrixRef;
-                        matrix.Translation = worldPos;
+                        sortedBlocks.Add(slim);
 
-                        var sizeHalf = grid.GridSizeHalf - 0.05;
-                        var halfExtent = new Vector3D(sizeHalf, sizeHalf, sizeHalf);
-                        var bb = new BoundingBoxD(-halfExtent, halfExtent);
-                        var obb = new MyOrientedBoundingBoxD(bb, matrix);
-                        comp.DrawBoxes.Add(new MyTuple<MyOrientedBoundingBoxD, Color>(obb, Color.Red));
+                        if (comp.Definition.Debug)
+                        {
+                            var grid = (MyCubeGrid)slim.CubeGrid;
+                            var worldPos = grid.GridIntegerToWorld((Vector3I)slim.Position);
+                            var matrix = grid.PositionComp.WorldMatrixRef;
+                            matrix.Translation = worldPos;
+
+                            var sizeHalf = grid.GridSizeHalf - 0.05;
+                            var halfExtent = new Vector3D(sizeHalf, sizeHalf, sizeHalf);
+                            var bb = new BoundingBoxD(-halfExtent, halfExtent);
+                            var obb = new MyOrientedBoundingBoxD(bb, matrix);
+                            comp.DrawBoxes.Add(new MyTuple<MyOrientedBoundingBoxD, Color>(obb, Color.Red));
+                        }
                     }
+                    layer.ClearList();
                 }
-                blocks.Clear();
-
+                layers.Clear();
 
                 switch (comp.Mode)
                 {
@@ -402,7 +451,7 @@ namespace ToolCore
             catch (Exception ex)
             {
                 Logs.LogException(ex);
-                comp.HitBlocks.Clear();
+                comp.HitBlockLayers.Clear();
                 comp.HitBlocksSorted.Clear();
             }
 
