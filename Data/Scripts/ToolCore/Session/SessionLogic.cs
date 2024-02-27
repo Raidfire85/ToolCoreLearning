@@ -566,7 +566,7 @@ namespace ToolCore.Session
                     if (grid?.Physics == null || grid.IsPreview)
                         continue;
 
-                    var gridComp = _gridCompPool.Count > 0 ? _gridCompPool.Pop() : new GridComp();
+                    var gridComp = GridCompPool.Count > 0 ? GridCompPool.Pop() : new GridComp();
                     gridComp.Init(grid, this);
 
                     GridList.Add(gridComp);

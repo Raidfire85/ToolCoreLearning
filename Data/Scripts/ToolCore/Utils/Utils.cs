@@ -128,7 +128,7 @@ namespace ToolCore.Utils
 
     internal class FastLookupCachingList<T> : IEnumerable<T>, IReadOnlyList<T>, IReadOnlyCollection<T>
     {
-        private readonly List<T> _list;
+        private readonly List<T> _list = new List<T>();
 
         private readonly List<T> _toAdd = new List<T>();
 
@@ -204,6 +204,15 @@ namespace ToolCore.Utils
                 for (int i = 0; i < _toAdd.Count; i++)
                 {
                     var item = _toAdd[i];
+                    if (item == null)
+                    {
+                        Logs.WriteLine("Item null in ApplyAdditions()");
+                        continue;
+                    }
+
+                    if (_lookup.ContainsKey(item))
+                        continue;
+
                     _list.Add(item);
                     _lookup[item] = start + i;
                 }
@@ -219,6 +228,12 @@ namespace ToolCore.Utils
                 for (int i = 0; i < _toRemove.Count; i++)
                 {
                     var item = _toRemove[i];
+                    if (item == null)
+                    {
+                        Logs.WriteLine("Item null in ApplyRemovals()");
+                        continue;
+                    }
+
                     int index;
                     if (!_lookup.TryGetValue(item, out index))
                         continue;
@@ -233,6 +248,19 @@ namespace ToolCore.Utils
 
                 _toRemove.Clear();
             }
+        }
+
+        public void Clear()
+        {
+            using ( _cacheLock.AcquireSharedUsing())
+            {
+                _toAdd.Clear();
+                _toRemove.Clear();
+            }
+            _cacheLock.Dispose();
+
+            _lookup.Clear();
+            _list.Clear();
         }
 
         public T this[int index] => ((IReadOnlyList<T>)_list)[index];

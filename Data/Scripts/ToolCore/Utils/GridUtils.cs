@@ -311,7 +311,7 @@ namespace ToolCore
                 if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
                     continue;
 
-                var distSqr = Vector3D.DistanceSquared(start, pos);
+                var distSqr = Vector3D.DistanceSquared(start, grid.GridIntegerToWorld(pos));
 
                 var layer = (int)Math.Ceiling(distSqr);
                 comp.MaxLayer = Math.Max(layer, comp.MaxLayer);
@@ -447,12 +447,14 @@ namespace ToolCore
                 }
 
                 sortedBlocks.Clear();
+                comp.MaxLayer = 0;
             }
             catch (Exception ex)
             {
                 Logs.LogException(ex);
                 comp.HitBlockLayers.Clear();
                 comp.HitBlocksSorted.Clear();
+                comp.MaxLayer = 0;
             }
 
         }

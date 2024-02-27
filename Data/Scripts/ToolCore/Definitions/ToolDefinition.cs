@@ -195,7 +195,7 @@ namespace ToolCore.Definitions
             internal readonly MyStringId Material;
             internal readonly float Width;
             internal readonly Vector4 Color;
-            internal readonly float MaxLength;
+            internal readonly float Length;
 
             internal BeamDef(Beam beam, float maxLength)
             {
@@ -205,7 +205,7 @@ namespace ToolCore.Definitions
                 Material = MyStringId.GetOrCompute(beam.Material);
                 Width = beam.Width;
                 Color = beam.Color;
-                MaxLength = maxLength;
+                Length = beam.Length > 0f ? beam.Length : maxLength;
             }
         }
 

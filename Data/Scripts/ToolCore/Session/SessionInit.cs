@@ -18,12 +18,6 @@ namespace ToolCore.Session
 {
     internal partial class ToolSession
     {
-        internal void LoadBlockLimits()
-        {
-            var limits = Session.SessionSettings.BlockTypeLimits;
-            
-        }
-
         internal void LoadDefinitions()
         {
             foreach (var def in MyDefinitionManager.Static?.GetAllDefinitions())
@@ -58,10 +52,12 @@ namespace ToolCore.Session
             Logs.WriteLine($"Added {pMap.Count} material properties for material {def.Id.SubtypeName}");
         }
 
-        internal void SettingsLoad(ToolCoreSettings settings)
+        internal void LoadSettings(ToolCoreSettings serialisedSettings)
         {
-            Settings.LoadSettings(settings);
+            Settings.Update(serialisedSettings);
+            BlockLimits.Update(Session.SessionSettings, serialisedSettings);
             LoadVoxelMaterials();
+
             foreach (var def in DefinitionMap.Values)
             {
                 def.DefineMaterialModifiers(this);

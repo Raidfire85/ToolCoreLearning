@@ -64,10 +64,12 @@ namespace ToolCore.Session
                 }
             }
 
+            APIServer.Load();
+
             if (IsServer)
             {
-                Settings.LoadConfig();
-                SettingsLoad(Settings.CoreSettings);
+                Settings.LoadConfigFile();
+                LoadSettings(Settings.CoreSettings);
             }
             //Controls.CreateTerminalControls<IMyConveyorSorter>();
 
@@ -105,6 +107,9 @@ namespace ToolCore.Session
                     InitPlayers();
                 FirstRun = false;
             }
+
+            //if (Tick20 && BlockLimits.TrackPCU && AggregatorTask.IsComplete)
+            //    AggregatorTask = MyAPIGateway.Parallel.Start(BlockLimits.AggregateStatsParallel);
         }
 
         public override void UpdateAfterSimulation()
@@ -144,6 +149,11 @@ namespace ToolCore.Session
                 MyAPIGateway.TerminalControls.CustomActionGetter -= Controls.CustomActionGetter;
                 MyAPIGateway.TerminalControls.CustomControlGetter -= Controls.CustomControlGetter;
             }
+
+            if (!AggregatorTask.IsComplete)
+                AggregatorTask.Wait();
+
+            APIServer.Unload();
 
             Controls.Clean();
             Settings.Clean();

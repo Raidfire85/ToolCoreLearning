@@ -167,6 +167,7 @@ namespace ToolCore.Definitions.Serialised
         public Location EndLocation;
         public string Material = "WeaponLaser";
         public float Width = 0.5f;
+        public float Length = 0f;
         public Vector4 Color = new Vector4(255, 255, 255, 1000);
     }
 

@@ -68,7 +68,7 @@ namespace ToolCore.Session
                         break;
                     case PacketType.Settings:
                         var sPacket = packet as SettingsPacket;
-                        Session.SettingsLoad(sPacket.Settings);
+                        Session.LoadSettings(sPacket.Settings);
                         break;
                     default:
                         Logs.WriteLine($"Invalid packet type - {packet.GetType()}");
@@ -157,6 +157,13 @@ namespace ToolCore.Session
     public class SettingsPacket : Packet
     {
         [ProtoMember(1)] internal ToolCoreSettings Settings;
+    }
+
+    [ProtoContract]
+    public class PCUPacket : Packet
+    {
+        [ProtoMember(1)] internal long ID;
+        [ProtoMember(2)] internal int PCU;
     }
 
     public enum PacketType : byte

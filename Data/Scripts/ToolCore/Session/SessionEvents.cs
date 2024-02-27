@@ -22,14 +22,16 @@ namespace ToolCore.Session
             if (grid != null)
             {
                 grid.AddedToScene += addToStart => _startGrids.Add(grid);
+                grid.OnBlockAdded += slim => SlimList.Add(slim);
+                grid.OnBlockClosed += slim => SlimList.Remove(slim);
                 return;
             }
 
             if (entity is MyCubeBlock)
             {
                 var block = entity as MyCubeBlock;
-                _slimList.Add(block.SlimBlock);
-                block.OnClose += ent => _slimList.Remove(((MyCubeBlock)ent).SlimBlock);
+                SlimList.Add(block.SlimBlock);
+                block.OnClose += ent => SlimList.Remove(((MyCubeBlock)ent).SlimBlock);
 
             }
 
@@ -76,7 +78,7 @@ namespace ToolCore.Session
                 GridList.Remove(comp);
 
                 comp.Clean();
-                _gridCompPool.Push(comp);
+                GridCompPool.Push(comp);
             }
         }
 

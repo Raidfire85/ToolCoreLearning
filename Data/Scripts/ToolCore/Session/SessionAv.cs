@@ -80,11 +80,17 @@ namespace ToolCore.Session
                         endPos = Vector3D.Transform(beam.End.Matrix.Translation, beam.EndParent.PositionComp.WorldMatrixRef);
                         break;
                     case Location.Hit:
-                        endPos = hit.Position;
+                        if (hit.IsValid)
+                        {
+                            endPos = hit.Position;
+                            break;
+                        }
+                        var forward = Vector3.Normalize(beam.Start.Matrix.Forward);
+                        endPos = Vector3D.Transform(beam.Start.Matrix.Translation + beam.Definition.Length * forward, beam.StartParent.PositionComp.WorldMatrixRef);
                         break;
                     case Location.Forward:
-                        endPos = hit.IsValid ? hit.Position :
-                            Vector3D.Transform(beam.Start.Matrix.Translation + beam.Definition.MaxLength * beam.Start.Matrix.Forward, beam.StartParent.PositionComp.WorldMatrixRef);
+                        forward = Vector3.Normalize(beam.Start.Matrix.Forward);
+                        endPos = Vector3D.Transform(beam.Start.Matrix.Translation + beam.Definition.Length * forward, beam.StartParent.PositionComp.WorldMatrixRef);
                         break;
                     default:
                         return;

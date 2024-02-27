@@ -177,6 +177,9 @@
     <Compile Include="Data\Scripts\ToolCore\Definitions\ToolDefinition.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>
+    <Compile Include="Data\Scripts\ToolCore\Session\BlockLimits.cs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Compile>
     <Compile Include="Data\Scripts\ToolCore\Session\Networking.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>

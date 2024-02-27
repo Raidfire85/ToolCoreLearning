@@ -9,6 +9,42 @@ using static ToolCore.Definitions.ToolCoreSettings;
 
 namespace ToolCore.Definitions
 {
+
+    #region SerialisedSettings
+
+    [ProtoContract]
+    public class ToolCoreSettings
+    {
+        [ProtoMember(1)] public int Version = 0;
+        [ProtoMember(2)] public bool RespectPlayerMaxPCU = true;
+
+        [ProtoMember(100)] public MaterialData[] Materials;
+
+        [ProtoContract]
+        public class MaterialData
+        {
+            [XmlAttribute][ProtoMember(1)] public string Category;
+            [XmlAttribute][ProtoMember(2)] public float Hardness;
+
+            public static MaterialData[] Default()
+            {
+                return new MaterialData[]
+                {
+                    new MaterialData { Category = "Sand", Hardness = 0.75f },
+                    new MaterialData { Category = "Snow", Hardness = 0.8f },
+                    new MaterialData { Category = "Grass", Hardness = 0.85f },
+                    new MaterialData { Category = "Soil", Hardness = 0.9f },
+                    new MaterialData { Category = "Ice", Hardness = 0.95f },
+                    new MaterialData { Category = "Rock", Hardness = 1f },
+                    new MaterialData { Category = "Ore", Hardness = 1f },
+                };
+            }
+        }
+    }
+
+
+    #endregion
+
     internal class Settings
     {
         internal const string CONFIG_FILE = "ToolCore.cfg";
@@ -23,7 +59,7 @@ namespace ToolCore.Definitions
             CategoryModifiers.Clear();
         }
 
-        internal void LoadSettings(ToolCoreSettings settings)
+        internal void Update(ToolCoreSettings settings)
         {
             Logs.WriteLine("Loaded server config.");
             for (int i = 0; i < settings.Materials.Length; i++)
@@ -34,7 +70,7 @@ namespace ToolCore.Definitions
             Logs.WriteLine($"Loaded {CategoryModifiers.Count} material categories.");
         }
 
-        internal void LoadConfig()
+        internal void LoadConfigFile()
         {
             try
             {
@@ -149,38 +185,5 @@ namespace ToolCore.Definitions
         }
 
     }
-
-    #region Settings
-
-    [ProtoContract]
-    public class ToolCoreSettings
-    {
-        [ProtoMember(1)] public int Version = 0;
-        [ProtoMember(2)] public MaterialData[] Materials;
-
-        [ProtoContract]
-        public class MaterialData
-        {
-            [XmlAttribute][ProtoMember(1)] public string Category;
-            [XmlAttribute][ProtoMember(2)] public float Hardness;
-
-            public static MaterialData[] Default()
-            {
-                return new MaterialData[]
-                {
-                    new MaterialData { Category = "Sand", Hardness = 0.75f },
-                    new MaterialData { Category = "Snow", Hardness = 0.8f },
-                    new MaterialData { Category = "Grass", Hardness = 0.85f },
-                    new MaterialData { Category = "Soil", Hardness = 0.9f },
-                    new MaterialData { Category = "Ice", Hardness = 0.95f },
-                    new MaterialData { Category = "Rock", Hardness = 1f },
-                    new MaterialData { Category = "Ore", Hardness = 1f },
-                };
-            }
-        }
-    }
-
-
-    #endregion
 
 }
