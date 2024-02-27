@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using ToolCore.Comp;
 using ToolCore.Definitions.Serialised;
+using ToolCore.Session;
 using ToolCore.Utils;
 using VRage;
 using VRage.Collections;
@@ -412,7 +413,7 @@ namespace ToolCore
                         if (comp.Definition.Debug)
                         {
                             var grid = (MyCubeGrid)slim.CubeGrid;
-                            var worldPos = grid.GridIntegerToWorld((Vector3I)slim.Position);
+                            var worldPos = grid.GridIntegerToWorld(slim.Position);
                             var matrix = grid.PositionComp.WorldMatrixRef;
                             matrix.Translation = worldPos;
 
@@ -435,11 +436,11 @@ namespace ToolCore
                         comp.GrindBlocks();
                         break;
                     case ToolMode.Weld:
-                        if (comp.Definition.Rate > 4)
-                        {
-                            comp.WeldBlocksBulk();
-                            break;
-                        }
+                        //if (comp.Definition.Rate > 4)
+                        //{
+                        //    comp.WeldBlocksBulk();
+                        //    break;
+                        //}
                         comp.WeldBlocks();
                         break;
                     default:
@@ -478,6 +479,12 @@ namespace ToolCore
                 comp.Working = true;
 
                 MyCubeBlockDefinition.PreloadConstructionModels((MyCubeBlockDefinition)slim.BlockDefinition);
+
+
+                if (!ToolSession.Instance.IsServer)
+                {
+                    continue;
+                }
 
                 MyDamageInformation damageInfo = new MyDamageInformation(false, grindAmount, MyDamageType.Grind, tool.EntityId);
                 if (slim.UseDamageSystem) comp.Session.Session.DamageSystem.RaiseBeforeDamageApplied(slim, ref damageInfo);
@@ -518,7 +525,7 @@ namespace ToolCore
             var missingComponents = comp.Session.MissingComponents;
             var buildCount = Math.Min(hitCount, maxBlocks);
             var weldScaler = 0.25f / (float)Math.Min(4, buildCount);
-            var weldAmount = weldScaler * toolValues.Speed * MyAPIGateway.Session.WelderSpeedMultiplier;
+            var weldAmount = weldScaler * toolValues.Speed * MyAPIGateway.Session.WelderSpeedMultiplier * 4f;
 
             for (int i = 0; i < hitCount; i++)
             {
@@ -552,10 +559,27 @@ namespace ToolCore
                 if (!MyAPIGateway.Session.CreativeMode && comp.Session.MissingComponents.Count > 0 && !comp.TryPullComponents())
                     continue;
 
+                if (!ToolSession.Instance.IsServer)
+                {
+
+
+                    continue;
+                }
+
                 if (projector != null)
                 {
                     if (projector.CanBuild(slim, true) != BuildCheckResult.OK)
                         continue;
+
+                    if (!ToolSession.Instance.IsServer)
+                    {
+                        if (MyAPIGateway.Session.CreativeMode || inventory.GetItemAmount(blockDef.Components[0].Definition.Id) >= 1)
+                        {
+                            comp.Working = true;
+                            validBlocks++;
+                        }
+                        continue;
+                    }
 
                     if (!MyAPIGateway.Session.CreativeMode && inventory.RemoveItemsOfType(1, blockDef.Components[0].Definition.Id) < 1)
                         continue;
@@ -578,6 +602,13 @@ namespace ToolCore
                 if (!slim.CanContinueBuild(inventory))
                     continue;
 
+                if (!ToolSession.Instance.IsServer)
+                {
+                    comp.Working = true;
+                    validBlocks++;
+                    continue;
+                }
+
                 //if (welder != null)
                 //{
                 //    if (slim.WillBecomeFunctional(weldAmount) && !welder.IsWithinWorldLimits(gridComp.Projector, "", cubeDef.PCU - 1))
@@ -590,6 +621,7 @@ namespace ToolCore
                 slim.MoveItemsToConstructionStockpile(inventory);
 
                 slim.IncreaseMountLevel(weldAmount, ownerId, inventory, 0.15f, false);
+                slim.MoveItemsFromConstructionStockpile(inventory);
 
                 if (comp.Definition.CacheBlocks && !slim.IsFullIntegrity || slim.HasDeformation)
                 {
@@ -712,6 +744,16 @@ namespace ToolCore
                         if (projector.CanBuild(slim, true) != BuildCheckResult.OK)
                             continue;
 
+                        if (!ToolSession.Instance.IsServer)
+                        {
+                            if (MyAPIGateway.Session.CreativeMode || inventory.GetItemAmount(cubeDef.Components[0].Definition.Id) >= 1)
+                            {
+                                comp.Working = true;
+                                validBlocks++;
+                            }
+                            continue;
+                        }
+
                         if (!MyAPIGateway.Session.CreativeMode && inventory.RemoveItemsOfType(1, cubeDef.Components[0].Definition.Id) < 1)
                             continue;
 
@@ -733,6 +775,13 @@ namespace ToolCore
                     if (!slim.CanContinueBuild(inventory))
                         continue;
 
+                    if (!ToolSession.Instance.IsServer)
+                    {
+                        comp.Working = true;
+                        validBlocks++;
+                        continue;
+                    }
+
                     //if (welder != null)
                     //{
                     //    if (slim.WillBecomeFunctional(weldAmount) && !welder.IsWithinWorldLimits(gridComp.Projector, "", cubeDef.PCU - 1))
@@ -745,6 +794,7 @@ namespace ToolCore
                     slim.MoveItemsToConstructionStockpile(inventory);
 
                     slim.IncreaseMountLevel(weldAmount, ownerId, inventory, 0.15f, false);
+                    slim.MoveItemsFromConstructionStockpile(inventory);
 
                     if (comp.Definition.CacheBlocks && !slim.IsFullIntegrity || slim.HasDeformation)
                     {

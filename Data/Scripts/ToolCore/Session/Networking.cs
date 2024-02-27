@@ -4,7 +4,10 @@ using System;
 using System.Collections.Generic;
 using ToolCore.Comp;
 using ToolCore.Definitions;
+using ToolCore.Definitions.Serialised;
 using ToolCore.Utils;
+using VRage;
+using VRageMath;
 
 namespace ToolCore.Session
 {
@@ -146,6 +149,37 @@ namespace ToolCore.Session
 
         }
     }
+
+    //[ProtoContract]
+    //public class ValidationPacket : Packet
+    //{
+    //    public class DefinitionValues
+    //    {
+    //        public byte ToolType;
+    //        public byte EffectShape;
+    //        public byte WorkOrder;
+    //        public byte WorkOrigin;
+
+    //        public string Emitter;
+
+    //        public SerializableVector3 Offset;
+    //        public SerializableVector3 HalfExtent;
+            
+    //        public float Radius;
+    //        public float Length;
+    //        public float Speed;
+    //        public float HarvestRatio;
+    //        public float IdlePower;
+    //        public float ActivePower;
+
+    //        public ushort WorkRate;
+    //        public ushort UpdateInterval;
+
+    //        public bool DamageCharacters;
+    //        public bool AffectOwnGrid;
+    //        public bool CacheBlocks;
+    //    }
+    //}
 
     [ProtoContract]
     public class ReplicationPacket : Packet
