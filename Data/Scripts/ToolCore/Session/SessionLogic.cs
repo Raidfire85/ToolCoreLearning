@@ -1,21 +1,12 @@
-﻿using ParallelTasks;
-using Sandbox.Common.ObjectBuilders;
-using Sandbox.Definitions;
-using Sandbox.Game.Entities;
-using Sandbox.Game.Entities.Character;
-using Sandbox.Game.Weapons;
-using Sandbox.Game.World;
+﻿using Sandbox.Game.Entities;
 using Sandbox.Game.WorldEnvironment;
 using Sandbox.ModAPI;
-using SpaceEngineers.Game.Entities.Blocks;
 using System;
-using System.Net;
-using System.Security.Cryptography;
+using System.Collections.Generic;
 using ToolCore.Comp;
 using ToolCore.Definitions;
 using ToolCore.Definitions.Serialised;
 using ToolCore.Utils;
-using VRage;
 using VRage.Game;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
@@ -23,10 +14,8 @@ using VRage.Game.ModAPI.Interfaces;
 using VRage.ModAPI;
 using VRage.Utils;
 using VRageMath;
-using VRageRender.Voxels;
 using static ToolCore.Utils.Draw;
 using static ToolCore.Utils.Utils;
-using static VRage.Game.ObjectBuilders.Definitions.MyObjectBuilder_GameDefinition;
 
 namespace ToolCore.Session
 {
@@ -55,7 +44,8 @@ namespace ToolCore.Session
 
         private void UpdateComp(ToolComp comp)
         {
-            var def = comp.Definition;
+            var modeData = comp.ModeData;
+            var def = modeData.Definition;
 
             UpdateTool(comp);
 
@@ -66,13 +56,13 @@ namespace ToolCore.Session
                 comp.AvActive = true;
             }
 
-            if (comp.Mode != ToolComp.ToolMode.Drill && comp.WorkTick == Tick % def.UpdateInterval)
+            if (comp.Mode != ToolComp.ToolMode.Drill && modeData.WorkTick == Tick % def.UpdateInterval)
                 UpdateHitState(comp);
 
-            if (!IsDedicated && comp.Draw)
+            if (!IsDedicated && comp.Draw && comp.Functional)
                 DrawComp(comp);
 
-            if (!IsDedicated && comp.Definition.Debug)
+            if (!IsDedicated && def.Debug)
             {
                 DrawDebug(comp);
             }
@@ -86,7 +76,7 @@ namespace ToolCore.Session
             var toolValues = comp.Values;
 
             MatrixD drawMatrix;
-            switch (comp.Definition.EffectShape)
+            switch (comp.ModeData.Definition.EffectShape)
             {
                 case EffectShape.Sphere:
                     drawMatrix = MatrixD.CreateWorld(worldPos, worldForward, worldUp);
@@ -139,14 +129,15 @@ namespace ToolCore.Session
 
         private void CalculateWorldVectors(ToolComp comp, out Vector3D worldPos, out Vector3D worldForward, out Vector3D worldUp)
         {
-            var def = comp.Definition;
+            var modeData = comp.ModeData;
+            var def = modeData.Definition;
             var pos = comp.ToolEntity.PositionComp;
 
             switch (def.Location)
             {
                 case Location.Emitter:
-                    var partMatrix = comp.MuzzlePart.PositionComp.WorldMatrixRef;
-                    var muzzleMatrix = (MatrixD)comp.Muzzle.Matrix;
+                    var partMatrix = modeData.MuzzlePart.PositionComp.WorldMatrixRef;
+                    var muzzleMatrix = (MatrixD)modeData.Muzzle.Matrix;
 
                     var localPos = muzzleMatrix.Translation;
                     var muzzleForward = Vector3D.Normalize(muzzleMatrix.Forward);
@@ -190,8 +181,9 @@ namespace ToolCore.Session
 
         private void UpdateTool(ToolComp comp)
         {
-            var def = comp.Definition;
-            var workTick = comp.WorkTick == Tick % def.UpdateInterval;
+            var modeData = comp.ModeData;
+            var def = modeData.Definition;
+            var workTick = modeData.WorkTick == Tick % def.UpdateInterval;
 
             var tool = comp.ToolEntity;
             var block = comp.BlockTool;
@@ -594,11 +586,11 @@ namespace ToolCore.Session
                         var tool = block as IMyConveyorSorter;
                         if (tool != null)
                         {
-                            ToolDefinition def;
-                            if (!DefinitionMap.TryGetValue(tool.BlockDefinition, out def))
+                            List<ToolDefinition> defs;
+                            if (!DefinitionMap.TryGetValue(tool.BlockDefinition, out defs))
                                 continue;
 
-                            var comp = new ToolComp(entity, def, this);
+                            var comp = new ToolComp(entity, defs);
                             ToolMap[block.EntityId] = comp;
                             comp.Init();
                             //((IMyCubeGrid)gridComp.Grid).WeaponSystem.Register(comp.GunBase);
@@ -622,11 +614,11 @@ namespace ToolCore.Session
                         if (!entity.DefinitionId.HasValue)
                             continue;
 
-                        ToolDefinition def;
-                        if (!DefinitionMap.TryGetValue(entity.DefinitionId.Value, out def))
+                        List<ToolDefinition> defs;
+                        if (!DefinitionMap.TryGetValue(entity.DefinitionId.Value, out defs))
                             continue;
 
-                        var comp = new ToolComp(entity, def, this);
+                        var comp = new ToolComp(entity, defs);
                         ToolMap[entity.EntityId] = comp;
                         comp.Init();
                         HandTools.Add(comp);

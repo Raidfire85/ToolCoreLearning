@@ -56,7 +56,7 @@ namespace ToolCore.Definitions
 
         internal readonly Trigger EventFlags;
         internal readonly List<Trigger> Triggers = new List<Trigger>();
-        internal readonly Dictionary<MyTuple<Trigger, ToolMode>, MyTuple<List<AnimationDef>, List<ParticleEffectDef>, List<BeamDef>, SoundDef>> EventEffectDefs = new Dictionary<MyTuple<Trigger, ToolMode>, MyTuple<List<AnimationDef>, List<ParticleEffectDef>, List<BeamDef>, SoundDef>>();
+        internal readonly Dictionary<Trigger, MyTuple<List<AnimationDef>, List<ParticleEffectDef>, List<BeamDef>, SoundDef>> EventEffectDefs = new Dictionary<Trigger, MyTuple<List<AnimationDef>, List<ParticleEffectDef>, List<BeamDef>, SoundDef>>();
         internal readonly Dictionary<MyVoxelMaterialDefinition, MaterialModifierDefinition> MaterialModifiers = new Dictionary<MyVoxelMaterialDefinition, MaterialModifierDefinition>();
 
         private MaterialModifiers[] _tempModifiers;
@@ -236,15 +236,9 @@ namespace ToolCore.Definitions
 
         public ToolDefinition(ToolValues values, ToolSession session)
         {
-            ToolType = values.ToolType;
+            ToolType = values.Type > 0 ? values.Type : values.ToolType;
 
-            if ((ToolType & ToolType.Drill) > 0)
-                ToolModes.Add(ToolComp.ToolMode.Drill);
-            if ((ToolType & ToolType.Grind) > 0)
-                ToolModes.Add(ToolComp.ToolMode.Grind);
-            if ((ToolType & ToolType.Weld) > 0)
-                ToolModes.Add(ToolComp.ToolMode.Weld);
-
+            ToolType.GetModes(ToolModes);
             if (ToolModes.Count == 0)
             {
                 Logs.WriteLine($"Tool definition has no valid tool modes!");
@@ -254,7 +248,7 @@ namespace ToolCore.Definitions
             EffectShape = values.EffectShape;
             Pattern = values.WorkOrder;
             Location = values.WorkOrigin;
-            Offset = values.Offset;
+            Offset = (Vector3)values.Offset;
             EmitterName = values.Emitter;
             Rate = values.WorkRate > 0 ? values.WorkRate : int.MaxValue;
             UpdateInterval = values.UpdateInterval;
@@ -404,18 +398,6 @@ namespace ToolCore.Definitions
             Trigger flags = 0;
             foreach (var eventDef in events)
             {
-                var modes = eventDef.Modes;
-                if (modes == ToolType.None)
-                    modes = ToolType;
-
-                List<ToolMode> effectModes = new List<ToolMode>();
-                if ((modes & ToolType.Drill) > 0)
-                    effectModes.Add(ToolMode.Drill);
-                if ((modes & ToolType.Grind) > 0)
-                    effectModes.Add(ToolMode.Grind);
-                if ((modes & ToolType.Weld) > 0)
-                    effectModes.Add(ToolMode.Weld);
-
                 var hasAnimations = eventDef.Animations != null && eventDef.Animations.Length > 0;
                 var hasParticleEffects = eventDef.ParticleEffects != null && eventDef.ParticleEffects.Length > 0;
                 var hasBeams = eventDef.Beams != null && eventDef.Beams.Length > 0;
@@ -455,11 +437,8 @@ namespace ToolCore.Definitions
                     soundDef = new SoundDef(eventDef.Sound, session);
 
                 var value = new MyTuple<List<AnimationDef>, List<ParticleEffectDef>, List<BeamDef>, SoundDef>(animationDefs, particleEffectDefs, beamDefs, soundDef);
-                foreach (var mode in effectModes)
-                {
-                    var key = new MyTuple<Trigger, ToolMode>(eventDef.Trigger, mode);
-                    EventEffectDefs[key] = value;
-                }
+                EventEffectDefs[eventDef.Trigger] = value;
+
                 if (!Triggers.Contains(eventDef.Trigger))
                     Triggers.Add(eventDef.Trigger);
 

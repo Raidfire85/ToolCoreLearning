@@ -14,14 +14,18 @@ namespace ToolCore.Definitions.Serialised
     /// </summary>
     public class ToolValues
     {
+        [XmlAttribute]
+        public ToolType Type;
+
         public ToolType ToolType;
+
         public EffectShape EffectShape;
         public WorkOrder WorkOrder;
         public Location WorkOrigin;
 
         public string Emitter;
 
-        public SerializableVector3D Offset = Vector3D.Zero;
+        public SerializableVector3 Offset = Vector3.Zero;
 
         public SerializableVector3 HalfExtent = new Vector3(1f, 1f, 1f); //Cuboid
         public float Radius = 1f; //Sphere, Cylinder
@@ -51,16 +55,17 @@ namespace ToolCore.Definitions.Serialised
         public MaterialModifiers[] MaterialSpecificModifiers;
     }
 
+    [Flags]
     public enum ToolType
     {
         None = 0,
         Drill = 1,
         Grind = 2,
-        GrindDrill = 3,
+        //GrindDrill = 3,
         Weld = 4,
-        WeldDrill = 5,
-        WeldGrind = 6,
-        Multi = 7,
+        //WeldDrill = 5,
+        //WeldGrind = 6,
+        //Multi = 7,
     }
 
     public enum EffectShape
@@ -113,8 +118,6 @@ namespace ToolCore.Definitions.Serialised
     {
         [XmlAttribute]
         public Trigger Trigger;
-        [XmlAttribute]
-        public ToolType Modes;
         [XmlElement("Animation")]
         public Animation[] Animations;
         [XmlElement("ParticleEffect")]
@@ -213,7 +216,8 @@ namespace ToolCore.Definitions.Serialised
     public class Definition
     {
         public SerializableDefinitionId Id;
-        public ToolValues ToolValues;
+        [XmlElement("ToolValues")]
+        public ToolValues[] ToolValues;
 
     }
 }

@@ -1,11 +1,13 @@
 ﻿using Sandbox.ModAPI;
 using Sandbox.ModAPI.Interfaces.Terminal;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using ToolCore.Comp;
 using ToolCore.Utils;
 using VRage.ModAPI;
 using VRage.Utils;
+using static ToolCore.Comp.ToolComp;
 
 namespace ToolCore.Session
 {
@@ -213,8 +215,7 @@ namespace ToolCore.Session
 
             var id = 0;
             _modeList.Clear();
-            var modes = comp.Definition.ToolModes;
-            foreach (var mode in modes)
+            foreach (var mode in comp.ModeMap.Keys)
             {
                 var key = (int)mode;
                 if (mode == comp.Mode)
@@ -245,7 +246,7 @@ namespace ToolCore.Session
             if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
                 return false;
 
-            return comp.Definition.ToolModes.Count > 1;
+            return comp.ModeMap.Count > 1;
         }
 
         internal IMyTerminalAction CreateModeAction<T>() where T : IMyConveyorSorter
@@ -255,7 +256,7 @@ namespace ToolCore.Session
             action.Name = new StringBuilder("Mode Select");
             action.Action = SwitchMode;
             action.Writer = SwitchModeWriter;
-            action.Enabled = IsTrue;
+            action.Enabled = HasModeSelect;
 
             return action;
         }
@@ -266,12 +267,16 @@ namespace ToolCore.Session
             if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
                 return;
 
-            var modes = comp.Definition.ToolModes;
-            var index = modes.IndexOf(comp.Mode);
-            var next = index + 1;
-            var newIndex = next < modes.Count ? next : 0;
-            //comp.Mode = comp.Definition.ToolModes[newIndex];
-            comp.SetMode(comp.Definition.ToolModes[newIndex]);
+            var modes = comp.ModeMap.Keys;
+            var enumerator = modes.GetEnumerator();
+            enumerator.MoveNext();
+            while (enumerator.Current != comp.Mode)
+            {
+                enumerator.MoveNext();
+            }
+            var newMode = enumerator.MoveNext() ? enumerator.Current : modes.First();
+
+            comp.SetMode(newMode);
 
             _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.Mode, (int)comp.Mode));
         }
@@ -316,7 +321,7 @@ namespace ToolCore.Session
 
             var id = 0;
             _actionList.Clear();
-            var actions = comp.Definition.ToolActions;
+            var actions = comp.ModeData.Definition.ToolActions;
             for (int i = 0; i < actions.Count; i++)
             {
                 var action = actions[i];
@@ -336,7 +341,8 @@ namespace ToolCore.Session
             if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
                 return;
 
-            comp.Action = comp.Definition.ToolActions[(int)id];
+            var actions = comp.ModeData.Definition.ToolActions;
+            comp.Action = actions[(int)id];
 
             _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.Action, (int)comp.Action));
         }
@@ -347,7 +353,7 @@ namespace ToolCore.Session
             if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
                 return false;
 
-            return comp.Definition.ToolActions.Count > 1;
+            return comp.ModeData.Definition.ToolActions.Count > 1;
         }
 
         internal IMyTerminalAction CreateActionAction<T>() where T : IMyConveyorSorter
@@ -357,7 +363,7 @@ namespace ToolCore.Session
             action.Name = new StringBuilder("Action Select");
             action.Action = SwitchAction;
             action.Writer = SwitchActionWriter;
-            action.Enabled = IsTrue;
+            action.Enabled = HasActionSelect;
 
             return action;
         }
@@ -368,11 +374,11 @@ namespace ToolCore.Session
             if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
                 return;
 
-            var actions = comp.Definition.ToolActions;
+            var actions = comp.ModeData.Definition.ToolActions;
             var index = actions.IndexOf(comp.Action);
             var next = index + 1;
             var newIndex = next < actions.Count ? next : 0;
-            comp.Action = comp.Definition.ToolActions[newIndex];
+            comp.Action = comp.ModeData.Definition.ToolActions[newIndex];
 
             _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.Action, (int)comp.Action));
         }

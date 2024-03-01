@@ -115,7 +115,7 @@ namespace ToolCore.Comp
                 status = MyGunStatusEnum.OutOfPower;
                 return false;
             }
-            if (!_comp.Definition.ActionMap.ContainsKey((ToolComp.ToolAction)action))
+            if (!_comp.ModeData.Definition.ActionMap.ContainsKey((ToolComp.ToolAction)action))
             {
                 status = MyGunStatusEnum.Failed;
                 return false;
@@ -140,7 +140,7 @@ namespace ToolCore.Comp
 
         public Vector3 DirectionToTarget(Vector3D target)
         {
-            return _comp.Muzzle.Matrix.Forward;
+            return _comp.ModeData.Muzzle.Matrix.Forward;
         }
 
         public void DrawHud(IMyCameraController camera, long playerId)
@@ -182,12 +182,12 @@ namespace ToolCore.Comp
 
         public Vector3D GetMuzzlePosition()
         {
-            return _comp.Muzzle.Matrix.Translation;
+            return _comp.ModeData.Muzzle.Matrix.Translation;
         }
 
         public Vector3 GetShootDirection()
         {
-            return _comp.Muzzle.Matrix.Forward;
+            return _comp.ModeData.Muzzle.Matrix.Forward;
         }
 
         public int GetTotalAmmunitionAmount()

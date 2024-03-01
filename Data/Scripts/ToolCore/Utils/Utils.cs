@@ -6,12 +6,14 @@ using Sandbox.Game.World;
 using Sandbox.ModAPI;
 using System.Collections;
 using System.Collections.Generic;
+using ToolCore.Definitions.Serialised;
 using VRage;
 using VRage.Game;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
 using VRage.ModAPI;
 using VRageMath;
+using static ToolCore.Comp.ToolComp;
 
 namespace ToolCore.Utils
 {
@@ -60,6 +62,16 @@ namespace ToolCore.Utils
             }
 
             return true;
+        }
+
+        internal static void GetModes(this ToolType toolType, List<ToolMode> modes)
+        {
+            if ((toolType & ToolType.Drill) > 0)
+                modes.Add(ToolMode.Drill);
+            if ((toolType & ToolType.Grind) > 0)
+                modes.Add(ToolMode.Grind);
+            if ((toolType & ToolType.Weld) > 0)
+                modes.Add(ToolMode.Weld);
         }
     }
 

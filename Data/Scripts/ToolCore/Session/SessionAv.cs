@@ -20,7 +20,6 @@ namespace ToolCore.Session
             {
                 var comp = AvComps[i];
                 var tool = comp.ToolEntity;
-                var def = comp.Definition;
 
                 //MyAPIGateway.Utilities.ShowNotification($"Running {comp.ActiveEffects.Count} effects", 16);
                 //for (int j = comp.ActiveEffects.Count - 1; j >= 0; j--)

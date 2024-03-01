@@ -24,7 +24,8 @@ namespace ToolCore
         {
             try
             {
-                var def = comp.Definition;
+                var modeData = comp.ModeData;
+                var def = modeData.Definition;
                 var toolValues = comp.Values;
                 var data = workData as ToolData;
                 var grid = data.Entity as MyCubeGrid;
@@ -365,13 +366,15 @@ namespace ToolCore
                 {
                     var toolData = (ToolData)workData;
                     toolData.Clean();
-                    comp.Session.ToolDataPool.Push(toolData);
+                    ToolSession.Instance.ToolDataPool.Push(toolData);
                     comp.ActiveThreads--;
                 }
                 
                 if (comp.ActiveThreads != 0)
                     return;
 
+                var modeData = comp.ModeData;
+                var def = modeData.Definition;
                 var workSet = comp.WorkSet;
                 //var blocks = new Dictionary<IMySlimBlock, float>(comp.HitBlocks);
                 var layers = comp.HitBlockLayers;
@@ -380,7 +383,7 @@ namespace ToolCore
                     return;
 
                 var start = 0;
-                if (comp.Definition.CacheBlocks && workSet.Count > 0)
+                if (def.CacheBlocks && workSet.Count > 0)
                 {
                     foreach (var slim in workSet)
                     {
@@ -410,7 +413,7 @@ namespace ToolCore
 
                         sortedBlocks.Add(slim);
 
-                        if (comp.Definition.Debug)
+                        if (def.Debug)
                         {
                             var grid = (MyCubeGrid)slim.CubeGrid;
                             var worldPos = grid.GridIntegerToWorld(slim.Position);
@@ -462,12 +465,14 @@ namespace ToolCore
 
         internal static void GrindBlocks(this ToolComp comp)
         {
+            var modeData = comp.ModeData;
+            var def = modeData.Definition;
             var inventory = comp.Inventory;
             var toolValues = comp.Values;
             var sortedBlocks = comp.HitBlocksSorted;
             var hitCount = sortedBlocks.Count;
             var tool = comp.ToolEntity;
-            var maxBlocks = comp.Definition.Rate;
+            var maxBlocks = def.Rate;
             var grindCount = Math.Min(hitCount, maxBlocks);
 
             var grindScaler = 0.25f / (float)Math.Min(4, grindCount > 0 ? grindCount : 1);
@@ -487,12 +492,12 @@ namespace ToolCore
                 }
 
                 MyDamageInformation damageInfo = new MyDamageInformation(false, grindAmount, MyDamageType.Grind, tool.EntityId);
-                if (slim.UseDamageSystem) comp.Session.Session.DamageSystem.RaiseBeforeDamageApplied(slim, ref damageInfo);
+                if (slim.UseDamageSystem) ToolSession.Instance.Session.DamageSystem.RaiseBeforeDamageApplied(slim, ref damageInfo);
 
                 slim.DecreaseMountLevel(damageInfo.Amount, inventory, false);
                 slim.MoveItemsFromConstructionStockpile(inventory, MyItemFlags.None);
 
-                if (slim.UseDamageSystem) comp.Session.Session.DamageSystem.RaiseAfterDamageApplied(slim, damageInfo);
+                if (slim.UseDamageSystem) ToolSession.Instance.Session.DamageSystem.RaiseAfterDamageApplied(slim, damageInfo);
 
                 if (slim.IsFullyDismounted)
                 {
@@ -504,7 +509,7 @@ namespace ToolCore
                     slim.SpawnConstructionStockpile();
                     slim.CubeGrid.RazeBlock(slim.Min);
                 }
-                else if (comp.Definition.CacheBlocks)
+                else if (def.CacheBlocks)
                 {
                     comp.WorkSet.Add(slim);
                 }
@@ -513,16 +518,18 @@ namespace ToolCore
 
         internal static void WeldBlocks(this ToolComp comp)
         {
+            var modeData = comp.ModeData;
+            var def = modeData.Definition;
             var inventory = comp.Inventory;
             var toolValues = comp.Values;
             var sortedBlocks = comp.HitBlocksSorted;
             var hitCount = sortedBlocks.Count;
             var tool = comp.ToolEntity;
             var validBlocks = 0;
-            var maxBlocks = comp.Definition.Rate;
+            var maxBlocks = def.Rate;
             var ownerId = comp.IsBlock ? comp.BlockTool.OwnerId : comp.HandTool.OwnerIdentityId;
 
-            var missingComponents = comp.Session.MissingComponents;
+            var missingComponents = ToolSession.Instance.MissingComponents;
             var buildCount = Math.Min(hitCount, maxBlocks);
             var weldScaler = 0.25f / (float)Math.Min(4, buildCount);
             var weldAmount = weldScaler * toolValues.Speed * MyAPIGateway.Session.WelderSpeedMultiplier * 4f;
@@ -556,7 +563,7 @@ namespace ToolCore
 
                 slim.GetMissingComponents(missingComponents);
 
-                if (!MyAPIGateway.Session.CreativeMode && comp.Session.MissingComponents.Count > 0 && !comp.TryPullComponents())
+                if (!MyAPIGateway.Session.CreativeMode && ToolSession.Instance.MissingComponents.Count > 0 && !comp.TryPullComponents())
                     continue;
 
                 if (!ToolSession.Instance.IsServer)
@@ -589,7 +596,7 @@ namespace ToolCore
 
                     var pos = projector.CubeGrid.WorldToGridInteger(slim.CubeGrid.GridIntegerToWorld(slim.Position));
                     var newSlim = projector.CubeGrid.GetCubeBlock(pos);
-                    if (comp.Definition.CacheBlocks && newSlim != null && !newSlim.IsFullIntegrity)
+                    if (def.CacheBlocks && newSlim != null && !newSlim.IsFullIntegrity)
                     {
                         comp.WorkSet.Add(newSlim);
                     }
@@ -623,7 +630,7 @@ namespace ToolCore
                 slim.IncreaseMountLevel(weldAmount, ownerId, inventory, 0.15f, false);
                 slim.MoveItemsFromConstructionStockpile(inventory);
 
-                if (comp.Definition.CacheBlocks && !slim.IsFullIntegrity || slim.HasDeformation)
+                if (def.CacheBlocks && !slim.IsFullIntegrity || slim.HasDeformation)
                 {
                     comp.WorkSet.Add(slim);
                 }
@@ -637,7 +644,7 @@ namespace ToolCore
             var tool = comp.ToolEntity;
 
             var first = true;
-            foreach (var component in comp.Session.MissingComponents)
+            foreach (var component in ToolSession.Instance.MissingComponents)
             {
                 var required = component.Value;
                 var defId = new MyDefinitionId(typeof(MyObjectBuilder_Component), component.Key);
@@ -663,16 +670,18 @@ namespace ToolCore
 
         internal static void WeldBlocksBulk(this ToolComp comp)
         {
+            var modeData = comp.ModeData;
+            var def = modeData.Definition;
             var inventory = comp.Inventory;
             var toolValues = comp.Values;
             var sortedBlocks = comp.HitBlocksSorted;
             var hitCount = sortedBlocks.Count;
             var tool = comp.ToolEntity;
             var validBlocks = 0;
-            var maxBlocks = comp.Definition.Rate;
+            var maxBlocks = def.Rate;
             var ownerId = comp.IsBlock ? comp.BlockTool.OwnerId : comp.HandTool.OwnerIdentityId;
 
-            var missingComponents = comp.Session.MissingComponents;
+            var missingComponents = ToolSession.Instance.MissingComponents;
             var buildCount = hitCount;
 
             var start = 0;
@@ -762,7 +771,7 @@ namespace ToolCore
 
                         var pos = projector.CubeGrid.WorldToGridInteger(slim.CubeGrid.GridIntegerToWorld(slim.Position));
                         var newSlim = projector.CubeGrid.GetCubeBlock(pos);
-                        if (comp.Definition.CacheBlocks && newSlim != null && !newSlim.IsFullIntegrity)
+                        if (def.CacheBlocks && newSlim != null && !newSlim.IsFullIntegrity)
                         {
                             comp.WorkSet.Add(newSlim);
                         }
@@ -796,7 +805,7 @@ namespace ToolCore
                     slim.IncreaseMountLevel(weldAmount, ownerId, inventory, 0.15f, false);
                     slim.MoveItemsFromConstructionStockpile(inventory);
 
-                    if (comp.Definition.CacheBlocks && !slim.IsFullIntegrity || slim.HasDeformation)
+                    if (def.CacheBlocks && !slim.IsFullIntegrity || slim.HasDeformation)
                     {
                         comp.WorkSet.Add(slim);
                     }

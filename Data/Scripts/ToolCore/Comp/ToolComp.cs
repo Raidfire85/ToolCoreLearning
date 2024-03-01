@@ -8,6 +8,7 @@ using Sandbox.ModAPI.Interfaces.Terminal;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using ToolCore.Definitions;
 using ToolCore.Definitions.Serialised;
 using ToolCore.Session;
@@ -23,7 +24,6 @@ using VRage.Utils;
 using VRage.Voxels;
 using VRageMath;
 using static ToolCore.Definitions.ToolDefinition;
-using static VRage.Game.ObjectBuilders.Definitions.MyObjectBuilder_GameDefinition;
 
 namespace ToolCore.Comp
 {
@@ -32,45 +32,43 @@ namespace ToolCore.Comp
     /// </summary>
     internal partial class ToolComp : MyEntityComponentBase
     {
-        internal readonly ToolSession Session;
-
         internal readonly CoreGun GunBase;
         internal readonly MyInventory Inventory;
 
-        internal ToolDefinition Definition;
         internal MyEntity ToolEntity;
         internal MyEntity Parent;
         internal IMyConveyorSorter BlockTool;
         internal IMyHandheldGunObject<MyDeviceBase> HandTool;
-        internal IMyModelDummy Muzzle;
-        internal MyEntity MuzzlePart;
         internal MyResourceSinkComponent Sink;
         internal MyOrientedBoundingBoxD Obb;
         internal MyEntity3DSoundEmitter SoundEmitter;
-
-        internal ConcurrentCachingList<ToolComp> ToolGroup;
-
         internal MyCubeGrid Grid;
         internal GridComp GridComp;
         internal ToolRepo Repo;
+
+        internal ConcurrentCachingList<ToolComp> ToolGroup;
 
         internal IMyTerminalControlOnOffSwitch ShowInToolbarSwitch;
 
         internal ToolMode Mode;
         internal ToolAction Action;
+        internal Trigger State;
         internal Trigger AvState;
 
-        internal readonly Dictionary<Trigger, Dictionary<ToolMode, Effects>> EventEffects = new Dictionary<Trigger, Dictionary<ToolMode, Effects>>();
-        internal readonly List<Effects> ActiveEffects = new List<Effects>();
+        internal readonly ConcurrentDictionary<int, ConcurrentCachingList<IMySlimBlock>> HitBlockLayers = new ConcurrentDictionary<int, ConcurrentCachingList<IMySlimBlock>>();
         internal readonly ConcurrentDictionary<MyObjectBuilder_Ore, float> Yields = new ConcurrentDictionary<MyObjectBuilder_Ore, float>();
-        internal readonly List<ulong> ReplicatedClients = new List<ulong>();
-        internal readonly List<Action<int, bool>> EventMonitors = new List<Action<int, bool>>();
+        internal readonly Dictionary<MyCubeGrid, Vector3I> ClientNewBuildWorkSet = new Dictionary<MyCubeGrid, Vector3I>();
 
-        internal readonly HashSet<Vector3I> PreviousPositions = new HashSet<Vector3I>();
+        internal readonly Dictionary<ToolMode, ModeSpecificData> ModeMap = new Dictionary<ToolMode, ModeSpecificData>();
+
         internal readonly ConcurrentCachingList<MyTuple<MyOrientedBoundingBoxD, Color>> DrawBoxes = new ConcurrentCachingList<MyTuple<MyOrientedBoundingBoxD, Color>>();
         internal readonly List<IMySlimBlock> HitBlocksSorted = new List<IMySlimBlock>();
-        internal readonly ConcurrentDictionary<int, ConcurrentCachingList<IMySlimBlock>> HitBlockLayers = new ConcurrentDictionary<int, ConcurrentCachingList<IMySlimBlock>>();
+        internal readonly List<Effects> ActiveEffects = new List<Effects>();
+        internal readonly List<Action<int, bool>> EventMonitors = new List<Action<int, bool>>();
+        internal readonly List<ulong> ReplicatedClients = new List<ulong>();
+
         internal readonly HashSet<IMySlimBlock> WorkSet = new HashSet<IMySlimBlock>();
+        internal readonly HashSet<Vector3I> PreviousPositions = new HashSet<Vector3I>();
 
         internal bool Enabled = true;
         internal bool Functional = true;
@@ -86,10 +84,8 @@ namespace ToolCore.Comp
         internal MyStringHash HitMaterial = MyStringHash.GetOrCompute("Metal");
 
         internal bool IsBlock;
-        internal bool HasEmitter;
         internal bool Draw;
 
-        internal int WorkTick;
         internal int CompTick10;
         internal int CompTick20;
         internal int CompTick60;
@@ -99,45 +95,91 @@ namespace ToolCore.Comp
 
         internal volatile int MaxLayer;
 
-        internal ToolComp(MyEntity tool, ToolDefinition def, ToolSession session)
-        {
-            Session = session;
+        private bool _activated;
 
-            Definition = def;
+        internal bool Activated
+        {
+            get { return _activated; }
+            set
+            {
+                if (_activated == value)
+                    return;
+
+                if (value && !(Functional && Powered && Enabled))
+                    return;
+
+                _activated = value;
+
+                UpdateAvState(Trigger.Activated, value);
+                if (!value)
+                {
+                    //WasHitting = false;
+                    UpdateHitInfo(false);
+                }
+            }
+        }
+
+        internal ActionDefinition Values
+        {
+            get
+            {
+                var action = GunBase.Shooting ? GunBase.GunAction : Action;
+                var modeData = ModeMap[Mode];
+                return modeData.Definition.ActionMap[action];
+            }
+        }
+
+        internal ModeSpecificData ModeData
+        {
+            get
+            {
+                return ModeMap[Mode];
+            }
+        }
+
+        internal ToolComp(MyEntity tool, List<ToolDefinition> defs)
+        {
             ToolEntity = tool;
             BlockTool = tool as IMyConveyorSorter;
             HandTool = tool as IMyHandheldGunObject<MyDeviceBase>;
             GunBase = new CoreGun(this);
 
-            if (Definition.EffectShape == EffectShape.Cuboid)
-                Obb = new MyOrientedBoundingBoxD();
-
-            var type = (int)Definition.ToolType;
-            Mode = type < 2 ? ToolMode.Drill : type < 4 ? ToolMode.Grind : ToolMode.Weld;
-
             var hasSound = false;
-            foreach (var pair in def.EventEffectDefs)
+            var debug = false;
+            foreach (var def in defs)
             {
-                var key = pair.Key;
-                var value = pair.Value;
+                var workTick = (int)(ToolEntity.EntityId % def.UpdateInterval);
+                var data = new ModeSpecificData(def, workTick);
 
-                Dictionary<ToolMode, Effects> effectMap;
-                if (!EventEffects.TryGetValue(key.Item1, out effectMap))
+                foreach (var mode in def.ToolModes)
                 {
-                    effectMap = new Dictionary<ToolMode, Effects>();
-                    EventEffects.Add(key.Item1, effectMap);
+                    ModeMap[mode] = data;
                 }
 
-                var effects = new Effects(value.Item1, value.Item2, value.Item3, value.Item4, this);
-                effectMap[key.Item2] = effects;
+                var effectsMap = data.EffectsMap;
+                foreach (var pair in def.EventEffectDefs)
+                {
+                    var trigger = pair.Key;
+                    var effectLists = pair.Value;
 
-                hasSound = value.Item3 != null;
+                    var effects = new Effects(effectLists.Item1, effectLists.Item2, effectLists.Item3, effectLists.Item4, this);
+                    effectsMap[trigger] = effects;
+
+                    hasSound |= effectLists.Item3 != null;
+                }
+
+                if (def.EffectShape == EffectShape.Cuboid)
+                    Obb = new MyOrientedBoundingBoxD();
+
+                debug |= def.Debug;
             }
 
             if (hasSound)
                 SoundEmitter = new MyEntity3DSoundEmitter(ToolEntity);
 
-            WorkTick = (int)(ToolEntity.EntityId % def.UpdateInterval);
+            Mode = ModeMap.Keys.FirstOrDefault();
+
+
             CompTick10 = (int)(ToolEntity.EntityId % 10);
             CompTick20 = (int)(ToolEntity.EntityId % 20);
             CompTick60 = (int)(ToolEntity.EntityId % 60);
@@ -157,7 +199,7 @@ namespace ToolCore.Comp
                 if (Inventory == null)
                     Logs.WriteLine("Hand tool owner inventory null on init");
 
-                Draw = def.Debug;
+                Draw = debug;
 
                 return;
             }
@@ -171,7 +213,25 @@ namespace ToolCore.Comp
 
             Enabled = BlockTool.Enabled;
             Functional = BlockTool.IsFunctional;
+        }
 
+        internal class ModeSpecificData
+        {
+            internal readonly ToolDefinition Definition;
+            internal readonly Dictionary<Trigger, Effects> EffectsMap = new Dictionary<Trigger, Effects>();
+
+            internal readonly int WorkTick;
+
+            internal IMyModelDummy Muzzle;
+            internal MyEntity MuzzlePart;
+
+            internal bool HasEmitter;
+
+            internal ModeSpecificData(ToolDefinition def, int workTick)
+            {
+                Definition = def;
+                WorkTick = workTick;
+            }
         }
 
         internal class ToolData : WorkData
@@ -227,39 +287,6 @@ namespace ToolCore.Comp
             }
         }
 
-        internal ActionDefinition Values
-        {
-            get
-            {
-                var action = GunBase.Shooting ? GunBase.GunAction : Action;
-                return Definition.ActionMap[action];
-            }
-        }
-
-        internal bool Activated
-        {
-            get { return _activated; }
-            set
-            {
-                if (_activated == value)
-                    return;
-
-                if (value && !(Functional && Powered && Enabled))
-                    return;
-
-                _activated = value;
-
-                UpdateAvState(Trigger.Activated, value);
-                if (!value)
-                {
-                    //WasHitting = false;
-                    UpdateHitInfo(false);
-                }
-            }
-        }
-
-        private bool _activated;
-
         internal enum ToolMode
         {
             Drill = 4,
@@ -305,9 +332,9 @@ namespace ToolCore.Comp
 
         internal void ReloadModels()
         {
-            foreach (var effectMap in EventEffects.Values)
+            foreach (var modeData in ModeMap.Values)
             {
-                foreach (var effect in effectMap.Values)
+                foreach (var effect in modeData.EffectsMap.Values)
                 {
                     if (effect.HasAnimations)
                     {
@@ -517,62 +544,118 @@ namespace ToolCore.Comp
             }
         }
 
-        internal void SetMode(ToolMode mode)
+        internal void SetMode(ToolMode newMode)
         {
-            var state = AvState;
-            //Logs.WriteLine($"SetMode() start {state} {mode}");
-            UpdateAvState(state, false, true);
-            Mode = mode;
-            UpdateAvState(state, true, true);
-            //Logs.WriteLine($"SetMode() end {state} {mode}");
-        }
+            var oldData = ModeMap[Mode];
+            var newData = ModeMap[newMode];
 
-        internal void UpdateAvState(Trigger state, bool add, bool force = false)
-        {
-            //Logs.WriteLine($"UpdateAvState() {state} {add} {force}");
+            Mode = newMode;
 
-            var keepFiring = !force && !add && (Activated || GunBase.Shooting) && (state & Trigger.Firing) > 0;
+            if (oldData == newData)
+                return;
 
-            foreach (var flag in Definition.Triggers)
+            foreach (var effects in oldData.EffectsMap.Values)
             {
-                //Logs.WriteLine($"Checking flag {flag}");
-                if ((add || force) && (flag & state) == 0)
+                effects.Expired = effects.Active;
+            }
+
+            foreach (var map in newData.EffectsMap)
+            {
+                var trigger = map.Key;
+                if ((trigger & AvState) == 0)
                     continue;
 
-                if (!force)
+                var effects = map.Value;
+                if (!effects.Active)
                 {
-                    if (keepFiring || flag < state)
-                        continue;
-
-                    //Logs.WriteLine($"Current state: {AvState}");
-
-                    if (add) AvState |= flag;
-                    else AvState &= ~flag;
-
-                    //Logs.WriteLine($"New state: {AvState}");
-
-                    foreach (var monitor in EventMonitors)
-                        monitor.Invoke((int)state, add);
+                    ActiveEffects.Add(effects);
+                    effects.Active = true;
+                    continue;
                 }
-                //Logs.WriteLine($"UpdateEffects() {flag} {add}");
+
+                if (effects.Expired)
+                {
+                    effects.Expired = false;
+                    effects.SoundStopped = false;
+                    effects.Restart = true;
+                }
+            }
+        }
+
+        internal void UpdateAvState(Trigger state, bool add)
+        {
+            //Logs.WriteLine($"UpdateAvState() {state} {add} {force}");
+            var data = ModeData;
+
+            var keepFiring = !add && (Activated || GunBase.Shooting) && (state & Trigger.Firing) > 0;
+
+            foreach (var flag in ToolSession.Instance.Triggers)
+            {
+                if (add && (flag & state) == 0)
+                    continue;
+
+                if (keepFiring || flag < state)
+                    continue;
+
+                if (add) State |= flag;
+                else State &= ~flag;
+
+                if ((flag & data.Definition.EventFlags) == 0)
+                    continue;
+
+                if (add) AvState |= flag;
+                else AvState &= ~flag;
+
+                foreach (var monitor in EventMonitors)
+                    monitor.Invoke((int)state, add);
+
                 UpdateEffects(flag, add);
 
-                if (!add && !force) // maybe remove this later :|
+                if (!add) // maybe remove this later :|
                 {
                     if (flag == Trigger.Hit) WasHitting = false;
                     if (flag == Trigger.RayHit) HitInfo.IsValid = false;
                 }
             }
+
+            //foreach (var flag in ModeData.Definition.Triggers)
+            //{
+            //    //Logs.WriteLine($"Checking flag {flag}");
+            //    if (add && (flag & state) == 0)
+            //        continue;
+
+            //    if (keepFiring || flag < state)
+            //        continue;
+
+            //    //Logs.WriteLine($"Current state: {AvState}");
+
+            //    if (add) AvState |= flag;
+            //    else AvState &= ~flag;
+
+            //    //Logs.WriteLine($"New state: {AvState}");
+
+            //    foreach (var monitor in EventMonitors)
+            //        monitor.Invoke((int)state, add);
+
+            //    //Logs.WriteLine($"UpdateEffects() {flag} {add}");
+            //    UpdateEffects(flag, add);
+
+            //    if (!add) // maybe remove this later :|
+            //    {
+            //        if (flag == Trigger.Hit) WasHitting = false;
+            //        if (flag == Trigger.RayHit) HitInfo.IsValid = false;
+            //    }
+            //}
         }
 
         internal void UpdateEffects(Trigger state, bool add)
         {
-            if (Session.IsDedicated) return; //TEMPORARY!!! or not?
+            if (ToolSession.Instance.IsDedicated) return; //TEMPORARY!!! or not?
 
-            Dictionary<ToolMode, Effects> effectMap;
             Effects effects;
-            if (!EventEffects.TryGetValue(state, out effectMap) || !effectMap.TryGetValue(Mode, out effects))
+            if (!ModeData.EffectsMap.TryGetValue(state, out effects))
                 return;
+
 
             if (!add)
             {
@@ -643,7 +726,7 @@ namespace ToolCore.Comp
             base.OnAddedToScene();
 
             if (!MyAPIGateway.Session.IsServer)
-                Session.Networking.SendPacketToServer(new ReplicationPacket { EntityId = ToolEntity.EntityId, Add = true, PacketType = (byte)PacketType.Replicate });
+                ToolSession.Instance.Networking.SendPacketToServer(new ReplicationPacket { EntityId = ToolEntity.EntityId, Add = true, PacketType = (byte)PacketType.Replicate });
         }
 
         public override void OnBeforeRemovedFromContainer()
@@ -658,7 +741,7 @@ namespace ToolCore.Comp
             if (ToolEntity.Storage == null || Repo == null) return false;
 
             Repo.Sync(this);
-            ToolEntity.Storage[Session.CompDataGuid] = Convert.ToBase64String(MyAPIGateway.Utilities.SerializeToBinary(Repo));
+            ToolEntity.Storage[ToolSession.Instance.CompDataGuid] = Convert.ToBase64String(MyAPIGateway.Utilities.SerializeToBinary(Repo));
 
             return false;
         }
@@ -678,18 +761,18 @@ namespace ToolCore.Comp
             if (!IsBlock || BlockTool.IsFunctional)
                 UpdateAvState(Trigger.Functional, true);
 
-            if (!Session.IsDedicated)
+            if (!ToolSession.Instance.IsDedicated)
                 GetShowInToolbarSwitch();
 
             if (!MyAPIGateway.Session.IsServer)
-                Session.Networking.SendPacketToServer(new ReplicationPacket { EntityId = ToolEntity.EntityId, Add = true, PacketType = (byte)PacketType.Replicate });
+                ToolSession.Instance.Networking.SendPacketToServer(new ReplicationPacket { EntityId = ToolEntity.EntityId, Add = true, PacketType = (byte)PacketType.Replicate });
         }
 
         private void SinkInit()
         {
             var sinkInfo = new MyResourceSinkInfo()
             {
-                MaxRequiredInput = Definition.ActivePower,
+                MaxRequiredInput = ModeData.Definition.ActivePower,
                 RequiredInputFunc = RequiredInput,
                 ResourceTypeId = MyResourceDistributorComponent.ElectricityId
             };
@@ -724,9 +807,9 @@ namespace ToolCore.Comp
                 return 0f;
 
             if (Activated || GunBase.WantsToShoot)
-                return Definition.ActivePower;
+                return ModeData.Definition.ActivePower;
 
-            return Definition.IdlePower;
+            return ModeData.Definition.IdlePower;
         }
 
         internal void SubpartsInit()
@@ -734,8 +817,9 @@ namespace ToolCore.Comp
             HashSet<IMyEntity> entities = new HashSet<IMyEntity>() { ToolEntity };
             ToolEntity.Hierarchy.GetChildrenRecursive(entities);
 
-            var noEmitter = string.IsNullOrEmpty(Definition.EmitterName);
             Dictionary<string, IMyModelDummy> dummies = new Dictionary<string, IMyModelDummy>();
+
+            var functional = !IsBlock || BlockTool.IsFunctional;
             foreach (var entity in entities)
             {
                 if (entity != ToolEntity)
@@ -744,27 +828,29 @@ namespace ToolCore.Comp
                 }
                 entity.NeedsWorldMatrix = true;
 
-                if (noEmitter)
-                    continue;
-
                 entity.Model.GetDummies(dummies);
 
-                foreach (var dummy in dummies)
+                foreach (var mode in ModeMap.Values)
                 {
-                    if (dummy.Key == Definition.EmitterName)
+                    var def = mode.Definition;
+                    foreach (var dummy in dummies)
                     {
-                        Muzzle = dummy.Value;
-                        MuzzlePart = (MyEntity)entity;
+                        if (dummy.Key != def.EmitterName)
+                            continue;
+
+                        mode.Muzzle = dummy.Value;
+                        mode.MuzzlePart = (MyEntity)entity;
+                        mode.HasEmitter = true;
+                        break;
                     }
+
+                    if (!mode.HasEmitter && functional && def.Location == Location.Emitter)
+                        def.Location = Location.Centre;
                 }
+
                 dummies.Clear();
             }
 
-            HasEmitter = Muzzle != null;
-
-            var functional = !IsBlock || BlockTool.IsFunctional;
-            if (functional && !HasEmitter && Definition.Location == Location.Emitter)
-                Definition.Location = Location.Centre;
 
             Dirty = false;
         }
@@ -777,7 +863,7 @@ namespace ToolCore.Comp
             {
                 ToolEntity.Storage = new MyModStorageComponent();
             }
-            else if (ToolEntity.Storage.TryGetValue(Session.CompDataGuid, out rawData))
+            else if (ToolEntity.Storage.TryGetValue(ToolSession.Instance.CompDataGuid, out rawData))
             {
                 try
                 {
@@ -812,7 +898,8 @@ namespace ToolCore.Comp
 
         internal void OnDrillComplete(WorkData data)
         {
-            Session.DsUtil.Start("notify");
+            var session = ToolSession.Instance;
+            session.DsUtil.Start("notify");
             var drillData = (DrillData)data;
             var storageDatas = drillData.StorageDatas;
             if (drillData?.Voxel?.Storage == null)
@@ -826,9 +913,9 @@ namespace ToolCore.Comp
             }
 
             drillData.Clean();
-            Session.DrillDataPool.Push(drillData);
+            session.DrillDataPool.Push(drillData);
 
-            Session.DsUtil.Complete("notify", true);
+            session.DsUtil.Complete("notify", true);
 
             ActiveThreads--;
             if (ActiveThreads > 0) return;
@@ -839,14 +926,14 @@ namespace ToolCore.Comp
                 UpdateAvState(Trigger.Hit, isHitting);
                 WasHitting = isHitting;
 
-                if (Definition.Debug && !isHitting)
+                if (ModeData.Definition.Debug && !isHitting)
                 {
-                    Logs.WriteLine("read: " + Session.DsUtil.GetValue("read").ToString());
-                    Logs.WriteLine("sort: " + Session.DsUtil.GetValue("sort").ToString());
-                    Logs.WriteLine("calc: " + Session.DsUtil.GetValue("calc").ToString());
-                    Logs.WriteLine("write: " + Session.DsUtil.GetValue("write").ToString());
-                    Logs.WriteLine("notify: " + Session.DsUtil.GetValue("notify").ToString());
-                    Session.DsUtil.Clean();
+                    Logs.WriteLine("read: " + session.DsUtil.GetValue("read").ToString());
+                    Logs.WriteLine("sort: " + session.DsUtil.GetValue("sort").ToString());
+                    Logs.WriteLine("calc: " + session.DsUtil.GetValue("calc").ToString());
+                    Logs.WriteLine("write: " + session.DsUtil.GetValue("write").ToString());
+                    Logs.WriteLine("notify: " + session.DsUtil.GetValue("notify").ToString());
+                    session.DsUtil.Clean();
                 }
             }
             Working = false;
@@ -926,7 +1013,7 @@ namespace ToolCore.Comp
         internal void Close()
         {
             if (!MyAPIGateway.Session.IsServer)
-                Session.Networking.SendPacketToServer(new ReplicationPacket { EntityId = ToolEntity.EntityId, Add = false, PacketType = (byte)PacketType.Replicate });
+                ToolSession.Instance.Networking.SendPacketToServer(new ReplicationPacket { EntityId = ToolEntity.EntityId, Add = false, PacketType = (byte)PacketType.Replicate });
 
             Clean();
 
@@ -938,7 +1025,7 @@ namespace ToolCore.Comp
                 return;
             }
 
-            Session.HandTools.Remove(this);
+            ToolSession.Instance.HandTools.Remove(this);
         }
 
         internal void Clean()

@@ -39,7 +39,7 @@ namespace ToolCore.Session
 
         internal readonly FastLookupCachingList<IMySlimBlock> SlimList = new FastLookupCachingList<IMySlimBlock>();
 
-        internal readonly Dictionary<SerializableDefinitionId, ToolDefinition> DefinitionMap = new Dictionary<SerializableDefinitionId, ToolDefinition>();
+        internal readonly Dictionary<SerializableDefinitionId, List<ToolDefinition>> DefinitionMap = new Dictionary<SerializableDefinitionId, List<ToolDefinition>>();
         internal readonly Dictionary<string, Dictionary<MyStringHash, string>> ParticleMap = new Dictionary<string, Dictionary<MyStringHash, string>>();
         internal readonly Dictionary<string, Dictionary<MyStringHash, MySoundPair>> SoundMap = new Dictionary<string, Dictionary<MyStringHash, MySoundPair>>();
         internal readonly Dictionary<MyVoxelMaterialDefinition, float> MaterialModifiers = new Dictionary<MyVoxelMaterialDefinition, float>();
@@ -50,6 +50,7 @@ namespace ToolCore.Session
         internal readonly ConcurrentDictionary<IMyCubeGrid, GridComp> GridMap = new ConcurrentDictionary<IMyCubeGrid, GridComp>();
         internal readonly ConcurrentDictionary<long, IMyPlayer> PlayerMap = new ConcurrentDictionary<long, IMyPlayer>();
 
+        internal readonly List<Trigger> Triggers = new List<Trigger>((Trigger[])Enum.GetValues(typeof(Trigger)));
         internal readonly List<ToolComp> HandTools = new List<ToolComp>();
         internal readonly List<GridComp> GridList = new List<GridComp>();
         internal readonly ConcurrentCachingList<ToolComp> AvComps = new ConcurrentCachingList<ToolComp>();
@@ -90,6 +91,8 @@ namespace ToolCore.Session
             Networking = new Networking(this);
             API = new APIBackend(this);
             APIServer = new APIServer(this);
+
+            Triggers = new List<Trigger>((Trigger[])Enum.GetValues(typeof(Trigger)));
         }
 
         private void Clean()

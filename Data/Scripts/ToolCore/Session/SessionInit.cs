@@ -58,9 +58,12 @@ namespace ToolCore.Session
             BlockLimits.Update(Session.SessionSettings, serialisedSettings);
             LoadVoxelMaterials();
 
-            foreach (var def in DefinitionMap.Values)
+            foreach (var toolSet in DefinitionMap.Values)
             {
-                def.DefineMaterialModifiers(this);
+                foreach (var def in toolSet)
+                {
+                    def.DefineMaterialModifiers(this);
+                }
             }
 
             MaterialCategoryMap.Clear();
@@ -189,15 +192,23 @@ namespace ToolCore.Session
             for (int i = 0; i < definitions.Length; i++)
             {
                 var definition = definitions[i];
-                if (definition.ToolValues == null) continue;
+                var values = definition.ToolValues;
+                if (values == null || values.Length == 0) continue;
 
-                var toolDef = new ToolDefinition(definition.ToolValues, this);
-                DefinitionMap[definition.Id] = toolDef;
+                var toolDefs = new List<ToolDefinition>();
+                DefinitionMap[definition.Id] = toolDefs;
 
-                if (definition.Id.TypeId == sorterType)
-                    continue;
+                for (int j = 0;  j < values.Length; j++)
+                {
+                    var toolDef = new ToolDefinition(values[j], this);
+                    toolDefs.Add(toolDef);
 
-                ModifyHandToolDefinition(definition.Id);
+                    if (definition.Id.TypeId == sorterType)
+                        continue;
+
+                    ModifyHandToolDefinition(definition.Id);
+                }
+
             }
         }
 

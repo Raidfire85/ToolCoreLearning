@@ -16,6 +16,7 @@ using ParallelTasks;
 using VRage.ModAPI;
 using System.Collections.Concurrent;
 using VRage.Collections;
+using ToolCore.Session;
 
 namespace ToolCore
 {
@@ -45,8 +46,9 @@ namespace ToolCore
         {
             try
             {
-                var session = comp.Session;
-                var def = comp.Definition;
+                var session = ToolSession.Instance;
+                var modeData = comp.ModeData;
+                var def = modeData.Definition;
                 var drillData = (DrillData)workData;
                 var toolValues = comp.Values;
                 var forward = drillData.Direction;
@@ -220,7 +222,7 @@ namespace ToolCore
                             }
 
                             harvestRatio *= toolValues.HarvestRatio;
-                            if (harvestRatio > 0 && comp.Session.IsServer && validVoxel && voxelDef.CanBeHarvested && !string.IsNullOrEmpty(voxelDef.MinedOre))
+                            if (harvestRatio > 0 && session.IsServer && validVoxel && voxelDef.CanBeHarvested && !string.IsNullOrEmpty(voxelDef.MinedOre))
                             {
                                 var oreOb = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>(voxelDef.MinedOre);
                                 oreOb.MaterialTypeName = voxelDef.Id.SubtypeId;
@@ -258,8 +260,9 @@ namespace ToolCore
 
         internal static void DrillCylinder(this ToolComp comp, WorkData workData)
         {
-            var session = comp.Session;
-            var def = comp.Definition;
+            var session = ToolSession.Instance;
+            var modeData = comp.ModeData;
+            var def = modeData.Definition;
             var toolValues = comp.Values;
             var drillData = (DrillData)workData;
 
@@ -420,7 +423,7 @@ namespace ToolCore
                         foundContent |= removal > 0;
 
                         harvestRatio *= toolValues.HarvestRatio;
-                        if (harvestRatio > 0 && comp.Session.IsServer && validVoxel && voxelDef.CanBeHarvested && !string.IsNullOrEmpty(voxelDef.MinedOre))
+                        if (harvestRatio > 0 && session.IsServer && validVoxel && voxelDef.CanBeHarvested && !string.IsNullOrEmpty(voxelDef.MinedOre))
                         {
                             var oreOb = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>(voxelDef.MinedOre);
                             oreOb.MaterialTypeName = voxelDef.Id.SubtypeId;
@@ -458,11 +461,12 @@ namespace ToolCore
 
         internal static void DrillLine(this ToolComp comp, WorkData workData)
         {
-            var session = comp.Session;
+            var session = ToolSession.Instance;
+            var modeData = comp.ModeData;
+            var def = modeData.Definition;
 
             session.DsUtil2.Start("total");
             var drillData = (DrillData)workData;
-            var def = comp.Definition;
             var toolValues = comp.Values;
             var origin = drillData.Origin;
             var worldForward = drillData.Direction;
@@ -661,7 +665,7 @@ namespace ToolCore
                             }
 
                             harvestRatio *= toolValues.HarvestRatio;
-                            if (harvestRatio > 0 && comp.Session.IsServer && validVoxel && voxelDef.CanBeHarvested && !string.IsNullOrEmpty(voxelDef.MinedOre))
+                            if (harvestRatio > 0 && session.IsServer && validVoxel && voxelDef.CanBeHarvested && !string.IsNullOrEmpty(voxelDef.MinedOre))
                             {
                                 var oreOb = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>(voxelDef.MinedOre);
                                 oreOb.MaterialTypeName = voxelDef.Id.SubtypeId;
@@ -699,8 +703,9 @@ namespace ToolCore
         {
             try
             {
-                var session = comp.Session;
-                var def = comp.Definition;
+                var session = ToolSession.Instance;
+                var modeData = comp.ModeData;
+                var def = modeData.Definition;
                 var drillData = (DrillData)workData;
                 var toolValues = comp.Values;
                 var forward = drillData.Direction;
@@ -872,7 +877,7 @@ namespace ToolCore
                             }
 
                             harvestRatio *= toolValues.HarvestRatio;
-                            if (harvestRatio > 0 && comp.Session.IsServer && validVoxel && voxelDef.CanBeHarvested && !string.IsNullOrEmpty(voxelDef.MinedOre))
+                            if (harvestRatio > 0 && session.IsServer && validVoxel && voxelDef.CanBeHarvested && !string.IsNullOrEmpty(voxelDef.MinedOre))
                             {
                                 var oreOb = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>(voxelDef.MinedOre);
                                 oreOb.MaterialTypeName = voxelDef.Id.SubtypeId;

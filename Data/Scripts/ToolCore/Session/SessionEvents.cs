@@ -22,12 +22,16 @@ namespace ToolCore.Session
             if (grid != null)
             {
                 grid.AddedToScene += addToStart => _startGrids.Add(grid);
-                grid.OnBlockAdded += slim => SlimList.Add(slim);
-                grid.OnBlockClosed += slim => SlimList.Remove(slim);
+
+                if (BlockLimits.TrackPCU)
+                {
+                    grid.OnBlockAdded += slim => SlimList.Add(slim);
+                    grid.OnBlockClosed += slim => SlimList.Remove(slim);
+                }
                 return;
             }
 
-            if (entity is MyCubeBlock)
+            if (BlockLimits.TrackPCU && entity is MyCubeBlock)
             {
                 var block = entity as MyCubeBlock;
                 SlimList.Add(block.SlimBlock);
