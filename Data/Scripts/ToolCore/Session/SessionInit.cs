@@ -87,7 +87,7 @@ namespace ToolCore.Session
 
         internal void LoadVoxelMaterial(MyVoxelMaterialDefinition def)
         {
-            var materialName = def.MaterialTypeName;
+            var materialName = string.IsNullOrEmpty(def.MaterialTypeName) ? "Rock" : def.MaterialTypeName;
             var categories = Settings.CategoryModifiers;
 
             //var restitution = def.Restitution;
@@ -97,7 +97,7 @@ namespace ToolCore.Session
             //    return;
             //}
 
-            var isOre = !def.MinedOre.Equals("Stone") && !def.MinedOre.Equals("Ice");
+            var isOre = !string.IsNullOrEmpty(def.MinedOre) && !def.MinedOre.Equals("Stone") && !def.MinedOre.Equals("Ice");
             float hardness;
             if (isOre && categories.TryGetValue("Ore", out hardness))
             {
