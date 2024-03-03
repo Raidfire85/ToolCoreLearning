@@ -57,7 +57,7 @@ namespace ToolCore.Comp
 
         internal readonly ConcurrentDictionary<int, ConcurrentCachingList<IMySlimBlock>> HitBlockLayers = new ConcurrentDictionary<int, ConcurrentCachingList<IMySlimBlock>>();
         internal readonly ConcurrentDictionary<MyObjectBuilder_Ore, float> Yields = new ConcurrentDictionary<MyObjectBuilder_Ore, float>();
-        internal readonly Dictionary<MyCubeGrid, Vector3I> ClientNewBuildWorkSet = new Dictionary<MyCubeGrid, Vector3I>();
+        internal readonly Dictionary<MyCubeGrid, Vector3I> ClientWorkSet = new Dictionary<MyCubeGrid, Vector3I>();
 
         internal readonly Dictionary<ToolMode, ModeSpecificData> ModeMap = new Dictionary<ToolMode, ModeSpecificData>();
 
@@ -66,8 +66,8 @@ namespace ToolCore.Comp
         internal readonly List<Effects> ActiveEffects = new List<Effects>();
         internal readonly List<Action<int, bool>> EventMonitors = new List<Action<int, bool>>();
         internal readonly List<ulong> ReplicatedClients = new List<ulong>();
+        internal readonly List<IMySlimBlock> WorkSet = new List<IMySlimBlock>();
 
-        internal readonly HashSet<IMySlimBlock> WorkSet = new HashSet<IMySlimBlock>();
         internal readonly HashSet<Vector3I> PreviousPositions = new HashSet<Vector3I>();
 
         internal bool Enabled = true;

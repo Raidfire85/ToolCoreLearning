@@ -311,10 +311,39 @@ namespace ToolCore.Session
 
             comp.DrawBoxes.ClearList();
 
-            if (def.CacheBlocks && comp.Mode != ToolComp.ToolMode.Drill && comp.WorkSet.Count == def.Rate)
+            if (def.CacheBlocks && comp.Mode != ToolComp.ToolMode.Drill)
             {
-                comp.OnGetBlocksComplete(null);
-                return;
+                if (!IsServer)
+                {
+                    foreach (var item in comp.ClientWorkSet)
+                    {
+                        MyCube cube;
+                        if (!item.Key.TryGetCube(item.Value, out cube))
+                            continue;
+
+                        var slim = (IMySlimBlock)cube.CubeBlock;
+                        comp.WorkSet.Add(slim);
+                    }
+                }
+
+                for (int s = comp.WorkSet.Count - 1; s >= 0; s--)
+                {
+                    var slim = comp.WorkSet[s];
+                    var fatClose = slim?.FatBlock == null ? false : slim.FatBlock.MarkedForClose || slim.FatBlock.Closed;
+                    var gridClose = slim?.CubeGrid == null || slim.CubeGrid.MarkedForClose || slim.CubeGrid.Closed;
+                    var skip = slim == null || slim.IsFullyDismounted || comp.Mode == ToolComp.ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation;
+                    if (fatClose || gridClose || skip)
+                    {
+                        comp.WorkSet.RemoveAt(s);
+                        continue;
+                    }
+                }
+
+                if (comp.WorkSet.Count == def.Rate)
+                {
+                    comp.OnGetBlocksComplete(null);
+                    return;
+                }
             }
 
             var line = false;

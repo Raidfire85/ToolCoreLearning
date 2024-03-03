@@ -368,15 +368,27 @@ namespace ToolCore
                     toolData.Clean();
                     ToolSession.Instance.ToolDataPool.Push(toolData);
                     comp.ActiveThreads--;
+
+                    if (comp.ActiveThreads != 0)
+                        return;
+
+                    for (int s = comp.WorkSet.Count - 1; s >= 0; s--)
+                    {
+                        var slim = comp.WorkSet[s];
+                        var fatClose = slim?.FatBlock == null ? false : slim.FatBlock.MarkedForClose || slim.FatBlock.Closed;
+                        var gridClose = slim?.CubeGrid == null || slim.CubeGrid.MarkedForClose || slim.CubeGrid.Closed;
+                        var skip = slim == null || slim.IsFullyDismounted || comp.Mode == ToolComp.ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation;
+                        if (fatClose || gridClose || skip)
+                        {
+                            comp.WorkSet.RemoveAt(s);
+                            continue;
+                        }
+                    }
                 }
-                
-                if (comp.ActiveThreads != 0)
-                    return;
 
                 var modeData = comp.ModeData;
                 var def = modeData.Definition;
                 var workSet = comp.WorkSet;
-                //var blocks = new Dictionary<IMySlimBlock, float>(comp.HitBlocks);
                 var layers = comp.HitBlockLayers;
                 var sortedBlocks = comp.HitBlocksSorted;
                 if (layers.Count == 0 && workSet.Count == 0)
@@ -483,11 +495,17 @@ namespace ToolCore
 
                 comp.Working = true;
 
-                MyCubeBlockDefinition.PreloadConstructionModels((MyCubeBlockDefinition)slim.BlockDefinition);
+                var cubeDef = (MyCubeBlockDefinition)slim.BlockDefinition;
+                MyCubeBlockDefinition.PreloadConstructionModels(cubeDef);
 
 
                 if (!ToolSession.Instance.IsServer)
                 {
+                    var integrityChange = grindAmount * cubeDef.IntegrityPointsPerSec / cubeDef.DisassembleRatio;
+                    if (def.CacheBlocks && slim.Integrity > integrityChange)
+                    {
+                        comp.ClientWorkSet.Add((MyCubeGrid)slim.CubeGrid, slim.Position);
+                    }
                     continue;
                 }
 
@@ -566,13 +584,6 @@ namespace ToolCore
                 if (!MyAPIGateway.Session.CreativeMode && ToolSession.Instance.MissingComponents.Count > 0 && !comp.TryPullComponents())
                     continue;
 
-                if (!ToolSession.Instance.IsServer)
-                {
-
-
-                    continue;
-                }
-
                 if (projector != null)
                 {
                     if (projector.CanBuild(slim, true) != BuildCheckResult.OK)
@@ -584,6 +595,12 @@ namespace ToolCore
                         {
                             comp.Working = true;
                             validBlocks++;
+
+                            if (def.CacheBlocks)
+                            {
+                                var slimPos = projector.CubeGrid.WorldToGridInteger(slim.CubeGrid.GridIntegerToWorld(slim.Position));
+                                comp.ClientWorkSet.Add((MyCubeGrid)projector.CubeGrid, slimPos);
+                            }
                         }
                         continue;
                     }
@@ -613,6 +630,11 @@ namespace ToolCore
                 {
                     comp.Working = true;
                     validBlocks++;
+
+                    var integrityChange = weldAmount * blockDef.IntegrityPointsPerSec;
+                    if (def.CacheBlocks && integrityChange < slim.MaxIntegrity - slim.Integrity)
+                        comp.ClientWorkSet.Add(grid, slim.Position);
+
                     continue;
                 }
 
@@ -759,6 +781,12 @@ namespace ToolCore
                             {
                                 comp.Working = true;
                                 validBlocks++;
+
+                                if (def.CacheBlocks)
+                                {
+                                    var slimPos = projector.CubeGrid.WorldToGridInteger(slim.CubeGrid.GridIntegerToWorld(slim.Position));
+                                    comp.ClientWorkSet.Add((MyCubeGrid)projector.CubeGrid, slimPos);
+                                }
                             }
                             continue;
                         }
@@ -788,9 +816,14 @@ namespace ToolCore
                     {
                         comp.Working = true;
                         validBlocks++;
+
+                        var integrityChange = weldAmount * cubeDef.IntegrityPointsPerSec;
+                        if (def.CacheBlocks && integrityChange < slim.MaxIntegrity - slim.Integrity)
+                            comp.ClientWorkSet.Add(grid, slim.Position);
+
                         continue;
                     }
-
+                    
                     //if (welder != null)
                     //{
                     //    if (slim.WillBecomeFunctional(weldAmount) && !welder.IsWithinWorldLimits(gridComp.Projector, "", cubeDef.PCU - 1))

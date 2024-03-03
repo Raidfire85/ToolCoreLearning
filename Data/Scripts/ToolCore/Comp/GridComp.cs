@@ -39,8 +39,8 @@ namespace ToolCore.Comp
             CompTick20 = Grid.EntityId % 20;
             CompTick60 = Grid.EntityId % 60;
 
-            Grid.OnBlockAdded += BlockAdded;
-            Grid.OnBlockClosed += BlockClosed;
+            //Grid.OnBlockAdded += BlockAdded;
+            //Grid.OnBlockClosed += BlockClosed;
 
             Grid.OnFatBlockAdded += FatBlockAdded;
             Grid.OnFatBlockRemoved += FatBlockRemoved;
@@ -98,13 +98,11 @@ namespace ToolCore.Comp
         private void BlockAdded(IMySlimBlock slim)
         {
             //Dirty = true;
-            //Session.SlimList.Add(slim);
         }
 
         private void BlockClosed(IMySlimBlock slim)
         {
             //Dirty = true;
-            //Session.SlimList.Remove(slim);
         }
 
     }
