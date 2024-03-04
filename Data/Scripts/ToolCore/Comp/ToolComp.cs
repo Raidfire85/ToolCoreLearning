@@ -258,12 +258,21 @@ namespace ToolCore.Comp
             internal float Distance2;
             internal bool Contained;
             internal Vector3D Position;
+            internal StorageInfo StorageInfo;
 
             public PositionData(int index, float distance, float distance2 = 0f)
             {
                 Index = index;
                 Distance = distance;
                 Distance2 = distance2;
+            }
+
+            public PositionData(int index, float distance, float distance2, StorageInfo info)
+            {
+                Index = index;
+                Distance = distance;
+                Distance2 = distance2;
+                StorageInfo = info;
             }
 
             public PositionData(int index, float distance, Vector3D position, bool contained)
@@ -279,6 +288,7 @@ namespace ToolCore.Comp
         {
             internal Vector3I Min;
             internal Vector3I Max;
+            internal bool Dirty;
 
             public StorageInfo(Vector3I min, Vector3I max)
             {
@@ -909,6 +919,9 @@ namespace ToolCore.Comp
             for (int i = storageDatas.Count - 1; i >= 0; i--)
             {
                 var info = storageDatas[i];
+                if (!info.Dirty)
+                    continue;
+
                 drillData?.Voxel?.Storage?.NotifyRangeChanged(ref info.Min, ref info.Max, MyStorageDataTypeFlags.ContentAndMaterial);
             }
 

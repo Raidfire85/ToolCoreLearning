@@ -513,6 +513,7 @@ namespace ToolCore
                     var min = Vector3I.Max(minExtent, Vector3I.Zero);
                     var max = Vector3I.Min(maxExtent, size);
 
+                    StorageInfo info = null;
                     var data = new MyStorageData();
                     data.Resize(min, max);
                     voxel.Storage.ReadRange(data, MyStorageDataTypeFlags.ContentAndMaterial, 0, min, max);
@@ -552,7 +553,12 @@ namespace ToolCore
                                 var axialDist = axialDistSqr > (centreLenMinus * centreLenMinus) ? centreLen + 0.5f - (float)Math.Sqrt(axialDistSqr) : 1f;
                                 var radialDist = radialDistSqr > radiusMinusSqr ? radius + 0.5f - (float)Math.Sqrt(radialDistSqr) : 1f;
 
-                                foundContent = true;
+                                if (!foundContent)
+                                {
+                                    info = new StorageInfo(min, max);
+                                    drillData.StorageDatas.Add(info);
+                                    foundContent = true;
+                                }
                                 var dist = 0f;
                                 switch (def.Pattern)
                                 {
@@ -572,7 +578,7 @@ namespace ToolCore
                                         break;
                                 }
 
-                                var posData = new PositionData(index, axialDist, radialDist);
+                                var posData = new PositionData(index, axialDist, radialDist, info);
 
                                 var roundDist = MathHelper.RoundToInt(dist);
                                 if (roundDist > maxLayer) maxLayer = roundDist;
@@ -597,8 +603,6 @@ namespace ToolCore
                             }
                         }
                     }
-                    if (foundContent)
-                        drillData.StorageDatas.Add(new StorageInfo(min, max));
 
                     session.DsUtil.Complete("sort", true, true);
 
@@ -655,10 +659,15 @@ namespace ToolCore
                                 removal = Math.Min(removal, excess);
                             }
 
+                            if (removal <= 0)
+                                continue;
+
+                            posData.StorageInfo.Dirty = true;
+
                             var effectiveContent = MathHelper.FloorToInt(removal * hardness);
                             maxContent = Math.Max(maxContent, effectiveContent);
 
-                            if (!hit && removal > 0)
+                            if (!hit)
                             {
                                 hit = true;
                                 comp.Working = true;
