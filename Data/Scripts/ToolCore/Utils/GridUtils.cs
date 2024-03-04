@@ -642,7 +642,7 @@ namespace ToolCore
                         continue;
                     }
 
-                    if (!slim.CanContinueBuild(inventory))
+                    if (!slim.IsFullIntegrity && !slim.CanContinueBuild(inventory))
                     {
                         if (def.Debug) comp.DebugDrawBlock(slim, Color.Blue);
                         continue;
@@ -898,7 +898,7 @@ namespace ToolCore
                         continue;
                     }
 
-                    if (!slim.CanContinueBuild(inventory))
+                    if (!slim.IsFullIntegrity && !slim.CanContinueBuild(inventory))
                     {
                         if (def.Debug) comp.DebugDrawBlock(slim, Color.Blue);
                         continue;
