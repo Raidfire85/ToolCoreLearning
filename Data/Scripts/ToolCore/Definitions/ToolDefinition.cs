@@ -19,47 +19,75 @@ namespace ToolCore.Definitions
     {
         internal readonly ToolType ToolType;
         internal readonly EffectShape EffectShape;
-        internal WorkOrder Pattern;
+        internal readonly Trigger EventFlags;
+        internal readonly WorkOrder Pattern;
         internal Location Location;
+        internal readonly string EmitterName;
+        internal readonly int Rate;
+        internal readonly int UpdateInterval;
+        internal readonly float ActivePower;
+        internal readonly float IdlePower;
+        internal readonly bool DamageCharacters;
+        internal readonly bool AffectOwnGrid;
+        internal readonly bool CacheBlocks;
+        internal readonly bool Debug;
+        internal readonly bool IsTurret;
+
+        internal readonly TurretDefinition Turret;
+
         internal Vector3D Offset;
-        internal string EmitterName;
-        internal int Rate;
-        internal int UpdateInterval;
-        internal float ActivePower;
-        internal float IdlePower;
-        internal bool Turret;
-        internal bool DamageCharacters;
-        internal bool AffectOwnGrid;
-        internal bool CacheBlocks;
-        internal bool Debug;
-        internal bool HasMaterialModifiers;
-
-        //Shape dimensions
-        //internal Vector3D HalfExtent;
-        //internal float Radius;
-        //internal float Length;
-
-        //BoundingSphere Dimensions
-        //internal float SegmentLength;
-        //internal float BoundingRadius;
-
-        //internal float Speed;
-        //internal float HarvestRatio;
-
         internal BoundingSphereD EffectSphere;
         internal BoundingBox EffectBox;
+
+        internal bool HasMaterialModifiers;
 
         internal readonly List<ToolMode> ToolModes = new List<ToolMode>();
         internal readonly List<ToolAction> ToolActions = new List<ToolAction>();
         internal readonly Dictionary<ToolAction, ActionDefinition> ActionMap = new Dictionary<ToolAction, ActionDefinition>();
         internal readonly List<List<Vector3I>> Layers = new List<List<Vector3I>>();
 
-        internal readonly Trigger EventFlags;
         internal readonly List<Trigger> Triggers = new List<Trigger>();
         internal readonly Dictionary<Trigger, MyTuple<List<AnimationDef>, List<ParticleEffectDef>, List<BeamDef>, SoundDef>> EventEffectDefs = new Dictionary<Trigger, MyTuple<List<AnimationDef>, List<ParticleEffectDef>, List<BeamDef>, SoundDef>>();
         internal readonly Dictionary<MyVoxelMaterialDefinition, MaterialModifierDefinition> MaterialModifiers = new Dictionary<MyVoxelMaterialDefinition, MaterialModifierDefinition>();
 
         private MaterialModifiers[] _tempModifiers;
+
+        internal class TurretDefinition
+        {
+            internal readonly List<TurretPartDef> Subparts = new List<TurretPartDef>();
+
+            internal TurretDefinition(TurretValues values)
+            {
+                for (int i = 0; i < values.Subparts.Length; i++)
+                {
+                    var partValues = values.Subparts[i];
+                    if (string.IsNullOrEmpty(partValues.Name))
+                        continue;
+
+                    var part = new TurretPartDef(partValues);
+                    Subparts.Add(part);
+                }
+            }
+
+            internal class TurretPartDef
+            {
+                internal readonly string Name;
+                internal readonly float RotationSpeed;
+                internal readonly int MinRotation;
+                internal readonly int MaxRotation;
+                internal readonly bool RotationCapped;
+
+                internal TurretPartDef(SubpartValues values)
+                {
+                    Name = values.Name;
+                    RotationSpeed = values.RotationSpeed;
+                    MinRotation = values.MinRotation;
+                    MaxRotation = values.MaxRotation;
+                    var range = MaxRotation - MinRotation;
+                    RotationCapped = range == 0 || range == 360;
+                }
+            }
+        }
 
         internal class MaterialModifierDefinition
         {
@@ -260,12 +288,22 @@ namespace ToolCore.Definitions
             AffectOwnGrid = values.AffectOwnGrid;
             Debug = !session.IsDedicated && values.Debug;
 
-
+            IsTurret = DefineTurret(values.Turret, out Turret);
             DefineParameters(values, session);
             _tempModifiers = values.MaterialSpecificModifiers;
 
             EventFlags = DefineEvents(values.Events, session, values.Length);
 
+        }
+
+        private bool DefineTurret(TurretValues values, out TurretDefinition def)
+        {
+            def = null;
+            if (values == null || values.Subparts.Length == 0)
+                return false;
+
+            def = new TurretDefinition(values);
+            return true;
         }
 
         private void DefineParameters(ToolValues values, ToolSession session)

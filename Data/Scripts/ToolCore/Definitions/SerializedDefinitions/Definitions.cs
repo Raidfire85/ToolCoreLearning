@@ -42,8 +42,9 @@ namespace ToolCore.Definitions.Serialised
         public bool DamageCharacters = true;
         public bool AffectOwnGrid = false;
         public bool CacheBlocks = false;
-        //public bool Turret = false;
         public bool Debug = false;
+
+        public TurretValues Turret;
 
         [XmlElement("Action")]
         public ActionValues[] Actions;
@@ -54,6 +55,97 @@ namespace ToolCore.Definitions.Serialised
         [XmlArrayItem("Material")]
         public MaterialModifiers[] MaterialSpecificModifiers;
     }
+
+    public class ActionValues
+    {
+        [XmlAttribute]
+        public ActionType Type = ActionType.Primary;
+        [XmlAttribute]
+        public float SizeRatio = 1f;
+        [XmlAttribute]
+        public float SpeedRatio = 1f;
+        [XmlAttribute]
+        public float HarvestRatio = 1f;
+    }
+
+    public class Event
+    {
+        [XmlAttribute]
+        public Trigger Trigger;
+        [XmlElement("Animation")]
+        public Animation[] Animations;
+        [XmlElement("ParticleEffect")]
+        public ParticleEffect[] ParticleEffects;
+        [XmlElement("Beam")]
+        public Beam[] Beams;
+        public Sound Sound;
+
+    }
+
+    public class Animation
+    {
+        public string Subpart;
+        public AnimationType Type;
+        public SerializableVector3 Direction = Vector3.Zero;
+        public float Speed = 1f; //(degrees/metres) per second
+        public int Duration = 0; //ticks
+        public int WindupTime = 0; //ticks
+    }
+
+    public class ParticleEffect
+    {
+        public string Name;
+        public Location Location;
+        public string Dummy;
+        public SerializableVector3 Offset = Vector3.Zero;
+        public bool Loop; //deprecate?
+    }
+
+    public class Beam
+    {
+        public string Start;
+        public string End;
+        public Location EndLocation;
+        public string Material = "WeaponLaser";
+        public float Width = 0.5f;
+        public float Length = 0f;
+        public Vector4 Color = new Vector4(25, 25, 25, 1);
+    }
+
+    public class Sound
+    {
+        public string Name;
+    }
+
+    public class MaterialModifiers
+    {
+        [XmlAttribute]
+        public string Category;
+        [XmlAttribute]
+        public string Subtype;
+        [XmlAttribute]
+        public float SpeedRatio = 1f;
+        [XmlAttribute]
+        public float HarvestRatio = 1f;
+    }
+
+    public class TurretValues
+    {
+        [XmlElement("Subpart")]
+        public SubpartValues[] Subparts;
+    }
+
+    public class SubpartValues
+    {
+        public string Name;
+        public float RotationSpeed = 0.5f;
+        public int MinRotation;
+        public int MaxRotation;
+    }
+
+    #endregion
+
+    #region enums
 
     [Flags]
     public enum ToolType
@@ -95,37 +187,11 @@ namespace ToolCore.Definitions.Serialised
         Parent = 4,
     }
 
-    public class ActionValues
-    {
-        [XmlAttribute]
-        public ActionType Type = ActionType.Primary;
-        [XmlAttribute]
-        public float SizeRatio = 1f;
-        [XmlAttribute]
-        public float SpeedRatio = 1f;
-        [XmlAttribute]
-        public float HarvestRatio = 1f;
-    }
-
     public enum ActionType
     {
         Primary = 0,
         Secondary = 1,
         Tertiary = 2,
-    }
-
-    public class Event
-    {
-        [XmlAttribute]
-        public Trigger Trigger;
-        [XmlElement("Animation")]
-        public Animation[] Animations;
-        [XmlElement("ParticleEffect")]
-        public ParticleEffect[] ParticleEffects;
-        [XmlElement("Beam")]
-        public Beam[] Beams;
-        public Sound Sound;
-
     }
 
     [Flags]
@@ -144,59 +210,12 @@ namespace ToolCore.Definitions.Serialised
         RayHit = 128,
     }
 
-    public class Animation
-    {
-        public string Subpart;
-        public AnimationType Type;
-        public SerializableVector3 Direction = Vector3.Zero;
-        public float Speed = 1f; //(degrees/metres) per second
-        public int Duration = 0; //ticks
-        public int WindupTime = 0; //ticks
-    }
-
-    public class ParticleEffect
-    {
-        public string Name;
-        public Location Location;
-        public string Dummy;
-        public SerializableVector3 Offset = Vector3.Zero;
-        public bool Loop; //deprecate?
-    }
-
-    public class Beam
-    {
-        public string Start;
-        public string End;
-        public Location EndLocation;
-        public string Material = "WeaponLaser";
-        public float Width = 0.5f;
-        public float Length = 0f;
-        public Vector4 Color = new Vector4(255, 255, 255, 1000);
-    }
-
-    public class Sound
-    {
-        public string Name;
-    }
-
     public enum AnimationType
     {
         Rotate = 0,
         Linear = 1,
         Hide = 2,
         Unhide = 3,
-    }
-
-    public class MaterialModifiers
-    {
-        [XmlAttribute]
-        public string Category;
-        [XmlAttribute]
-        public string Subtype;
-        [XmlAttribute]
-        public float SpeedRatio = 1f;
-        [XmlAttribute]
-        public float HarvestRatio = 1f;
     }
 
     #endregion

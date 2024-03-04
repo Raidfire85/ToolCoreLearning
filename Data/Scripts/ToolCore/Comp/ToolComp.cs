@@ -9,6 +9,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using ToolCore.Definitions;
 using ToolCore.Definitions.Serialised;
 using ToolCore.Session;
@@ -61,8 +62,12 @@ namespace ToolCore.Comp
 
         internal readonly Dictionary<ToolMode, ModeSpecificData> ModeMap = new Dictionary<ToolMode, ModeSpecificData>();
 
+        internal readonly Dictionary<string, IMyModelDummy> Dummies = new Dictionary<string, IMyModelDummy>();
+        internal readonly Dictionary<string, MyEntitySubpart> Subparts = new Dictionary<string, MyEntitySubpart>();
+        internal readonly Dictionary<IMyModelDummy, MyEntity> DummyMap = new Dictionary<IMyModelDummy, MyEntity>();
+
         internal readonly ConcurrentCachingList<MyTuple<MyOrientedBoundingBoxD, Color>> DrawBoxes = new ConcurrentCachingList<MyTuple<MyOrientedBoundingBoxD, Color>>();
-        internal readonly List<IMySlimBlock> HitBlocksSorted = new List<IMySlimBlock>();
+        internal readonly List<IMySlimBlock> TempBlocks = new List<IMySlimBlock>();
         internal readonly List<Effects> ActiveEffects = new List<Effects>();
         internal readonly List<Action<int, bool>> EventMonitors = new List<Action<int, bool>>();
         internal readonly List<ulong> ReplicatedClients = new List<ulong>();
@@ -73,6 +78,7 @@ namespace ToolCore.Comp
         internal bool Enabled = true;
         internal bool Functional = true;
         internal bool Powered = true;
+        internal bool FullInit;
         internal bool Dirty;
         internal bool AvActive;
         internal bool UpdatePower;
@@ -144,7 +150,6 @@ namespace ToolCore.Comp
             HandTool = tool as IMyHandheldGunObject<MyDeviceBase>;
             GunBase = new CoreGun(this);
 
-            var hasSound = false;
             var debug = false;
             foreach (var def in defs)
             {
@@ -156,26 +161,11 @@ namespace ToolCore.Comp
                     ModeMap[mode] = data;
                 }
 
-                var effectsMap = data.EffectsMap;
-                foreach (var pair in def.EventEffectDefs)
-                {
-                    var trigger = pair.Key;
-                    var effectLists = pair.Value;
-
-                    var effects = new Effects(effectLists.Item1, effectLists.Item2, effectLists.Item3, effectLists.Item4, this);
-                    effectsMap[trigger] = effects;
-
-                    hasSound |= effectLists.Item3 != null;
-                }
-
                 if (def.EffectShape == EffectShape.Cuboid)
                     Obb = new MyOrientedBoundingBoxD();
 
                 debug |= def.Debug;
             }
-
-            if (hasSound)
-                SoundEmitter = new MyEntity3DSoundEmitter(ToolEntity);
 
             Mode = ModeMap.Keys.FirstOrDefault();
 
@@ -184,6 +174,9 @@ namespace ToolCore.Comp
             CompTick20 = (int)(ToolEntity.EntityId % 20);
             CompTick60 = (int)(ToolEntity.EntityId % 60);
             CompTick120 = (int)(ToolEntity.EntityId % 120);
+
+            if (!MyAPIGateway.Session.IsServer)
+                ToolSession.Instance.Networking.SendPacketToServer(new ReplicationPacket { EntityId = ToolEntity.EntityId, Add = true, PacketType = (byte)PacketType.Replicate });
 
             IsBlock = BlockTool != null;
             if (!IsBlock)
@@ -204,6 +197,8 @@ namespace ToolCore.Comp
                 return;
             }
 
+            SinkInit();
+            StorageInit();
             Inventory = (MyInventory)ToolEntity.GetInventoryBase();
             Grid = BlockTool.CubeGrid as MyCubeGrid;
             Parent = Grid;
@@ -213,6 +208,211 @@ namespace ToolCore.Comp
 
             Enabled = BlockTool.Enabled;
             Functional = BlockTool.IsFunctional;
+
+            if (!ToolSession.Instance.IsDedicated)
+                GetShowInToolbarSwitch();
+        }
+
+        internal void FunctionalInit()
+        {
+            FullInit = true;
+
+            var hasSound = false;
+            foreach (var item in ModeMap)
+            {
+                var data = item.Value;
+                if (data.FullInit)
+                    continue;
+
+                data.FullInit = true;
+                var def = data.Definition;
+
+                var effectsMap = data.EffectsMap;
+                foreach (var pair in def.EventEffectDefs)
+                {
+                    var trigger = pair.Key;
+                    var effectLists = pair.Value;
+
+                    var effects = new Effects(effectLists.Item1, effectLists.Item2, effectLists.Item3, effectLists.Item4, this);
+                    effectsMap[trigger] = effects;
+
+                    hasSound |= effects.HasSound;
+                }
+
+                if (!def.IsTurret)
+                    continue;
+
+                data.Turret = new TurretComp(def.Turret, this);
+            }
+
+            LoadModels(true);
+
+            if (hasSound)
+                SoundEmitter = new MyEntity3DSoundEmitter(ToolEntity);
+
+            UpdateAvState(Trigger.Functional, true);
+        }
+
+        internal void LoadModels(bool init = false)
+        {
+            GetDummiesAndSubpartsRecursive(ToolEntity);
+
+            var functional = !IsBlock || BlockTool.IsFunctional;
+            foreach (var entity in Subparts.Values)
+            {
+                entity.OnClose += (ent) => Dirty = true;
+                entity.NeedsWorldMatrix = true;
+            }
+            ToolEntity.NeedsWorldMatrix = true;
+
+            foreach (var mode in ModeMap.Values)
+            {
+                mode.UpdateModelData(this, init);
+            }
+
+            Dirty = false;
+            Subparts.Clear();
+            Dummies.Clear();
+            DummyMap.Clear();
+        }
+
+        private void GetDummiesAndSubpartsRecursive(MyEntity entity)
+        {
+            ((IMyEntity)entity).Model.GetDummies(Dummies);
+
+            foreach (var dummy in Dummies.Values)
+            {
+                if (DummyMap.ContainsKey(dummy))
+                    continue;
+
+                DummyMap.Add(dummy, entity);
+            }
+
+            var subparts = entity.Subparts;
+            if (subparts == null || subparts.Count == 0)
+                return;
+
+            foreach (var item in subparts)
+            {
+                Subparts.Add(item.Key, item.Value);
+
+                GetDummiesAndSubpartsRecursive(item.Value);
+            }
+        }
+
+        internal class TurretComp
+        {
+            internal readonly TurretDefinition Definition;
+            internal readonly TurretPart Part1;
+            internal readonly TurretPart Part2;
+
+            internal readonly bool HasTwoParts = true;
+            internal bool IsValid;
+
+            internal void UpdateModelData(ToolComp comp)
+            {
+                IsValid = Part1.UpdateModelData(comp) && (!HasTwoParts || Part2.UpdateModelData(comp));
+            }
+
+            internal TurretComp(TurretDefinition def, ToolComp comp)
+            {
+                Definition = def;
+
+                var partDefA = def.Subparts[0];
+                TurretPart partA;
+                var partAValid = SetupPart(partDefA, comp, out partA);
+                if (def.Subparts.Count == 1)
+                {
+                    Part1 = partA;
+                    IsValid = partAValid;
+                    HasTwoParts = false;
+                    return;
+                }
+
+                var partDefB = def.Subparts[1];
+                TurretPart partB;
+                var partBValid = SetupPart(partDefB, comp, out partB);
+                if (!partAValid || !partBValid)
+                {
+                    IsValid = false;
+                    return;
+                }
+
+                MyEntitySubpart _;
+
+                if (partA.Subpart.TryGetSubpartRecursive(partB.Definition.Name, out _))
+                {
+                    Part1 = partA;
+                    Part2 = partB;
+                    IsValid = true;
+                    return;
+                }
+
+                if (partB.Subpart.TryGetSubpartRecursive(partA.Definition.Name, out _))
+                {
+                    def.Subparts.Move(1, 0);
+
+                    Part1 = partB;
+                    Part2 = partA;
+                    IsValid = true;
+                    return;
+                }
+
+                Logs.WriteLine("Neither specified turret subpart is a child of the other!");
+                IsValid = false;
+
+            }
+
+            private bool SetupPart(TurretDefinition.TurretPartDef partDef, ToolComp comp, out TurretPart part)
+            {
+                part = null;
+                MyEntitySubpart subpart;
+                if (!comp.ToolEntity.TryGetSubpartRecursive(partDef.Name, out subpart))
+                {
+                    Logs.WriteLine($"Failed to find turret subpart {partDef.Name}");
+                    return false;
+                }
+
+                part = new TurretPart(partDef);
+                part.Subpart = subpart;
+                part.Parent = subpart.Parent;
+                MyEntity _;
+                part.Parent.TryGetDummy("subpart_" + partDef.Name, out part.Empty, out _);
+                part.Axis = part.Empty.Matrix.Forward;
+
+                return true;
+            }
+
+            internal class TurretPart
+            {
+                internal readonly TurretDefinition.TurretPartDef Definition;
+
+                internal MyEntitySubpart Subpart;
+                internal MyEntity Parent;
+                internal IMyModelDummy Empty;
+                internal Vector3 Axis;
+
+                internal float CurrentRotation;
+                internal float DesiredRotation;
+
+                internal TurretPart(TurretDefinition.TurretPartDef def)
+                {
+                    Definition = def;
+                }
+
+                internal bool UpdateModelData(ToolComp comp)
+                {
+                    if (!comp.Subparts.TryGetValue(Definition.Name, out Subpart))
+                        return false;
+
+                    if (!comp.Dummies.TryGetValue("subpart_" + Definition.Name, out Empty))
+                        return false;
+
+                    Parent = comp.DummyMap[Empty];
+                    Axis = Empty.Matrix.Forward;
+                    return true;
+                }
+            }
         }
 
         internal class ModeSpecificData
@@ -222,15 +422,44 @@ namespace ToolCore.Comp
 
             internal readonly int WorkTick;
 
-            internal IMyModelDummy Muzzle;
+            internal TurretComp Turret;
             internal MyEntity MuzzlePart;
+            internal IMyModelDummy Muzzle;
 
+            internal bool FullInit;
             internal bool HasEmitter;
 
             internal ModeSpecificData(ToolDefinition def, int workTick)
             {
                 Definition = def;
                 WorkTick = workTick;
+            }
+
+            internal void UpdateModelData(ToolComp comp, bool init = false)
+            {
+                if (!init)
+                {
+                    if (!ToolSession.Instance.IsDedicated)
+                    {
+                        foreach (var effects in EffectsMap.Values)
+                        {
+                            effects.UpdateModelData(comp);
+                        }
+                    }
+
+                    if (Definition.IsTurret)
+                        Turret.UpdateModelData(comp);
+                }
+
+                if (!comp.Dummies.TryGetValue(Definition.EmitterName, out Muzzle))
+                    return;
+
+                HasEmitter = true;
+                MuzzlePart = comp.DummyMap[Muzzle];
+
+                var functional = !comp.IsBlock || comp.BlockTool.IsFunctional;
+                if (!HasEmitter && functional && Definition.Location == Location.Emitter)
+                    Definition.Location = Location.Centre;
             }
         }
 
@@ -340,64 +569,6 @@ namespace ToolCore.Comp
             HitInfo.IsValid = false;
         }
 
-        internal void ReloadModels()
-        {
-            foreach (var modeData in ModeMap.Values)
-            {
-                foreach (var effect in modeData.EffectsMap.Values)
-                {
-                    if (effect.HasAnimations)
-                    {
-                        foreach (var anim in effect.Animations)
-                        {
-                            MyEntitySubpart subpart;
-                            if (ToolEntity.TryGetSubpartRecursive(anim.Definition.Subpart, out subpart))
-                                anim.Subpart = subpart;
-                        }
-                    }
-
-                    if (effect.HasParticles)
-                    {
-                        foreach (var particle in effect.ParticleEffects)
-                        {
-                            IMyModelDummy dummy;
-                            MyEntity parent;
-                            if (ToolEntity.TryGetDummy(particle.Definition.Dummy, out dummy, out parent))
-                            {
-                                particle.Dummy = dummy;
-                                particle.Parent = parent;
-                            }
-                        }
-                    }
-
-                    if (effect.HasBeams)
-                    {
-                        foreach (var beam in effect.Beams)
-                        {
-                            IMyModelDummy start;
-                            MyEntity startParent;
-                            if (ToolEntity.TryGetDummy(beam.Definition.Start, out start, out startParent))
-                            {
-                                beam.Start = start;
-                                beam.StartParent = startParent;
-                            }
-
-                            if (beam.Definition.EndLocation != Location.Emitter)
-                                continue;
-
-                            IMyModelDummy end;
-                            MyEntity endParent;
-                            if (ToolEntity.TryGetDummy(beam.Definition.End, out end, out endParent))
-                            {
-                                beam.End = end;
-                                beam.EndParent = endParent;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
         internal class Effects
         {
             internal readonly bool HasAnimations;
@@ -419,7 +590,6 @@ namespace ToolCore.Comp
             internal Effects(List<AnimationDef> animationDefs, List<ParticleEffectDef> particleEffectDefs, List<BeamDef> beamDefs, SoundDef soundDef, ToolComp comp)
             {
                 var tool = comp.ToolEntity;
-                var functional = comp.IsBlock ? ((MyCubeBlock)comp.BlockTool).IsFunctional : true;
 
                 if (animationDefs?.Count > 0)
                 {
@@ -427,7 +597,7 @@ namespace ToolCore.Comp
                     foreach (var aDef in animationDefs)
                     {
                         MyEntitySubpart subpart = null;
-                        if (functional && !tool.TryGetSubpartRecursive(aDef.Subpart, out subpart))
+                        if (!tool.TryGetSubpartRecursive(aDef.Subpart, out subpart))
                         {
                             Logs.WriteLine($"Subpart '{aDef.Subpart}' not found!");
                             continue;
@@ -446,7 +616,7 @@ namespace ToolCore.Comp
                     {
                         IMyModelDummy dummy = null;
                         MyEntity parent = tool;
-                        if (pDef.Location == Location.Emitter && functional && !tool.TryGetDummy(pDef.Dummy, out dummy, out parent))
+                        if (pDef.Location == Location.Emitter && !tool.TryGetDummy(pDef.Dummy, out dummy, out parent))
                         {
                             Logs.WriteLine($"Dummy '{pDef.Dummy}' not found!");
                             continue;
@@ -465,7 +635,7 @@ namespace ToolCore.Comp
                     {
                         IMyModelDummy start = null;
                         MyEntity startParent = null;
-                        if (functional && !tool.TryGetDummy(beamDef.Start, out start, out startParent))
+                        if (!tool.TryGetDummy(beamDef.Start, out start, out startParent))
                         {
                             Logs.WriteLine($"Dummy '{beamDef.Start}' not found!");
                             continue;
@@ -473,7 +643,7 @@ namespace ToolCore.Comp
 
                         IMyModelDummy end = null;
                         MyEntity endParent = null;
-                        if (beamDef.EndLocation == Location.Emitter && functional && !tool.TryGetDummy(beamDef.End, out end, out endParent))
+                        if (beamDef.EndLocation == Location.Emitter && !tool.TryGetDummy(beamDef.End, out end, out endParent))
                         {
                             Logs.WriteLine($"Dummy '{beamDef.End}' not found!");
                             continue;
@@ -486,6 +656,57 @@ namespace ToolCore.Comp
                 }
 
                 HasSound = (SoundDef = soundDef) != null;
+            }
+
+            internal void UpdateModelData(ToolComp comp)
+            {
+                if (HasAnimations)
+                {
+                    foreach (var anim in Animations)
+                    {
+                        MyEntitySubpart subpart;
+                        if (comp.Subparts.TryGetValue(anim.Definition.Subpart, out subpart))
+                        {
+                            anim.Subpart = subpart;
+                        }
+                    }
+                }
+
+                if (HasParticles)
+                {
+                    foreach (var particle in ParticleEffects)
+                    {
+                        IMyModelDummy dummy;
+                        if (particle.Definition.Location == Location.Emitter && comp.Dummies.TryGetValue(particle.Definition.Dummy, out dummy))
+                        {
+                            particle.Dummy = dummy;
+                            particle.Parent = comp.DummyMap[dummy];
+                        }
+                    }
+                }
+
+                if (HasBeams)
+                {
+                    foreach (var beam in Beams)
+                    {
+                        IMyModelDummy start;
+                        if (comp.Dummies.TryGetValue(beam.Definition.Start, out start))
+                        {
+                            beam.Start = start;
+                            beam.StartParent = comp.DummyMap[start];
+                        }
+
+                        if (beam.Definition.EndLocation != Location.Emitter)
+                            continue;
+
+                        IMyModelDummy end;
+                        if (comp.Dummies.TryGetValue(beam.Definition.End, out end))
+                        {
+                            beam.End = end;
+                            beam.EndParent = comp.DummyMap[end];
+                        }
+                    }
+                }
             }
 
             internal void Clean()
@@ -756,28 +977,6 @@ namespace ToolCore.Comp
             return false;
         }
 
-        internal void Init()
-        {
-            ToolEntity.Components.Add(this);
-
-            if (IsBlock)
-            {
-                SinkInit();
-            }
-
-            StorageInit();
-            SubpartsInit();
-
-            if (!IsBlock || BlockTool.IsFunctional)
-                UpdateAvState(Trigger.Functional, true);
-
-            if (!ToolSession.Instance.IsDedicated)
-                GetShowInToolbarSwitch();
-
-            if (!MyAPIGateway.Session.IsServer)
-                ToolSession.Instance.Networking.SendPacketToServer(new ReplicationPacket { EntityId = ToolEntity.EntityId, Add = true, PacketType = (byte)PacketType.Replicate });
-        }
-
         private void SinkInit()
         {
             var sinkInfo = new MyResourceSinkInfo()
@@ -820,49 +1019,6 @@ namespace ToolCore.Comp
                 return ModeData.Definition.ActivePower;
 
             return ModeData.Definition.IdlePower;
-        }
-
-        internal void SubpartsInit()
-        {
-            HashSet<IMyEntity> entities = new HashSet<IMyEntity>() { ToolEntity };
-            ToolEntity.Hierarchy.GetChildrenRecursive(entities);
-
-            Dictionary<string, IMyModelDummy> dummies = new Dictionary<string, IMyModelDummy>();
-
-            var functional = !IsBlock || BlockTool.IsFunctional;
-            foreach (var entity in entities)
-            {
-                if (entity != ToolEntity)
-                {
-                    entity.OnClose += (ent) => Dirty = true;
-                }
-                entity.NeedsWorldMatrix = true;
-
-                entity.Model.GetDummies(dummies);
-
-                foreach (var mode in ModeMap.Values)
-                {
-                    var def = mode.Definition;
-                    foreach (var dummy in dummies)
-                    {
-                        if (dummy.Key != def.EmitterName)
-                            continue;
-
-                        mode.Muzzle = dummy.Value;
-                        mode.MuzzlePart = (MyEntity)entity;
-                        mode.HasEmitter = true;
-                        break;
-                    }
-
-                    if (!mode.HasEmitter && functional && def.Location == Location.Emitter)
-                        def.Location = Location.Centre;
-                }
-
-                dummies.Clear();
-            }
-
-
-            Dirty = false;
         }
 
         private void StorageInit()

@@ -91,8 +91,6 @@ namespace ToolCore.Session
             Networking = new Networking(this);
             API = new APIBackend(this);
             APIServer = new APIServer(this);
-
-            Triggers = new List<Trigger>((Trigger[])Enum.GetValues(typeof(Trigger)));
         }
 
         private void Clean()

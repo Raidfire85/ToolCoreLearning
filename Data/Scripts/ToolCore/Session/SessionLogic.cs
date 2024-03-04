@@ -132,7 +132,6 @@ namespace ToolCore.Session
             var modeData = comp.ModeData;
             var def = modeData.Definition;
             var pos = comp.ToolEntity.PositionComp;
-
             switch (def.Location)
             {
                 case Location.Emitter:
@@ -200,6 +199,9 @@ namespace ToolCore.Session
             if (!comp.Functional)
                 return;
 
+            if (!comp.FullInit)
+                comp.FunctionalInit();
+
             if (isBlock && (comp.UpdatePower || comp.CompTick20 == TickMod20))
             {
                 var wasPowered = comp.Powered;
@@ -223,8 +225,7 @@ namespace ToolCore.Session
 
             if (comp.Dirty)
             {
-                comp.SubpartsInit();
-                comp.ReloadModels();
+                comp.LoadModels();
             }
 
             //if (gridComp.ConveyorsDirty)
@@ -621,7 +622,7 @@ namespace ToolCore.Session
 
                             var comp = new ToolComp(entity, defs);
                             ToolMap[block.EntityId] = comp;
-                            comp.Init();
+                            entity.Components.Add(comp);
                             //((IMyCubeGrid)gridComp.Grid).WeaponSystem.Register(comp.GunBase);
                             gridComp.FatBlockAdded(block);
 
@@ -649,7 +650,8 @@ namespace ToolCore.Session
 
                         var comp = new ToolComp(entity, defs);
                         ToolMap[entity.EntityId] = comp;
-                        comp.Init();
+                        entity.Components.Add(comp);
+                        comp.FunctionalInit();
                         HandTools.Add(comp);
                     }
                 }
