@@ -161,25 +161,16 @@ namespace ToolCore.Utils
         {
             using (_cacheLock.AcquireSharedUsing())
             {
-                if (_toRemove.Contains(item))
-                {
-                    _toRemove.Remove(item);
-                    return;
-                }
-
                 _toAdd.Add(item);
-                _dirty = true;
             }
+            _dirty = true;
         }
 
         public void Remove(T item)
         {
             using (_cacheLock.AcquireSharedUsing())
             {
-                if (!_toAdd.Remove(item))
-                {
-                    _toRemove.Add(item);
-                }
+                _toRemove.Add(item);
             }
             _dirty = true;
         }
