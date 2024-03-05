@@ -752,14 +752,13 @@ namespace ToolCore
             var weldAmount = toolValues.Speed * MyAPIGateway.Session.WelderSpeedMultiplier;
 
             var remaining = maxBlocks;
-            var finished = false;
             int i = 0, j = 0;
-            while (remaining > 0 && !finished)
+            while (remaining > 0 && i <= comp.MaxLayer)
             {
                 tempBlocks.Clear();
 
                 var tryCount = 0;
-                while (i < comp.MaxLayer)
+                while (i <= comp.MaxLayer)
                 {
                     i++;
                     ConcurrentCachingList<IMySlimBlock> layer;
@@ -809,9 +808,6 @@ namespace ToolCore
                             else missing[firstComp] = 1;
                         }
                     }
-
-                    if (i == comp.MaxLayer)
-                        finished = true;
 
                     if (tryCount >= remaining)
                         break;
