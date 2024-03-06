@@ -489,7 +489,14 @@ namespace ToolCore.Comp
             internal Vector3D Position;
             internal StorageInfo StorageInfo;
 
-            public PositionData(int index, float distance, float distance2 = 0f)
+            public PositionData(int index, float distance, StorageInfo info)
+            {
+                Index = index;
+                Distance = distance;
+                StorageInfo = info;
+            }
+
+            public PositionData(int index, float distance, float distance2)
             {
                 Index = index;
                 Distance = distance;
@@ -519,10 +526,11 @@ namespace ToolCore.Comp
             internal Vector3I Max;
             internal bool Dirty;
 
-            public StorageInfo(Vector3I min, Vector3I max)
+            public StorageInfo(Vector3I min, Vector3I max, bool dirty = false)
             {
                 Min = min;
                 Max = max;
+                Dirty = dirty;
             }
         }
 

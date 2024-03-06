@@ -66,6 +66,7 @@ namespace ToolCore
                 var reduction = (int)(toolValues.Speed * 255);
                 using ((voxel as MyVoxelBase).Pin())
                 {
+                    StorageInfo info = null;
                     var data = new MyStorageData();
                     data.Resize(min, max);
 
@@ -95,7 +96,12 @@ namespace ToolCore
                         if (distSqr > extRadiusSqr)
                             continue;
 
-                        foundContent = true;
+                        if (!foundContent)
+                        {
+                            info = new StorageInfo(min, max);
+                            drillData.StorageDatas.Add(info);
+                            foundContent = true;
+                        }
 
                         var dist = 0f;
                         var radialDist = 0f;
@@ -123,7 +129,7 @@ namespace ToolCore
                                 break;
                         }
 
-                        var posData = new PositionData(i, radialDist);
+                        var posData = new PositionData(i, radialDist, info);
 
                         var roundDist = MathHelper.RoundToInt(dist);
                         if (roundDist > maxLayer) maxLayer = roundDist;
@@ -134,8 +140,6 @@ namespace ToolCore
                         else
                             drillData.WorkLayers[roundDist] = new List<PositionData>() { posData };
                     }
-
-                    if (foundContent) drillData.StorageDatas.Add(new StorageInfo(min, max));
                     session.DsUtil.Complete("sort", true);
 
                     session.DsUtil.Start("calc");
@@ -190,6 +194,11 @@ namespace ToolCore
                                 removal = Math.Min(removal, excess);
                             }
 
+                            if (removal <= 0)
+                                continue;
+
+                            positionData.StorageInfo.Dirty = true;
+
                             var effectiveContent = MathHelper.FloorToInt(removal * hardness);
                             maxContent = Math.Max(maxContent, effectiveContent);
 
@@ -207,7 +216,7 @@ namespace ToolCore
                             //    session.DrawBoxes.Add(new MyTuple<MyOrientedBoundingBoxD, Color>(obb, color));
                             //}
 
-                            if (!hit && removal > 0)
+                            if (!hit)
                             {
                                 //data.ComputePosition(index, out testPos);
                                 //var localPos = (Vector3D)testPos + min;
@@ -260,203 +269,217 @@ namespace ToolCore
 
         internal static void DrillCylinder(this ToolComp comp, WorkData workData)
         {
-            var session = ToolSession.Instance;
-            var modeData = comp.ModeData;
-            var def = modeData.Definition;
-            var toolValues = comp.Values;
-            var drillData = (DrillData)workData;
-
-            var voxel = drillData.Voxel;
-            var min = drillData.Min;
-            var max = drillData.Max;
-
-            var centre = drillData.Origin - (Vector3D)min;
-            var forward = drillData.Direction;
-            var radius = toolValues.Radius;
-            var length = toolValues.Length;
-
-            var halfLen = length / 2;
-            var halfLenPlusSqr = Math.Pow(halfLen + 0.5f, 2);
-            var halfLenMinusSqr = Math.Pow(halfLen - 0.5f, 2);
-            var radiusPlusSqr = (float)Math.Pow(radius + 0.5f, 2);
-            var radiusMinusSqr = (float)Math.Pow(radius - 0.5f, 2);
-
-            var reduction = (int)(toolValues.Speed * 255);
-            using ((voxel as MyVoxelBase).Pin())
+            try
             {
-                var data = new MyStorageData();
-                data.Resize(min, max);
+                var session = ToolSession.Instance;
+                var modeData = comp.ModeData;
+                var def = modeData.Definition;
+                var toolValues = comp.Values;
+                var drillData = (DrillData)workData;
 
-                session.DsUtil.Start("read");
-                voxel.Storage.ReadRange(data, MyStorageDataTypeFlags.ContentAndMaterial, 0, min, max);
-                session.DsUtil.Complete("read", true);
+                var voxel = drillData.Voxel;
+                var min = drillData.Min;
+                var max = drillData.Max;
 
-                MyFixedPoint amount = 0;
-                Vector3I pos;
+                var centre = drillData.Origin - (Vector3D)min;
+                var forward = drillData.Direction;
+                var radius = toolValues.Radius;
+                var length = toolValues.Length;
 
-                byte content;
-                byte material;
+                var halfLen = length / 2;
+                var halfLenPlusSqr = Math.Pow(halfLen + 0.5f, 2);
+                var halfLenMinusSqr = Math.Pow(halfLen - 0.5f, 2);
+                var radiusPlusSqr = (float)Math.Pow(radius + 0.5f, 2);
+                var radiusMinusSqr = (float)Math.Pow(radius - 0.5f, 2);
 
-                session.DsUtil.Start("sort");
-                var maxLayer = 0;
-                for (int i = 0; i < data.SizeLinear; i++)
+                var reduction = (int)(toolValues.Speed * 255);
+                using ((voxel as MyVoxelBase).Pin())
                 {
-                    content = data.Content(i);
-                    if (content == 0)
-                        continue;
+                    var data = new MyStorageData();
+                    data.Resize(min, max);
 
-                    data.ComputePosition(i, out pos);
+                    session.DsUtil.Start("read");
+                    voxel.Storage.ReadRange(data, MyStorageDataTypeFlags.ContentAndMaterial, 0, min, max);
+                    session.DsUtil.Complete("read", true);
 
-                    var posD = (Vector3D)pos;
+                    MyFixedPoint amount = 0;
+                    Vector3I pos;
 
-                    var offset = (Vector3D)pos - centre;
-                    var radial = Vector3D.ProjectOnPlane(ref offset, ref forward);
-                    var radialDistSqr = (float)radial.LengthSquared();
-                    if (radialDistSqr > radiusPlusSqr)
-                        continue;
-                    var axial = Vector3D.ProjectOnVector(ref offset, ref forward);
-                    var axialDistSqr = (float)axial.LengthSquared();
-                    if (axialDistSqr > halfLenPlusSqr)
-                        continue;
+                    byte content;
+                    byte material;
 
-                    var axialDist = axialDistSqr > halfLenMinusSqr ? halfLen + 0.5f - (float)Math.Sqrt(axialDistSqr) : 1f;
-                    var radialDist = radialDistSqr > radiusMinusSqr ? radius + 0.5f - (float)Math.Sqrt(radialDistSqr) : 1f;
-
-                    var dist = 0f;
-                    switch (def.Pattern)
+                    session.DsUtil.Start("sort");
+                    var maxLayer = 0;
+                    for (int i = 0; i < data.SizeLinear; i++)
                     {
-                        case WorkOrder.InsideOut:
-                            dist = (float)radial.Length();
-                            break;
-                        case WorkOrder.OutsideIn:
-                            dist = radius - (float)radial.Length();
-                            break;
-                        case WorkOrder.Forward:
-                            dist = length / 2f + (float)axial.Length() * Math.Sign(Vector3D.Dot(axial, forward));
-                            break;
-                        case WorkOrder.Backward:
-                            dist = length / 2f - (float)axial.Length() * Math.Sign(Vector3D.Dot(axial, forward));
-                            break;
-                        default:
-                            break;
-                    }
+                        content = data.Content(i);
+                        if (content == 0)
+                            continue;
 
-                    var posData = new PositionData(i, axialDist, radialDist);
+                        data.ComputePosition(i, out pos);
 
-                    var roundDist = MathHelper.RoundToInt(dist);
-                    if (roundDist > maxLayer) maxLayer = roundDist;
+                        var posD = (Vector3D)pos;
 
-                    List<PositionData> layer;
-                    if (drillData.WorkLayers.TryGetValue(roundDist, out layer))
-                        layer.Add(posData);
-                    else drillData.WorkLayers[roundDist] = new List<PositionData>() { posData };
-                }
-                session.DsUtil.Complete("sort", true);
+                        var offset = (Vector3D)pos - centre;
+                        var radial = Vector3D.ProjectOnPlane(ref offset, ref forward);
+                        var radialDistSqr = (float)radial.LengthSquared();
+                        if (radialDistSqr > radiusPlusSqr)
+                            continue;
+                        var axial = Vector3D.ProjectOnVector(ref offset, ref forward);
+                        var axialDistSqr = (float)axial.LengthSquared();
+                        if (axialDistSqr > halfLenPlusSqr)
+                            continue;
 
-                session.DsUtil.Start("calc");
-                var foundContent = false;
-                //MyAPIGateway.Utilities.ShowNotification($"{WorkLayers.Count} layers", 160);
-                for (int i = 0; i <= maxLayer; i++)
-                {
-                    List<PositionData> layer;
-                    if (!drillData.WorkLayers.TryGetValue(i, out layer))
-                        continue;
+                        var axialDist = axialDistSqr > halfLenMinusSqr ? halfLen + 0.5f - (float)Math.Sqrt(axialDistSqr) : 1f;
+                        var radialDist = radialDistSqr > radiusMinusSqr ? radius + 0.5f - (float)Math.Sqrt(radialDistSqr) : 1f;
 
-                    var maxContent = 0;
-                    //MyAPIGateway.Utilities.ShowNotification($"{layer.Count} items", 160);
-                    for (int j = 0; j < layer.Count; j++)
-                    {
-                        var positionData = layer[j];
-                        var index = positionData.Index;
-                        var dist1 = positionData.Distance;
-                        var dist2 = positionData.Distance2;
-
-                        content = data.Content(index);
-                        material = data.Material(index);
-
-                        var voxelDef = MyDefinitionManager.Static.GetVoxelMaterialDefinition(material);
-                        var validVoxel = voxelDef != null;
-
-                        var harvestRatio = 1f;
-                        var hardness = 1f;
-                        var removal = reduction;
-                        if (validVoxel)
+                        var dist = 0f;
+                        switch (def.Pattern)
                         {
-                            hardness = session.MaterialModifiers[voxelDef];
-                            if (def.HasMaterialModifiers)
-                            {
-                                var modifiers = def.MaterialModifiers[voxelDef];
-                                hardness /= modifiers.Speed > 0 ? modifiers.Speed : 1f;
-                                harvestRatio = modifiers.HarvestRatio;
-                            }
-                            removal = (int)(reduction / hardness);
+                            case WorkOrder.InsideOut:
+                                dist = (float)radial.Length();
+                                break;
+                            case WorkOrder.OutsideIn:
+                                dist = radius - (float)radial.Length();
+                                break;
+                            case WorkOrder.Forward:
+                                dist = length / 2f + (float)axial.Length() * Math.Sign(Vector3D.Dot(axial, forward));
+                                break;
+                            case WorkOrder.Backward:
+                                dist = length / 2f - (float)axial.Length() * Math.Sign(Vector3D.Dot(axial, forward));
+                                break;
+                            default:
+                                break;
                         }
-                        removal = Math.Min(removal, content);
 
-                        var overlap = dist1 * dist2;
-                        if (overlap < 1f)
+                        var posData = new PositionData(i, axialDist, radialDist);
+
+                        var roundDist = MathHelper.RoundToInt(dist);
+                        if (roundDist > maxLayer) maxLayer = roundDist;
+
+                        List<PositionData> layer;
+                        if (drillData.WorkLayers.TryGetValue(roundDist, out layer))
+                            layer.Add(posData);
+                        else drillData.WorkLayers[roundDist] = new List<PositionData>() { posData };
+                    }
+                    session.DsUtil.Complete("sort", true);
+
+                    session.DsUtil.Start("calc");
+                    var removedContent = false;
+                    //MyAPIGateway.Utilities.ShowNotification($"{WorkLayers.Count} layers", 160);
+                    for (int i = 0; i <= maxLayer; i++)
+                    {
+                        List<PositionData> layer;
+                        if (!drillData.WorkLayers.TryGetValue(i, out layer))
+                            continue;
+
+                        var maxContent = 0;
+                        //MyAPIGateway.Utilities.ShowNotification($"{layer.Count} items", 160);
+                        for (int j = 0; j < layer.Count; j++)
                         {
-                            overlap *= 255;
-                            var excluded = 255 - MathHelper.FloorToInt(overlap);
-                            var excess = content - excluded;
-                            if (excess <= 0f)
+                            var positionData = layer[j];
+                            var index = positionData.Index;
+                            var dist1 = positionData.Distance;
+                            var dist2 = positionData.Distance2;
+
+                            content = data.Content(index);
+                            material = data.Material(index);
+
+                            var voxelDef = MyDefinitionManager.Static.GetVoxelMaterialDefinition(material);
+                            var validVoxel = voxelDef != null;
+
+                            var harvestRatio = 1f;
+                            var hardness = 1f;
+                            var removal = reduction;
+                            if (validVoxel)
+                            {
+                                hardness = session.MaterialModifiers[voxelDef];
+                                if (def.HasMaterialModifiers)
+                                {
+                                    var modifiers = def.MaterialModifiers[voxelDef];
+                                    hardness /= modifiers.Speed > 0 ? modifiers.Speed : 1f;
+                                    harvestRatio = modifiers.HarvestRatio;
+                                }
+                                removal = (int)(reduction / hardness);
+                            }
+                            removal = Math.Min(removal, content);
+
+                            var overlap = dist1 * dist2;
+                            if (overlap < 1f)
+                            {
+                                overlap *= 255;
+                                var excluded = 255 - MathHelper.FloorToInt(overlap);
+                                var excess = content - excluded;
+                                if (excess <= 0f)
+                                    continue;
+
+                                removal = Math.Min(removal, excess);
+                            }
+
+                            if (removal <= 0)
                                 continue;
 
-                            removal = Math.Min(removal, excess);
+                            var effectiveContent = MathHelper.FloorToInt(removal * hardness);
+                            maxContent = Math.Max(maxContent, effectiveContent);
+
+                            //if (overlap < 0.5f)
+                            //{
+                            //    var density = MathHelper.Clamp(overlap, -1, 1) * 0.5 + 0.5;
+                            //    removal = (int)(removal * density);
+                            //}
+                            //else if (distance > i + 0.5f)
+                            //{
+                            //    var edgeDist = i - distance;
+                            //    var density = MathHelper.Clamp(edgeDist, -1, 1) * 0.5 + 0.5;
+                            //    var leftover = reduction - removal;
+                            //    removal = (int)(removal * density) + leftover;
+                            //}
+
+                            if (!removedContent)
+                            {
+                                removedContent = true;
+                                comp.Working = true;
+                            }
+
+                            harvestRatio *= toolValues.HarvestRatio;
+                            if (harvestRatio > 0 && session.IsServer && validVoxel && voxelDef.CanBeHarvested && !string.IsNullOrEmpty(voxelDef.MinedOre))
+                            {
+                                var oreOb = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>(voxelDef.MinedOre);
+                                oreOb.MaterialTypeName = voxelDef.Id.SubtypeId;
+                                var yield = removal * harvestRatio * voxelDef.MinedOreRatio * session.VoxelHarvestRatio / 255f;
+
+                                if (!comp.Yields.TryAdd(oreOb, yield))
+                                    comp.Yields[oreOb] += yield;
+                            }
+
+                            var newContent = content - removal;
+                            data.Content(index, (byte)newContent);
+                            if (newContent == 0)
+                                data.Material(index, byte.MaxValue);
                         }
 
-                        var effectiveContent = MathHelper.FloorToInt(removal * hardness);
-                        maxContent = Math.Max(maxContent, effectiveContent);
-
-                        //if (overlap < 0.5f)
-                        //{
-                        //    var density = MathHelper.Clamp(overlap, -1, 1) * 0.5 + 0.5;
-                        //    removal = (int)(removal * density);
-                        //}
-                        //else if (distance > i + 0.5f)
-                        //{
-                        //    var edgeDist = i - distance;
-                        //    var density = MathHelper.Clamp(edgeDist, -1, 1) * 0.5 + 0.5;
-                        //    var leftover = reduction - removal;
-                        //    removal = (int)(removal * density) + leftover;
-                        //}
-                        foundContent |= removal > 0;
-
-                        harvestRatio *= toolValues.HarvestRatio;
-                        if (harvestRatio > 0 && session.IsServer && validVoxel && voxelDef.CanBeHarvested && !string.IsNullOrEmpty(voxelDef.MinedOre))
-                        {
-                            var oreOb = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>(voxelDef.MinedOre);
-                            oreOb.MaterialTypeName = voxelDef.Id.SubtypeId;
-                            var yield = removal * harvestRatio * voxelDef.MinedOreRatio * session.VoxelHarvestRatio / 255f;
-
-                            if (!comp.Yields.TryAdd(oreOb, yield))
-                                comp.Yields[oreOb] += yield;
-                        }
-
-                        var newContent = content - removal;
-                        data.Content(index, (byte)newContent);
-                        if (newContent == 0)
-                            data.Material(index, byte.MaxValue);
+                        reduction -= maxContent;
+                        if (reduction <= 0)
+                            break;
                     }
+                    session.DsUtil.Complete("calc", true);
 
-                    reduction -= maxContent;
-                    if (reduction <= 0)
-                        break;
+                    session.DsUtil.Start("write");
+                    if (removedContent)
+                    {
+                        comp.Working = true;
+                        drillData.StorageDatas.Add(new StorageInfo(min, max, true));
+                        voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
+                    }
+                    session.DsUtil.Complete("write", true);
+
                 }
-                session.DsUtil.Complete("calc", true);
-
-                session.DsUtil.Start("write");
-                if (foundContent)
-                {
-                    comp.Working = true;
-                    drillData.StorageDatas.Add(new StorageInfo(min, max));
-                    voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
-                }
-                session.DsUtil.Complete("write", true);
-
+                drillData.WorkLayers.Clear();
             }
-            drillData.WorkLayers.Clear();
-
+            catch (Exception ex)
+            {
+                Logs.LogException(ex);
+            }
         }
 
         internal static void DrillLine(this ToolComp comp, WorkData workData)
@@ -559,6 +582,7 @@ namespace ToolCore
                                     drillData.StorageDatas.Add(info);
                                     foundContent = true;
                                 }
+
                                 var dist = 0f;
                                 switch (def.Pattern)
                                 {
@@ -800,12 +824,10 @@ namespace ToolCore
                             layer.Add(posData);
                         else drillData.WorkLayers[roundDist] = new List<PositionData>() { posData };
                     }
-
-                    if (foundContent) drillData.StorageDatas.Add(new StorageInfo(min, max));
                     session.DsUtil.Complete("sort", true);
 
                     session.DsUtil.Start("calc");
-                    var hit = false;
+                    var removedContent = false;
                     for (int i = 0; i <= maxLayer; i++)
                     {
                         List<PositionData> layer;
@@ -854,6 +876,9 @@ namespace ToolCore
                                 removal = Math.Min(removal, excess);
                             }
 
+                            if (removal <= 0)
+                                continue;
+
                             var effectiveContent = MathHelper.FloorToInt(removal * hardness);
                             maxContent = Math.Max(maxContent, effectiveContent);
 
@@ -871,7 +896,7 @@ namespace ToolCore
                             //    session.DrawBoxes.Add(new MyTuple<MyOrientedBoundingBoxD, Color>(boxObb, color));
                             //}
 
-                            if (!hit && removal > 0)
+                            if (!removedContent)
                             {
                                 //data.ComputePosition(index, out testPos);
                                 //var localPos = (Vector3D)testPos + min;
@@ -881,7 +906,7 @@ namespace ToolCore
                                 //Vector3D.Transform(ref localPos, ref voxelMatrix, out worldPos);
                                 //comp.HitInfo.Update(worldPos, voxelDef.MaterialTypeNameHash);
 
-                                hit = true;
+                                removedContent = true;
                                 comp.Working = true;
                             }
 
@@ -909,7 +934,11 @@ namespace ToolCore
                     session.DsUtil.Complete("calc", true);
 
                     session.DsUtil.Start("write");
-                    voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
+                    if (removedContent)
+                    {
+                        drillData.StorageDatas.Add(new StorageInfo(min, max, true));
+                        voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
+                    }
                     session.DsUtil.Complete("write", true);
 
                 }
