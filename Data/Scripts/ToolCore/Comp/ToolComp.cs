@@ -278,7 +278,17 @@ namespace ToolCore.Comp
 
         private void GetDummiesAndSubpartsRecursive(MyEntity entity)
         {
-            ((IMyEntity)entity).Model.GetDummies(Dummies);
+            try
+            {
+                ((IMyEntity)entity).Model.GetDummies(Dummies);
+            }
+            catch (Exception ex)
+            {
+                var modelName = ((IMyEntity)entity).Model.AssetName;
+                var lastSlash = modelName.LastIndexOf('\\');
+                Logs.WriteLine($"Failed to get dummies from {modelName.Substring(lastSlash + 1)} - probably a duplicate empty name in another scene!");
+                Logs.LogException(ex);
+            }
 
             foreach (var dummy in Dummies.Values)
             {

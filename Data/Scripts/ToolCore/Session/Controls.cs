@@ -104,6 +104,8 @@ namespace ToolCore.Session
             //    MyAPIGateway.TerminalControls.AddControl<T>(control);
 
             _customActions.Add(CreateActivateOnOffAction<T>());
+            _customActions.Add(CreateActivateOnAction<T>());
+            _customActions.Add(CreateActivateOffAction<T>());
             _customActions.Add(CreateModeAction<T>());
             _customActions.Add(CreateActionAction<T>());
             _customActions.Add(CreateDrawAction<T>());
@@ -156,7 +158,7 @@ namespace ToolCore.Session
         {
             var action = MyAPIGateway.TerminalControls.CreateAction<T>(SHOOT_ACTION);
             action.Icon = @"Textures\GUI\Icons\Actions\Toggle.dds";
-            action.Name = new StringBuilder("Activate On/Off");
+            action.Name = new StringBuilder("Activate/Deactivate");
             action.Action = ToggleActivated;
             action.Writer = ToggleActivatedWriter;
             action.Enabled = IsTrue;
@@ -181,7 +183,79 @@ namespace ToolCore.Session
             if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
                 return;
 
-            builder.Append(comp.Activated ? "Deactivate" : "Activate");
+            builder.Append(comp.Activated ? "Active" : "Inactive");
+        }
+
+        internal IMyTerminalAction CreateActivateOnAction<T>() where T : IMyConveyorSorter
+        {
+            var action = MyAPIGateway.TerminalControls.CreateAction<T>(SHOOT_ACTION + "_On");
+            action.Icon = @"Textures\GUI\Icons\Actions\SwitchOn.dds";
+            action.Name = new StringBuilder("Activate");
+            action.Action = SetActivatedOn;
+            action.Writer = SetActivatedOnWriter;
+            action.Enabled = IsTrue;
+
+            return action;
+        }
+
+        internal void SetActivatedOn(IMyTerminalBlock block)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return;
+
+            var wasActivated = comp.Activated;
+            comp.Activated = true;
+
+            if (_session.IsServer || comp.Activated == wasActivated)
+                return;
+
+            _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.Activated, 1));
+        }
+
+        internal void SetActivatedOnWriter(IMyTerminalBlock block, StringBuilder builder)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return;
+
+            builder.Append(comp.Activated ? "Active" : "Inactive");
+        }
+
+        internal IMyTerminalAction CreateActivateOffAction<T>() where T : IMyConveyorSorter
+        {
+            var action = MyAPIGateway.TerminalControls.CreateAction<T>(SHOOT_ACTION + "_Off");
+            action.Icon = @"Textures\GUI\Icons\Actions\SwitchOff.dds";
+            action.Name = new StringBuilder("Deactivate");
+            action.Action = SetActivatedOff;
+            action.Writer = SetActivatedOffWriter;
+            action.Enabled = IsTrue;
+
+            return action;
+        }
+
+        internal void SetActivatedOff(IMyTerminalBlock block)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return;
+
+            var wasActivated = comp.Activated;
+            comp.Activated = false;
+
+            if (_session.IsServer || comp.Activated == wasActivated)
+                return;
+
+            _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.Activated, 0));
+        }
+
+        internal void SetActivatedOffWriter(IMyTerminalBlock block, StringBuilder builder)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return;
+
+            builder.Append(comp.Activated ? "Active" : "Inactive");
         }
 
         #endregion
