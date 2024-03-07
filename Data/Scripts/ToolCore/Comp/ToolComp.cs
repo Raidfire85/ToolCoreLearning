@@ -55,6 +55,7 @@ namespace ToolCore.Comp
         internal ToolAction Action;
         internal Trigger State;
         internal Trigger AvState;
+        internal TargetTypes Targets = TargetTypes.All;
 
         internal readonly ConcurrentDictionary<int, ConcurrentCachingList<IMySlimBlock>> HitBlockLayers = new ConcurrentDictionary<int, ConcurrentCachingList<IMySlimBlock>>();
         internal readonly ConcurrentDictionary<MyObjectBuilder_Ore, float> Yields = new ConcurrentDictionary<MyObjectBuilder_Ore, float>();
@@ -75,6 +76,9 @@ namespace ToolCore.Comp
 
         internal readonly HashSet<Vector3I> PreviousPositions = new HashSet<Vector3I>();
 
+        internal readonly bool IsBlock;
+        internal readonly bool HasTargetControls;
+
         internal bool Enabled = true;
         internal bool Functional = true;
         internal bool Powered = true;
@@ -84,13 +88,11 @@ namespace ToolCore.Comp
         internal bool UpdatePower;
         internal bool LastPushSucceeded;
 
+        internal bool Draw;
         internal bool Working;
         internal bool WasHitting;
         internal readonly Hit HitInfo = new Hit();
         internal MyStringHash HitMaterial = MyStringHash.GetOrCompute("Metal");
-
-        internal bool IsBlock;
-        internal bool Draw;
 
         internal int CompTick10;
         internal int CompTick20;
@@ -164,6 +166,7 @@ namespace ToolCore.Comp
                 if (def.EffectShape == EffectShape.Cuboid)
                     Obb = new MyOrientedBoundingBoxD();
 
+                HasTargetControls |= def.ShowTargetControls ?? (def.IsTurret || def.EffectSphere.Radius >= 50);
                 debug |= def.Debug;
             }
 
@@ -556,6 +559,17 @@ namespace ToolCore.Comp
             Primary = 0,
             Secondary = 1,
             Tertiary = 2,
+        }
+
+        [Flags]
+        internal enum TargetTypes : byte
+        {
+            None = 0,
+            Own = 1,
+            Friendly = 2,
+            Neutral = 4,
+            Hostile = 8,
+            All = 15,
         }
 
         internal class Hit
@@ -1078,6 +1092,7 @@ namespace ToolCore.Comp
             Draw = repo.Draw;
             Mode = (ToolMode)repo.Mode;
             Action = (ToolAction)repo.Action;
+            Targets = (TargetTypes)repo.Targets;
         }
 
         internal void OnDrillComplete(WorkData data)

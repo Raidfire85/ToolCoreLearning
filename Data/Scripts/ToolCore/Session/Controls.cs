@@ -95,10 +95,19 @@ namespace ToolCore.Session
             }
 
             _customControls.Add(Separator<T>());
+
             _customControls.Add(ToolShootSwitch<T>());
             _customControls.Add(SelectMode<T>());
             _customControls.Add(SelectAction<T>());
             _customControls.Add(DrawSwitch<T>());
+
+            _customControls.Add(Separator<T>());
+
+            _customControls.Add(ToolTargetOwn<T>());
+            _customControls.Add(ToolTargetFriendly<T>());
+            _customControls.Add(ToolTargetNeutral<T>());
+            _customControls.Add(ToolTargetHostile<T>());
+
 
             //foreach (var control in _customControls)
             //    MyAPIGateway.TerminalControls.AddControl<T>(control);
@@ -110,11 +119,16 @@ namespace ToolCore.Session
             _customActions.Add(CreateActionAction<T>());
             _customActions.Add(CreateDrawAction<T>());
 
+            _customActions.Add(CreateTargetOwnAction<T>());
+            _customActions.Add(CreateTargetFriendlyAction<T>());
+            _customActions.Add(CreateTargetNeutralAction<T>());
+            _customActions.Add(CreateTargetHostileAction<T>());
+
             foreach (var action in _customActions)
                 MyAPIGateway.TerminalControls.AddAction<T>(action);
         }
 
-        #region ShootOnOff
+        #region Activate
 
         internal IMyTerminalControlOnOffSwitch ToolShootSwitch<T>() where T : IMyConveyorSorter
         {
@@ -172,7 +186,11 @@ namespace ToolCore.Session
             if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
                 return;
 
+            var wasActivated = comp.Activated;
             comp.Activated = !comp.Activated;
+
+            if (_session.IsServer || comp.Activated == wasActivated)
+                return;
 
             _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.Activated, comp.Activated ? 1 : 0));
         }
@@ -311,6 +329,8 @@ namespace ToolCore.Session
             //comp.Mode = (ToolComp.ToolMode)id;
             comp.SetMode((ToolComp.ToolMode)id);
 
+            if (_session.IsServer) return;
+
             _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.Mode, (int)comp.Mode));
         }
 
@@ -351,6 +371,8 @@ namespace ToolCore.Session
             var newMode = enumerator.MoveNext() ? enumerator.Current : modes.First();
 
             comp.SetMode(newMode);
+
+            if (_session.IsServer) return;
 
             _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.Mode, (int)comp.Mode));
         }
@@ -418,6 +440,8 @@ namespace ToolCore.Session
             var actions = comp.ModeData.Definition.ToolActions;
             comp.Action = actions[(int)id];
 
+            if (_session.IsServer) return;
+
             _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.Action, (int)comp.Action));
         }
 
@@ -453,6 +477,8 @@ namespace ToolCore.Session
             var next = index + 1;
             var newIndex = next < actions.Count ? next : 0;
             comp.Action = comp.ModeData.Definition.ToolActions[newIndex];
+
+            if (_session.IsServer) return;
 
             _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.Action, (int)comp.Action));
         }
@@ -503,6 +529,8 @@ namespace ToolCore.Session
 
             comp.Draw = enabled;
 
+            if (_session.IsServer) return;
+
             _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.Draw, enabled ? 1 : 0));
         }
 
@@ -525,6 +553,8 @@ namespace ToolCore.Session
                 return;
 
             comp.Draw = !comp.Draw;
+
+            if (_session.IsServer) return;
 
             _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.Draw, comp.Draw ? 1 : 0));
         }
@@ -561,6 +591,15 @@ namespace ToolCore.Session
             return comp.Functional;
         }
 
+        internal bool ShowTargetControls(IMyTerminalBlock block)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return false;
+
+            return comp.HasTargetControls;
+        }
+
         internal bool IsTrue(IMyTerminalBlock block)
         {
             return true;
@@ -569,6 +608,330 @@ namespace ToolCore.Session
         internal bool IsFalse(IMyTerminalBlock block)
         {
             return false;
+        }
+
+        #endregion
+
+        #region Relations
+
+        // Own
+
+        internal IMyTerminalControlOnOffSwitch ToolTargetOwn<T>() where T : IMyConveyorSorter
+        {
+            var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlOnOffSwitch, T>("ToolCore_TargetOwn");
+            control.Title = MyStringId.GetOrCompute("Work on Own Grids");
+            control.Tooltip = MyStringId.GetOrCompute("Should the tool work on grids owned by you");
+            control.OnText = MyStringId.GetOrCompute("On");
+            control.OffText = MyStringId.GetOrCompute("Off");
+            control.Getter = GetTargetOwn;
+            control.Setter = SetTargetOwn;
+            control.Visible = ShowTargetControls;
+            control.Enabled = IsFunctional;
+
+            return control;
+
+        }
+
+        internal bool GetTargetOwn(IMyTerminalBlock block)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return false;
+
+            return (comp.Targets & TargetTypes.Own) > TargetTypes.None;
+        }
+
+        internal void SetTargetOwn(IMyTerminalBlock block, bool on)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return;
+
+            if (on) comp.Targets |= TargetTypes.Own;
+            else comp.Targets &= ~TargetTypes.Own;
+
+            if (_session.IsServer) return;
+
+            var syncValue = on ? (int)TargetTypes.Own : - (int)TargetTypes.Own;
+            _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.TargetType, syncValue));
+        }
+
+        internal IMyTerminalAction CreateTargetOwnAction<T>() where T : IMyConveyorSorter
+        {
+            var action = MyAPIGateway.TerminalControls.CreateAction<T>("ToolCore_TargetOwn_Action");
+            action.Icon = @"Textures\GUI\Icons\Actions\NeutralToggle.dds";
+            action.Name = new StringBuilder("Work on Own Grids On/Off");
+            action.Action = ToggleTargetOwn;
+            action.Writer = ToggleTargetOwnWriter;
+            action.Enabled = ShowTargetControls;
+
+            return action;
+        }
+
+        internal void ToggleTargetOwn(IMyTerminalBlock block)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return;
+
+            comp.Targets ^= TargetTypes.Own;
+
+            if (_session.IsServer) return;
+
+            var on = (comp.Targets & TargetTypes.Own) > TargetTypes.None;
+            var syncValue = on ? (int)TargetTypes.Own : -(int)TargetTypes.Own;
+            _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.TargetType, syncValue));
+        }
+
+        internal void ToggleTargetOwnWriter(IMyTerminalBlock block, StringBuilder builder)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return;
+
+            var on = (comp.Targets & TargetTypes.Own) > TargetTypes.None;
+
+            builder.Append(on ? "On" : "Off");
+        }
+
+        // Friendly
+
+        internal IMyTerminalControlOnOffSwitch ToolTargetFriendly<T>() where T : IMyConveyorSorter
+        {
+            var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlOnOffSwitch, T>("ToolCore_TargetFriendly");
+            control.Title = MyStringId.GetOrCompute("Work on Friendly Grids");
+            control.Tooltip = MyStringId.GetOrCompute("Should the tool work on grids owned by friendly players");
+            control.OnText = MyStringId.GetOrCompute("On");
+            control.OffText = MyStringId.GetOrCompute("Off");
+            control.Getter = GetTargetFriendly;
+            control.Setter = SetTargetFriendly;
+            control.Visible = ShowTargetControls;
+            control.Enabled = IsFunctional;
+
+            return control;
+
+        }
+
+        internal bool GetTargetFriendly(IMyTerminalBlock block)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return false;
+
+            return (comp.Targets & TargetTypes.Friendly) > TargetTypes.None;
+        }
+
+        internal void SetTargetFriendly(IMyTerminalBlock block, bool on)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return;
+
+            if (on) comp.Targets |= TargetTypes.Friendly;
+            else comp.Targets &= ~TargetTypes.Friendly;
+
+            if (_session.IsServer) return;
+
+            var syncValue = on ? (int)TargetTypes.Friendly : -(int)TargetTypes.Friendly;
+            _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.TargetType, syncValue));
+        }
+
+        internal IMyTerminalAction CreateTargetFriendlyAction<T>() where T : IMyConveyorSorter
+        {
+            var action = MyAPIGateway.TerminalControls.CreateAction<T>("ToolCore_TargetFriendly_Action");
+            action.Icon = @"Textures\GUI\Icons\Actions\NeutralToggle.dds";
+            action.Name = new StringBuilder("Work on Friendly Grids On/Off");
+            action.Action = ToggleTargetFriendly;
+            action.Writer = ToggleTargetFriendlyWriter;
+            action.Enabled = ShowTargetControls;
+
+            return action;
+        }
+
+        internal void ToggleTargetFriendly(IMyTerminalBlock block)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return;
+
+            comp.Targets ^= TargetTypes.Friendly;
+
+            if (_session.IsServer) return;
+
+            var on = (comp.Targets & TargetTypes.Friendly) > TargetTypes.None;
+            var syncValue = on ? (int)TargetTypes.Friendly : -(int)TargetTypes.Friendly;
+            _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.TargetType, syncValue));
+        }
+
+        internal void ToggleTargetFriendlyWriter(IMyTerminalBlock block, StringBuilder builder)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return;
+
+            var on = (comp.Targets & TargetTypes.Friendly) > TargetTypes.None;
+
+            builder.Append(on ? "On" : "Off");
+        }
+
+        //Neutral
+
+        internal IMyTerminalControlOnOffSwitch ToolTargetNeutral<T>() where T : IMyConveyorSorter
+        {
+            var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlOnOffSwitch, T>("ToolCore_TargetNeutral");
+            control.Title = MyStringId.GetOrCompute("Work on Neutral Grids");
+            control.Tooltip = MyStringId.GetOrCompute("Should the tool work on grids owned by neutral players");
+            control.OnText = MyStringId.GetOrCompute("On");
+            control.OffText = MyStringId.GetOrCompute("Off");
+            control.Getter = GetTargetNeutral;
+            control.Setter = SetTargetNeutral;
+            control.Visible = ShowTargetControls;
+            control.Enabled = IsFunctional;
+
+            return control;
+
+        }
+
+        internal bool GetTargetNeutral(IMyTerminalBlock block)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return false;
+
+            return (comp.Targets & TargetTypes.Neutral) > TargetTypes.None;
+        }
+
+        internal void SetTargetNeutral(IMyTerminalBlock block, bool on)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return;
+
+            if (on) comp.Targets |= TargetTypes.Neutral;
+            else comp.Targets &= ~TargetTypes.Neutral;
+
+            if (_session.IsServer) return;
+
+            var syncValue = on ? (int)TargetTypes.Neutral : -(int)TargetTypes.Neutral;
+            _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.TargetType, syncValue));
+        }
+
+        internal IMyTerminalAction CreateTargetNeutralAction<T>() where T : IMyConveyorSorter
+        {
+            var action = MyAPIGateway.TerminalControls.CreateAction<T>("ToolCore_TargetNeutral_Action");
+            action.Icon = @"Textures\GUI\Icons\Actions\NeutralToggle.dds";
+            action.Name = new StringBuilder("Work on Neutral Grids On/Off");
+            action.Action = ToggleTargetNeutral;
+            action.Writer = ToggleTargetNeutralWriter;
+            action.Enabled = ShowTargetControls;
+
+            return action;
+        }
+
+        internal void ToggleTargetNeutral(IMyTerminalBlock block)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return;
+
+            comp.Targets ^= TargetTypes.Neutral;
+
+            if (_session.IsServer) return;
+
+            var on = (comp.Targets & TargetTypes.Neutral) > TargetTypes.None;
+            var syncValue = on ? (int)TargetTypes.Neutral : -(int)TargetTypes.Neutral;
+            _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.TargetType, syncValue));
+        }
+
+        internal void ToggleTargetNeutralWriter(IMyTerminalBlock block, StringBuilder builder)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return;
+
+            var on = (comp.Targets & TargetTypes.Neutral) > TargetTypes.None;
+
+            builder.Append(on ? "On" : "Off");
+        }
+
+        //Hostile
+
+        internal IMyTerminalControlOnOffSwitch ToolTargetHostile<T>() where T : IMyConveyorSorter
+        {
+            var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlOnOffSwitch, T>("ToolCore_TargetHostile");
+            control.Title = MyStringId.GetOrCompute("Work on Hostile Grids");
+            control.Tooltip = MyStringId.GetOrCompute("Should the tool work on grids owned by hostile players");
+            control.OnText = MyStringId.GetOrCompute("On");
+            control.OffText = MyStringId.GetOrCompute("Off");
+            control.Getter = GetTargetHostile;
+            control.Setter = SetTargetHostile;
+            control.Visible = ShowTargetControls;
+            control.Enabled = IsFunctional;
+
+            return control;
+
+        }
+
+        internal bool GetTargetHostile(IMyTerminalBlock block)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return false;
+
+            return (comp.Targets & TargetTypes.Hostile) > TargetTypes.None;
+        }
+
+        internal void SetTargetHostile(IMyTerminalBlock block, bool on)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return;
+
+            if (on) comp.Targets |= TargetTypes.Hostile;
+            else comp.Targets &= ~TargetTypes.Hostile;
+
+            if (_session.IsServer) return;
+
+            var syncValue = on ? (int)TargetTypes.Hostile : -(int)TargetTypes.Hostile;
+            _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.TargetType, syncValue));
+        }
+
+        internal IMyTerminalAction CreateTargetHostileAction<T>() where T : IMyConveyorSorter
+        {
+            var action = MyAPIGateway.TerminalControls.CreateAction<T>("ToolCore_TargetHostile_Action");
+            action.Icon = @"Textures\GUI\Icons\Actions\NeutralToggle.dds";
+            action.Name = new StringBuilder("Work on Hostile Grids On/Off");
+            action.Action = ToggleTargetHostile;
+            action.Writer = ToggleTargetHostileWriter;
+            action.Enabled = ShowTargetControls;
+
+            return action;
+        }
+
+        internal void ToggleTargetHostile(IMyTerminalBlock block)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return;
+
+            comp.Targets ^= TargetTypes.Hostile;
+
+            if (_session.IsServer) return;
+
+            var on = (comp.Targets & TargetTypes.Hostile) > TargetTypes.None;
+            var syncValue = on ? (int)TargetTypes.Hostile : -(int)TargetTypes.Hostile;
+            _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.TargetType, syncValue));
+        }
+
+        internal void ToggleTargetHostileWriter(IMyTerminalBlock block, StringBuilder builder)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return;
+
+            var on = (comp.Targets & TargetTypes.Hostile) > TargetTypes.None;
+
+            builder.Append(on ? "On" : "Off");
         }
 
         #endregion

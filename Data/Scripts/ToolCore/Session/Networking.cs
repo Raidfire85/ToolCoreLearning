@@ -134,14 +134,14 @@ namespace ToolCore.Session
     public class UpdatePacket : Packet
     {
         [ProtoMember(1)] internal byte Field;
-        [ProtoMember(2)] internal byte Value;
+        [ProtoMember(2)] internal sbyte Value;
 
         public UpdatePacket(long entityId, FieldType field, int value)
         {
             EntityId = entityId;
             PacketType = (byte)Session.PacketType.Update;
             Field = (byte)field;
-            Value = (byte)value;
+            Value = (sbyte)value;
         }
 
         public UpdatePacket()
@@ -214,6 +214,7 @@ namespace ToolCore.Session
         Mode = 2,
         Action = 3,
         Draw = 4,
+        TargetType = 5,
     }
 
 }

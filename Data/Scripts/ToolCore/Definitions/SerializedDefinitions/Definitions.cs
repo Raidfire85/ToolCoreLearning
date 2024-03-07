@@ -42,6 +42,8 @@ namespace ToolCore.Definitions.Serialised
         public bool DamageCharacters = true;
         public bool AffectOwnGrid = false;
         public bool CacheBlocks = false;
+        public bool? ShowTargetControls;
+
         public bool Debug = false;
 
         public TurretValues Turret;

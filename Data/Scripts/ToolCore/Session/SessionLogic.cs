@@ -3,6 +3,7 @@ using Sandbox.Game.WorldEnvironment;
 using Sandbox.ModAPI;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using ToolCore.Comp;
 using ToolCore.Definitions;
 using ToolCore.Definitions.Serialised;
@@ -306,7 +307,7 @@ namespace ToolCore.Session
 
             if (!workTick)
                 return;
-            
+
             if (comp.ActiveThreads > 0)
                 return;
 
@@ -375,6 +376,7 @@ namespace ToolCore.Session
             }
 
             var damageType = (int)def.ToolType < 2 ? MyDamageType.Drill : (int)def.ToolType < 4 ? MyDamageType.Grind : MyDamageType.Weld;
+            var toolFaction = MyAPIGateway.Session.Factions.TryGetPlayerFaction(ownerId);
 
             var count = line ? _lineOverlaps.Count : _entities.Count;
             for (int k = 0; k < count; k++)
@@ -435,30 +437,30 @@ namespace ToolCore.Session
                     continue;
                 }
 
-/*                if (entity is MyEnvironmentSector)
-                {
-                    IHitInfo hitInfo;
-                    if (MyAPIGateway.Physics.CastRay(worldPos, worldPos + def.EffectSphere.Radius * worldForward, out hitInfo))
-                    {
-                        var hitEntity = hitInfo.HitEntity;
-                        if (hitEntity is MyEnvironmentSector)
-                        {
-                            var sector = hitEntity as MyEnvironmentSector;
-                            uint shapeKey = hitInfo.Value.HkHitInfo.GetShapeKey(0);
-                            int itemFromShapeKey = sector.GetItemFromShapeKey(shapeKey);
-                            if (sector.DataView.Items[itemFromShapeKey].ModelIndex >= 0)
-                            {
-                                MyBreakableEnvironmentProxy module = sector.GetModule<MyBreakableEnvironmentProxy>();
-                                Vector3D hitnormal = base.CubeGrid.WorldMatrix.Right + base.CubeGrid.WorldMatrix.Forward;
-                                hitnormal.Normalize();
-                                float num = 10f;
-                                float mass = base.CubeGrid.Physics.Mass;
-                                float num2 = num * num * mass;
-                                module.BreakAt(itemFromShapeKey, hitInfo.Value.HkHitInfo.Position, hitnormal, (double)num2);
-                            }
-                        }
-                    }
-                }*/
+                /*                if (entity is MyEnvironmentSector)
+                                {
+                                    IHitInfo hitInfo;
+                                    if (MyAPIGateway.Physics.CastRay(worldPos, worldPos + def.EffectSphere.Radius * worldForward, out hitInfo))
+                                    {
+                                        var hitEntity = hitInfo.HitEntity;
+                                        if (hitEntity is MyEnvironmentSector)
+                                        {
+                                            var sector = hitEntity as MyEnvironmentSector;
+                                            uint shapeKey = hitInfo.Value.HkHitInfo.GetShapeKey(0);
+                                            int itemFromShapeKey = sector.GetItemFromShapeKey(shapeKey);
+                                            if (sector.DataView.Items[itemFromShapeKey].ModelIndex >= 0)
+                                            {
+                                                MyBreakableEnvironmentProxy module = sector.GetModule<MyBreakableEnvironmentProxy>();
+                                                Vector3D hitnormal = base.CubeGrid.WorldMatrix.Right + base.CubeGrid.WorldMatrix.Forward;
+                                                hitnormal.Normalize();
+                                                float num = 10f;
+                                                float mass = base.CubeGrid.Physics.Mass;
+                                                float num2 = num * num * mass;
+                                                module.BreakAt(itemFromShapeKey, hitInfo.Value.HkHitInfo.Position, hitnormal, (double)num2);
+                                            }
+                                        }
+                                    }
+                                }*/
 
                 if (entity is IMyVoxelBase)
                 {
@@ -554,10 +556,64 @@ namespace ToolCore.Session
                     if (isBlock && !def.AffectOwnGrid && grid == comp.Grid)
                         continue;
 
-                    var immune = (comp.Mode != ToolComp.ToolMode.Weld && (grid.Immune || !grid.DestructibleBlocks || grid.Projector != null)) || !grid.Editable;
-                    var invalid = comp.Mode != ToolComp.ToolMode.Weld && (grid.Physics == null || !grid.Physics.Enabled);
-                    if (immune || invalid || grid.MarkedForClose) continue;
-                    
+                    if (grid.Closed || grid.MarkedForClose || !grid.Editable)
+                        continue;
+
+                    var targetOwner = grid.Projector?.OwnerId ?? grid.BigOwners.FirstOrDefault();
+                    var relation = ToolComp.TargetTypes.Neutral;
+                    if (ownerId == targetOwner)
+                    {
+                        relation = ToolComp.TargetTypes.Own;
+                    }
+                    else if (ownerId != 0 && targetOwner != 0)
+                    {
+                        if (toolFaction != null)
+                        {
+                            var targetFaction = MyAPIGateway.Session.Factions.TryGetPlayerFaction(targetOwner);
+                            if (targetFaction != null)
+                            {
+                                if (toolFaction == targetFaction)
+                                {
+                                    relation = ToolComp.TargetTypes.Friendly;
+                                }
+                                else
+                                {
+                                    var factionRelation = MyAPIGateway.Session.Factions.GetRelationBetweenFactions(toolFaction.FactionId, targetFaction.FactionId);
+                                    if (factionRelation == MyRelationsBetweenFactions.Enemies)
+                                    {
+                                        relation = ToolComp.TargetTypes.Hostile;
+                                    }
+                                    else if (factionRelation == MyRelationsBetweenFactions.Friends)
+                                    {
+                                        relation = ToolComp.TargetTypes.Friendly;
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            relation = ToolComp.TargetTypes.Hostile;
+                        }
+
+                    }
+
+                    if ((relation & comp.Targets) == ToolComp.TargetTypes.None)
+                        continue;
+
+                    switch (comp.Mode)
+                    {
+                        case ToolComp.ToolMode.Weld:
+                            
+                            break;
+                        case ToolComp.ToolMode.Grind:
+                        case ToolComp.ToolMode.Drill:
+                            if (grid.Immune || !grid.DestructibleBlocks || grid.Projector != null || grid.Physics == null || !grid.Physics.Enabled)
+                                continue;
+                            break;
+                        default:
+                            break;
+                    }
+
                     var toolData = ToolDataPool.Count > 0 ? ToolDataPool.Pop() : new ToolComp.ToolData();
                     toolData.Entity = entity;
                     toolData.Position = worldPos;

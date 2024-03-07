@@ -32,6 +32,7 @@ namespace ToolCore.Definitions
         internal readonly bool CacheBlocks;
         internal readonly bool Debug;
         internal readonly bool IsTurret;
+        internal readonly bool? ShowTargetControls;
 
         internal readonly TurretDefinition Turret;
 
@@ -287,6 +288,7 @@ namespace ToolCore.Definitions
             CacheBlocks = values.CacheBlocks;
             AffectOwnGrid = values.AffectOwnGrid;
             Debug = !session.IsDedicated && values.Debug;
+            ShowTargetControls = values.ShowTargetControls;
 
             IsTurret = DefineTurret(values.Turret, out Turret);
             DefineParameters(values, session);
@@ -375,16 +377,16 @@ namespace ToolCore.Definitions
 
             if (values.Actions == null || values.Actions.Length == 0)
             {
-                ActionMap.Add(ToolComp.ToolAction.Primary, new ActionDefinition(speed, hRatio, halfExtent, radius, length, boundingRadius));
-                ToolActions.Add(ToolComp.ToolAction.Primary);
+                ActionMap.Add(ToolAction.Primary, new ActionDefinition(speed, hRatio, halfExtent, radius, length, boundingRadius));
+                ToolActions.Add(ToolAction.Primary);
                 return;
             }
 
             foreach (var action in values.Actions)
             {
                 var actionValues = new ActionDefinition(action, speed, hRatio, halfExtent, radius, length, boundingRadius, EffectShape);
-                ActionMap.Add((ToolComp.ToolAction)action.Type, actionValues);
-                ToolActions.Add((ToolComp.ToolAction)action.Type);
+                ActionMap.Add((ToolAction)action.Type, actionValues);
+                ToolActions.Add((ToolAction)action.Type);
             }
         }
 

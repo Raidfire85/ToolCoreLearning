@@ -9,6 +9,7 @@ namespace ToolCore.Comp
         [ProtoMember(2)] public bool Draw;
         [ProtoMember(3)] public byte Mode;
         [ProtoMember(4)] public byte Action;
+        [ProtoMember(5)] public byte Targets;
 
         internal void Sync(ToolComp comp)
         {
@@ -16,6 +17,7 @@ namespace ToolCore.Comp
             Draw = comp.Draw;
             Mode = (byte)comp.Mode;
             Action = (byte)comp.Action;
+            Targets = (byte)comp.Targets;
         }
     }
 }
