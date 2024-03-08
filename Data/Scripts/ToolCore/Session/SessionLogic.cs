@@ -249,7 +249,7 @@ namespace ToolCore.Session
                 }
             }
 
-            if (isBlock && IsServer && comp.CompTick60 == TickMod60 && comp.Mode != ToolComp.ToolMode.Weld)
+            if (IsServer && comp.CompTick60 == TickMod60 && comp.Mode != ToolComp.ToolMode.Weld)
                 comp.ManageInventory();
 
             Vector3D worldPos, worldForward, worldUp;
@@ -260,8 +260,8 @@ namespace ToolCore.Session
 
             if (!isBlock && !IsDedicated && ownerId == MyAPIGateway.Session.LocalHumanPlayer?.IdentityId)
             {
-                var leftMousePressed = MyAPIGateway.Input.IsNewLeftMousePressed();
-                if (leftMousePressed || MyAPIGateway.Input.IsNewRightMousePressed())
+                var leftMousePressed = MyAPIGateway.Input.IsLeftMousePressed();
+                if (leftMousePressed || MyAPIGateway.Input.IsRightMousePressed())
                 {
                     var action = leftMousePressed ? ToolComp.ToolAction.Primary : ToolComp.ToolAction.Secondary;
                     if (action != comp.Action)

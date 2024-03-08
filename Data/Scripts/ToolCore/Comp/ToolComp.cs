@@ -481,7 +481,7 @@ namespace ToolCore.Comp
                         Turret.UpdateModelData(comp);
                 }
 
-                if (!comp.Dummies.TryGetValue(Definition.EmitterName, out Muzzle))
+                if (string.IsNullOrEmpty(Definition.EmitterName) || !comp.Dummies.TryGetValue(Definition.EmitterName, out Muzzle))
                     return;
 
                 HasEmitter = true;
@@ -1162,7 +1162,7 @@ namespace ToolCore.Comp
 
         internal void ManageInventory()
         {
-            var tryPush = LastPushSucceeded || ToolSession.Tick - LastPushTick > 1200;
+            var tryPush = IsBlock && (LastPushSucceeded || ToolSession.Tick - LastPushTick > 1200);
             foreach (var ore in Yields.Keys)
             {
                 var itemDef = MyDefinitionManager.Static.GetPhysicalItemDefinition(ore);
