@@ -383,6 +383,18 @@ namespace ToolCore.Session
             {
                 var entity = line ? _lineOverlaps[k].Element : _entities[k];
 
+                if (entity == null || entity.Closed || entity.MarkedForClose)
+                    continue;
+
+                if (DSAPIReady)
+                {
+                    var shieldBlock = DSAPI.MatchEntToShieldFast(entity, true);
+                    if (shieldBlock != null && shieldBlock.OwnerId != ownerId)
+                    {
+                        continue;
+                    }
+                }
+
                 if (entity is IMyDestroyableObject)
                 {
                     if (entity is IMyCharacter && !def.DamageCharacters)
@@ -553,10 +565,7 @@ namespace ToolCore.Session
                 {
                     var grid = entity as MyCubeGrid;
 
-                    if (isBlock && !def.AffectOwnGrid && grid == comp.Grid)
-                        continue;
-
-                    if (grid.Closed || grid.MarkedForClose || !grid.Editable)
+                    if (isBlock && !def.AffectOwnGrid && grid == comp.Grid || !grid.Editable)
                         continue;
 
                     if (comp.HasTargetControls)

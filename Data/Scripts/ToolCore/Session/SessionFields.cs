@@ -1,4 +1,5 @@
-﻿using Sandbox.Common.ObjectBuilders;
+﻿using DefenseShields;
+using Sandbox.Common.ObjectBuilders;
 using Sandbox.Game.Entities;
 using System;
 using System.Collections;
@@ -64,6 +65,7 @@ namespace ToolCore.Session
 
 
         internal readonly Settings Settings = new Settings();
+        internal readonly ShieldApi DSAPI = new ShieldApi();
         internal readonly DSUtils DsUtil;
         internal readonly DSUtils DsUtil2;
         internal readonly Controls Controls;
@@ -73,6 +75,8 @@ namespace ToolCore.Session
         internal object InitObj = new object();
 
         internal readonly BlockLimitInfo BlockLimits = new BlockLimitInfo();
+
+        internal bool DSAPIReady;
 
         internal volatile bool Inited;
         internal volatile bool ControlsInited;

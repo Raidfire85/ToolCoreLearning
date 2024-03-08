@@ -65,6 +65,7 @@ namespace ToolCore.Session
             }
 
             APIServer.Load();
+            DSAPI.Load();
 
             if (IsServer)
             {
@@ -153,6 +154,7 @@ namespace ToolCore.Session
             if (!AggregatorTask.IsComplete)
                 AggregatorTask.Wait();
 
+            DSAPI.Unload();
             APIServer.Unload();
 
             Controls.Clean();
