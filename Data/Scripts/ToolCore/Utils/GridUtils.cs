@@ -4,6 +4,7 @@ using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using ToolCore.Comp;
 using ToolCore.Definitions.Serialised;
@@ -382,13 +383,15 @@ namespace ToolCore
 
         internal static void OnGetBlocksComplete(this ToolComp comp, WorkData workData)
         {
+            var session = ToolSession.Instance;
+
             try
             {
                 if (workData != null)
                 {
                     var toolData = (ToolData)workData;
                     toolData.Clean();
-                    ToolSession.Instance.ToolDataPool.Push(toolData);
+                    session.ToolDataPool.Push(toolData);
                     comp.ActiveThreads--;
 
                     if (comp.ActiveThreads != 0)
@@ -442,14 +445,17 @@ namespace ToolCore
                         break;
                 }
 
+                comp.FailedPulls.Clear();
                 comp.HitBlockLayers.Clear();
                 comp.MaxLayer = 0;
             }
             catch (Exception ex)
             {
                 Logs.LogException(ex);
+
+                session.TempBlocks.Clear();
+                comp.FailedPulls.Clear();
                 comp.HitBlockLayers.Clear();
-                comp.TempBlocks.Clear();
                 comp.MaxLayer = 0;
             }
 
@@ -714,20 +720,28 @@ namespace ToolCore
 
         private static bool TryPullComponents(this ToolComp comp)
         {
+            var session = ToolSession.Instance;
             var inventory = comp.Inventory;
             var tool = comp.ToolEntity;
 
             var first = true;
-            foreach (var component in ToolSession.Instance.MissingComponents)
+            foreach (var component in session.MissingComponents)
             {
                 var required = component.Value;
-                var defId = new MyDefinitionId(typeof(MyObjectBuilder_Component), component.Key);
+                var subtype = component.Key;
+                var defId = new MyDefinitionId(typeof(MyObjectBuilder_Component), subtype);
 
                 var current = inventory.GetItemAmount(defId);
                 var difference = required - current;
-                if (comp.IsBlock && difference > 0 && inventory.CargoPercentage < 0.999f)
+                MyFixedPoint pulled;
+                if (comp.IsBlock && difference > 0 && inventory.CargoPercentage < 0.999f && !comp.FailedPulls.Contains(subtype))
                 {
-                    current += comp.Grid.ConveyorSystem.PullItem(defId, difference, tool, inventory, false);
+                    pulled = comp.Grid.ConveyorSystem.PullItem(defId, difference, tool, inventory, false);
+                    current += pulled;
+                    if (pulled < 1)
+                    {
+                        comp.FailedPulls.Add(subtype);
+                    }
                 }
 
                 if (current < 1)
@@ -758,16 +772,18 @@ namespace ToolCore
 
         internal static void WeldBlocksBulk(this ToolComp comp)
         {
+            var session = ToolSession.Instance;
             var modeData = comp.ModeData;
             var def = modeData.Definition;
             var inventory = comp.Inventory;
             var toolValues = comp.Values;
             var tool = comp.ToolEntity;
-            var tempBlocks = comp.TempBlocks;
+            var tempBlocks = session.TempBlocks;
             var maxBlocks = def.Rate;
             var ownerId = comp.IsBlock ? comp.BlockTool.OwnerId : comp.HandTool.OwnerIdentityId;
 
-            var missing = ToolSession.Instance.MissingComponents;
+            var missing = session.MissingComponents;
+            var tempMissing = session.TempComponents;
             var creative = MyAPIGateway.Session.CreativeMode;
             var weldAmount = toolValues.Speed * MyAPIGateway.Session.WelderSpeedMultiplier;
 
@@ -809,12 +825,28 @@ namespace ToolCore
                             continue;
                         }
 
-                        tempBlocks.Add(slim);
-                        tryCount++;
-
                         if (projector == null)
                         {
-                            slim.GetMissingComponents(missing);
+                            tempMissing.Clear();
+                            slim.GetMissingComponents(tempMissing);
+                            if (comp.FailedPulls.Contains(tempMissing.Keys.FirstOrDefault()))
+                                continue;
+
+                            foreach (var item in tempMissing)
+                            {
+                                var key = item.Key;
+                                var value = item.Value;
+                                if (missing.ContainsKey(key))
+                                {
+                                    missing[key] += value;
+                                    continue;
+                                }
+                                missing[key] = value;
+                            }
+
+                            tempBlocks.Add(slim);
+                            tryCount++;
+
                             continue;
                         }
 
@@ -823,9 +855,15 @@ namespace ToolCore
                         if (components != null && components.Length != 0)
                         {
                             var firstComp = components[0].Definition.Id.SubtypeName;
+                            if (comp.FailedPulls.Contains(firstComp))
+                                continue;
+
                             if (missing.ContainsKey(firstComp))
                                 missing[firstComp] += 1;
                             else missing[firstComp] = 1;
+
+                            tempBlocks.Add(slim);
+                            tryCount++;
                         }
                     }
 
@@ -844,13 +882,19 @@ namespace ToolCore
                         continue;
                     }
 
-                    MyDefinitionId defId = new MyDefinitionId(typeof(MyObjectBuilder_Component), component.Key);
+                    var subtype = component.Key;
+                    MyDefinitionId defId = new MyDefinitionId(typeof(MyObjectBuilder_Component), subtype);
 
                     var current = inventory.GetItemAmount(defId);
                     var difference = required - current;
-                    if (comp.IsBlock && difference > 0 && inventory.CargoPercentage < 0.999f)
+                    if (comp.IsBlock && difference > 0 && inventory.CargoPercentage < 0.999f && !comp.FailedPulls.Contains(subtype))
                     {
-                        current += comp.Grid.ConveyorSystem.PullItem(defId, difference, tool, inventory, false);
+                        var pulled = comp.Grid.ConveyorSystem.PullItem(defId, difference, tool, inventory, false);
+                        current += pulled;
+                        if (pulled < 1)
+                        {
+                            comp.FailedPulls.Add(subtype);
+                        }
                     }
 
                 }
@@ -920,7 +964,7 @@ namespace ToolCore
                         continue;
                     }
 
-                    if (!ToolSession.Instance.IsServer)
+                    if (!session.IsServer)
                     {
                         comp.Working = true;
                         successCount++;

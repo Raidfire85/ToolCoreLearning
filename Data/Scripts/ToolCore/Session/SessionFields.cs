@@ -1,24 +1,17 @@
 ﻿using DefenseShields;
-using Sandbox.Common.ObjectBuilders;
 using Sandbox.Game.Entities;
 using System;
-using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
 using ToolCore.API;
 using ToolCore.Comp;
 using ToolCore.Definitions;
 using ToolCore.Definitions.Serialised;
 using ToolCore.Utils;
-using VRage;
 using VRage.Collections;
 using VRage.Game;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
-using VRage.Library.Collections;
-using VRage.Library.Threading;
 using VRage.ObjectBuilders;
 using VRage.Utils;
 using VRageMath;
@@ -48,12 +41,14 @@ namespace ToolCore.Session
         internal readonly Dictionary<long, ToolComp> ToolMap = new Dictionary<long, ToolComp>();
         internal readonly Dictionary<IMySlimBlock, float> WorkMap = new Dictionary<IMySlimBlock, float>();
         internal readonly Dictionary<string, int> MissingComponents = new Dictionary<string, int>();
+        internal readonly Dictionary<string, int> TempComponents = new Dictionary<string, int>();
         internal readonly ConcurrentDictionary<IMyCubeGrid, GridComp> GridMap = new ConcurrentDictionary<IMyCubeGrid, GridComp>();
         internal readonly ConcurrentDictionary<long, IMyPlayer> PlayerMap = new ConcurrentDictionary<long, IMyPlayer>();
 
         internal readonly List<Trigger> Triggers = new List<Trigger>((Trigger[])Enum.GetValues(typeof(Trigger)));
         internal readonly List<ToolComp> HandTools = new List<ToolComp>();
         internal readonly List<GridComp> GridList = new List<GridComp>();
+        internal readonly List<IMySlimBlock> TempBlocks = new List<IMySlimBlock>();
         internal readonly ConcurrentCachingList<ToolComp> AvComps = new ConcurrentCachingList<ToolComp>();
 
         private readonly HashSet<MyCubeGrid> _controlledGrids = new HashSet<MyCubeGrid>();

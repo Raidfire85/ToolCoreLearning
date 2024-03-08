@@ -67,13 +67,12 @@ namespace ToolCore.Comp
         internal readonly Dictionary<IMyModelDummy, MyEntity> DummyMap = new Dictionary<IMyModelDummy, MyEntity>();
 
         internal readonly ConcurrentCachingList<MyTuple<MyOrientedBoundingBoxD, Color>> DrawBoxes = new ConcurrentCachingList<MyTuple<MyOrientedBoundingBoxD, Color>>();
-        internal readonly List<IMySlimBlock> TempBlocks = new List<IMySlimBlock>();
         internal readonly List<Effects> ActiveEffects = new List<Effects>();
         internal readonly List<Action<int, bool>> EventMonitors = new List<Action<int, bool>>();
         internal readonly List<ulong> ReplicatedClients = new List<ulong>();
         internal readonly List<IMySlimBlock> WorkSet = new List<IMySlimBlock>();
 
-        internal readonly HashSet<Vector3I> PreviousPositions = new HashSet<Vector3I>();
+        internal readonly HashSet<string> FailedPulls = new HashSet<string>();
 
         internal readonly bool IsBlock;
         internal readonly bool HasTargetControls;
