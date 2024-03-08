@@ -4,9 +4,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using ToolCore.Comp;
-using ToolCore.Utils;
 using VRage.ModAPI;
 using VRage.Utils;
+using VRageMath;
 using static ToolCore.Comp.ToolComp;
 
 namespace ToolCore.Session
@@ -108,6 +108,12 @@ namespace ToolCore.Session
             _customControls.Add(ToolTargetNeutral<T>());
             _customControls.Add(ToolTargetHostile<T>());
 
+            _customControls.Add(Separator<T>());
+
+            _customControls.Add(UseWorkColourSwitch<T>());
+            _customControls.Add(SelectWorkColour<T>());
+            _customControls.Add(PickColourButton<T>());
+            _customControls.Add(SetColourPickerButton<T>());
 
             //foreach (var control in _customControls)
             //    MyAPIGateway.TerminalControls.AddControl<T>(control);
@@ -161,11 +167,12 @@ namespace ToolCore.Session
             if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
                 return;
 
+            var wasActivated = comp.Activated;
             comp.Activated = activated;
 
-            if (_session.IsServer) return;
+            if (_session.IsServer || comp.Activated == wasActivated) return;
 
-            _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.Activated, activated ? 1 : 0));
+            _session.Networking.SendPacketToServer(new BoolUpdatePacket(comp.ToolEntity.EntityId, FieldType.Activated, activated));
         }
 
         internal IMyTerminalAction CreateActivateOnOffAction<T>() where T : IMyConveyorSorter
@@ -192,7 +199,7 @@ namespace ToolCore.Session
             if (_session.IsServer || comp.Activated == wasActivated)
                 return;
 
-            _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.Activated, comp.Activated ? 1 : 0));
+            _session.Networking.SendPacketToServer(new BoolUpdatePacket(comp.ToolEntity.EntityId, FieldType.Activated, comp.Activated));
         }
 
         internal void ToggleActivatedWriter(IMyTerminalBlock block, StringBuilder builder)
@@ -228,7 +235,7 @@ namespace ToolCore.Session
             if (_session.IsServer || comp.Activated == wasActivated)
                 return;
 
-            _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.Activated, 1));
+            _session.Networking.SendPacketToServer(new SbyteUpdatePacket(comp.ToolEntity.EntityId, FieldType.Activated, 1));
         }
 
         internal void SetActivatedOnWriter(IMyTerminalBlock block, StringBuilder builder)
@@ -264,7 +271,7 @@ namespace ToolCore.Session
             if (_session.IsServer || comp.Activated == wasActivated)
                 return;
 
-            _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.Activated, 0));
+            _session.Networking.SendPacketToServer(new SbyteUpdatePacket(comp.ToolEntity.EntityId, FieldType.Activated, 0));
         }
 
         internal void SetActivatedOffWriter(IMyTerminalBlock block, StringBuilder builder)
@@ -331,7 +338,7 @@ namespace ToolCore.Session
 
             if (_session.IsServer) return;
 
-            _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.Mode, (int)comp.Mode));
+            _session.Networking.SendPacketToServer(new SbyteUpdatePacket(comp.ToolEntity.EntityId, FieldType.Mode, (int)comp.Mode));
         }
 
         internal bool HasModeSelect(IMyTerminalBlock block)
@@ -374,7 +381,7 @@ namespace ToolCore.Session
 
             if (_session.IsServer) return;
 
-            _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.Mode, (int)comp.Mode));
+            _session.Networking.SendPacketToServer(new SbyteUpdatePacket(comp.ToolEntity.EntityId, FieldType.Mode, (int)comp.Mode));
         }
 
         internal void SwitchModeWriter(IMyTerminalBlock block, StringBuilder builder)
@@ -442,7 +449,7 @@ namespace ToolCore.Session
 
             if (_session.IsServer) return;
 
-            _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.Action, (int)comp.Action));
+            _session.Networking.SendPacketToServer(new SbyteUpdatePacket(comp.ToolEntity.EntityId, FieldType.Action, (int)comp.Action));
         }
 
         internal bool HasActionSelect(IMyTerminalBlock block)
@@ -480,7 +487,7 @@ namespace ToolCore.Session
 
             if (_session.IsServer) return;
 
-            _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.Action, (int)comp.Action));
+            _session.Networking.SendPacketToServer(new SbyteUpdatePacket(comp.ToolEntity.EntityId, FieldType.Action, (int)comp.Action));
         }
 
         internal void SwitchActionWriter(IMyTerminalBlock block, StringBuilder builder)
@@ -531,7 +538,7 @@ namespace ToolCore.Session
 
             if (_session.IsServer) return;
 
-            _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.Draw, enabled ? 1 : 0));
+            _session.Networking.SendPacketToServer(new BoolUpdatePacket(comp.ToolEntity.EntityId, FieldType.Draw, enabled));
         }
 
         internal IMyTerminalAction CreateDrawAction<T>() where T : IMyConveyorSorter
@@ -556,7 +563,7 @@ namespace ToolCore.Session
 
             if (_session.IsServer) return;
 
-            _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.Draw, comp.Draw ? 1 : 0));
+            _session.Networking.SendPacketToServer(new BoolUpdatePacket(comp.ToolEntity.EntityId, FieldType.Draw, comp.Draw));
         }
 
         internal void ToggleDrawWriter(IMyTerminalBlock block, StringBuilder builder)
@@ -653,7 +660,7 @@ namespace ToolCore.Session
             if (_session.IsServer) return;
 
             var syncValue = on ? (int)TargetTypes.Own : - (int)TargetTypes.Own;
-            _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.TargetType, syncValue));
+            _session.Networking.SendPacketToServer(new SbyteUpdatePacket(comp.ToolEntity.EntityId, FieldType.TargetType, syncValue));
         }
 
         internal IMyTerminalAction CreateTargetOwnAction<T>() where T : IMyConveyorSorter
@@ -680,7 +687,7 @@ namespace ToolCore.Session
 
             var on = (comp.Targets & TargetTypes.Own) > TargetTypes.None;
             var syncValue = on ? (int)TargetTypes.Own : -(int)TargetTypes.Own;
-            _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.TargetType, syncValue));
+            _session.Networking.SendPacketToServer(new SbyteUpdatePacket(comp.ToolEntity.EntityId, FieldType.TargetType, syncValue));
         }
 
         internal void ToggleTargetOwnWriter(IMyTerminalBlock block, StringBuilder builder)
@@ -733,7 +740,7 @@ namespace ToolCore.Session
             if (_session.IsServer) return;
 
             var syncValue = on ? (int)TargetTypes.Friendly : -(int)TargetTypes.Friendly;
-            _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.TargetType, syncValue));
+            _session.Networking.SendPacketToServer(new SbyteUpdatePacket(comp.ToolEntity.EntityId, FieldType.TargetType, syncValue));
         }
 
         internal IMyTerminalAction CreateTargetFriendlyAction<T>() where T : IMyConveyorSorter
@@ -760,7 +767,7 @@ namespace ToolCore.Session
 
             var on = (comp.Targets & TargetTypes.Friendly) > TargetTypes.None;
             var syncValue = on ? (int)TargetTypes.Friendly : -(int)TargetTypes.Friendly;
-            _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.TargetType, syncValue));
+            _session.Networking.SendPacketToServer(new SbyteUpdatePacket(comp.ToolEntity.EntityId, FieldType.TargetType, syncValue));
         }
 
         internal void ToggleTargetFriendlyWriter(IMyTerminalBlock block, StringBuilder builder)
@@ -813,7 +820,7 @@ namespace ToolCore.Session
             if (_session.IsServer) return;
 
             var syncValue = on ? (int)TargetTypes.Neutral : -(int)TargetTypes.Neutral;
-            _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.TargetType, syncValue));
+            _session.Networking.SendPacketToServer(new SbyteUpdatePacket(comp.ToolEntity.EntityId, FieldType.TargetType, syncValue));
         }
 
         internal IMyTerminalAction CreateTargetNeutralAction<T>() where T : IMyConveyorSorter
@@ -840,7 +847,7 @@ namespace ToolCore.Session
 
             var on = (comp.Targets & TargetTypes.Neutral) > TargetTypes.None;
             var syncValue = on ? (int)TargetTypes.Neutral : -(int)TargetTypes.Neutral;
-            _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.TargetType, syncValue));
+            _session.Networking.SendPacketToServer(new SbyteUpdatePacket(comp.ToolEntity.EntityId, FieldType.TargetType, syncValue));
         }
 
         internal void ToggleTargetNeutralWriter(IMyTerminalBlock block, StringBuilder builder)
@@ -893,7 +900,7 @@ namespace ToolCore.Session
             if (_session.IsServer) return;
 
             var syncValue = on ? (int)TargetTypes.Hostile : -(int)TargetTypes.Hostile;
-            _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.TargetType, syncValue));
+            _session.Networking.SendPacketToServer(new SbyteUpdatePacket(comp.ToolEntity.EntityId, FieldType.TargetType, syncValue));
         }
 
         internal IMyTerminalAction CreateTargetHostileAction<T>() where T : IMyConveyorSorter
@@ -920,7 +927,7 @@ namespace ToolCore.Session
 
             var on = (comp.Targets & TargetTypes.Hostile) > TargetTypes.None;
             var syncValue = on ? (int)TargetTypes.Hostile : -(int)TargetTypes.Hostile;
-            _session.Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.TargetType, syncValue));
+            _session.Networking.SendPacketToServer(new SbyteUpdatePacket(comp.ToolEntity.EntityId, FieldType.TargetType, syncValue));
         }
 
         internal void ToggleTargetHostileWriter(IMyTerminalBlock block, StringBuilder builder)
@@ -932,6 +939,167 @@ namespace ToolCore.Session
             var on = (comp.Targets & TargetTypes.Hostile) > TargetTypes.None;
 
             builder.Append(on ? "On" : "Off");
+        }
+
+        #endregion
+
+        #region Work Colour
+
+        // Use
+
+        internal IMyTerminalControlOnOffSwitch UseWorkColourSwitch<T>() where T : IMyConveyorSorter
+        {
+            var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlOnOffSwitch, T>("ToolCore_UseWorkColor");
+            control.Title = MyStringId.GetOrCompute("Use Work Color");
+            control.Tooltip = MyStringId.GetOrCompute("Only work on blocks painted the work color");
+            control.OnText = MyStringId.GetOrCompute("On");
+            control.OffText = MyStringId.GetOrCompute("Off");
+            control.Getter = GetUseWorkColour;
+            control.Setter = SetUseWorkColour;
+            control.Visible = ShowTargetControls;
+            control.Enabled = IsFunctional;
+
+            return control;
+
+        }
+
+        internal bool GetUseWorkColour(IMyTerminalBlock block)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return false;
+
+            return comp.UseWorkColour;
+        }
+
+        internal void SetUseWorkColour(IMyTerminalBlock block, bool on)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return;
+
+            if (comp.UseWorkColour == on)
+                return;
+
+            comp.UseWorkColour = on;
+
+            comp.RefreshTerminal();
+
+            if (_session.IsServer)
+                return;
+
+            _session.Networking.SendPacketToServer(new BoolUpdatePacket(comp.ToolEntity.EntityId, FieldType.UseColour, on));
+        }
+
+        // Select
+
+        internal IMyTerminalControlColor SelectWorkColour<T>() where T : IMyConveyorSorter
+        {
+            var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlColor, T>("ToolCore_WorkColor");
+            control.Title = MyStringId.GetOrCompute("Work Color");
+            control.Tooltip = MyStringId.GetOrCompute("Color of blocks to work on");
+            control.Getter = GetWorkColour;
+            control.Setter = SetWorkColour;
+            control.Visible = ShowWorkColour;
+            control.Enabled = IsFunctional;
+
+            return control;
+        }
+
+        internal bool ShowWorkColour(IMyTerminalBlock block)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return false;
+
+            return comp.UseWorkColour;
+        }
+
+        internal Color GetWorkColour(IMyTerminalBlock block)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return Color.Black;
+
+            var hsv = comp.WorkColour;
+            hsv.Y = (hsv.Y + 1f) * 0.5f;
+            hsv.Z = (hsv.Z + 1f) * 0.5f;
+            return hsv.HSVtoColor();
+        }
+
+        internal void SetWorkColour(IMyTerminalBlock block, Color color)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return;
+
+            var newColour = color.ColorToHSVDX11();
+
+            if (newColour == comp.WorkColour)
+                return;
+
+            comp.WorkColour = newColour;
+
+            if (_session.IsServer)
+                return;
+
+            _session.Networking.SendPacketToServer(new UintUpdatePacket(comp.ToolEntity.EntityId, FieldType.Colour, comp.WorkColourPacked));
+        }
+
+        // Pick from Color Picker
+
+        internal IMyTerminalControlButton PickColourButton<T>() where T : IMyConveyorSorter
+        {
+            var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlButton, T>("ToolCore_PickWorkColor");
+            control.Title = MyStringId.GetOrCompute("Set from Color Picker");
+            control.Tooltip = MyStringId.GetOrCompute("Pick work colour from Color Picker");
+            control.Action = PickColour;
+            control.Visible = ShowWorkColour;
+            control.Enabled = IsFunctional;
+
+            return control;
+        }
+
+        internal void PickColour(IMyTerminalBlock block)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return;
+
+            comp.WorkColour = MyAPIGateway.Session.LocalHumanPlayer.SelectedBuildColor;
+
+            foreach (var control in _customControls)
+            {
+                control.UpdateVisual();
+            }
+
+            if (_session.IsServer)
+                return;
+
+            _session.Networking.SendPacketToServer(new UintUpdatePacket(comp.ToolEntity.EntityId, FieldType.Colour, comp.WorkColourPacked));
+        }
+
+        // Set Color Picker
+
+        internal IMyTerminalControlButton SetColourPickerButton<T>() where T : IMyConveyorSorter
+        {
+            var control = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlButton, T>("ToolCore_PickWorkColor");
+            control.Title = MyStringId.GetOrCompute("Copy to Color Picker");
+            control.Tooltip = MyStringId.GetOrCompute("Set the active Color Picker slot to the colour selected above");
+            control.Action = SetColourPicker;
+            control.Visible = ShowWorkColour;
+            control.Enabled = IsFunctional;
+
+            return control;
+        }
+
+        internal void SetColourPicker(IMyTerminalBlock block)
+        {
+            ToolComp comp;
+            if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
+                return;
+
+            MyAPIGateway.Session.LocalHumanPlayer.SelectedBuildColor = comp.WorkColour;
         }
 
         #endregion

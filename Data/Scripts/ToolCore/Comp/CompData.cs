@@ -1,4 +1,5 @@
 ﻿using ProtoBuf;
+using VRageMath;
 
 namespace ToolCore.Comp
 {
@@ -10,6 +11,8 @@ namespace ToolCore.Comp
         [ProtoMember(3)] public byte Mode;
         [ProtoMember(4)] public byte Action;
         [ProtoMember(5)] public byte Targets;
+        [ProtoMember(6)] public bool UseWorkColour;
+        [ProtoMember(7)] public Vector3 WorkColour;
 
         internal void Sync(ToolComp comp)
         {
@@ -18,6 +21,8 @@ namespace ToolCore.Comp
             Mode = (byte)comp.Mode;
             Action = (byte)comp.Action;
             Targets = (byte)comp.Targets;
+            UseWorkColour = comp.UseWorkColour;
+            WorkColour = comp.WorkColour;
         }
     }
 }

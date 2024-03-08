@@ -267,7 +267,7 @@ namespace ToolCore.Session
                     if (action != comp.Action)
                     {
                         comp.Action = action;
-                        Networking.SendPacketToServer(new UpdatePacket(comp.ToolEntity.EntityId, FieldType.Action, (int)comp.Action));
+                        Networking.SendPacketToServer(new SbyteUpdatePacket(comp.ToolEntity.EntityId, FieldType.Action, (int)comp.Action));
                         return;
                     }
                 }
@@ -559,46 +559,49 @@ namespace ToolCore.Session
                     if (grid.Closed || grid.MarkedForClose || !grid.Editable)
                         continue;
 
-                    var targetOwner = grid.Projector?.OwnerId ?? grid.BigOwners.FirstOrDefault();
-                    var relation = ToolComp.TargetTypes.Neutral;
-                    if (ownerId == targetOwner)
+                    if (comp.HasTargetControls)
                     {
-                        relation = ToolComp.TargetTypes.Own;
-                    }
-                    else if (ownerId != 0 && targetOwner != 0)
-                    {
-                        if (toolFaction != null)
+                        var targetOwner = grid.Projector?.OwnerId ?? grid.BigOwners.FirstOrDefault();
+                        var relation = ToolComp.TargetTypes.Neutral;
+                        if (ownerId == targetOwner)
                         {
-                            var targetFaction = MyAPIGateway.Session.Factions.TryGetPlayerFaction(targetOwner);
-                            if (targetFaction != null)
+                            relation = ToolComp.TargetTypes.Own;
+                        }
+                        else if (ownerId != 0 && targetOwner != 0)
+                        {
+                            if (toolFaction != null)
                             {
-                                if (toolFaction == targetFaction)
+                                var targetFaction = MyAPIGateway.Session.Factions.TryGetPlayerFaction(targetOwner);
+                                if (targetFaction != null)
                                 {
-                                    relation = ToolComp.TargetTypes.Friendly;
-                                }
-                                else
-                                {
-                                    var factionRelation = MyAPIGateway.Session.Factions.GetRelationBetweenFactions(toolFaction.FactionId, targetFaction.FactionId);
-                                    if (factionRelation == MyRelationsBetweenFactions.Enemies)
-                                    {
-                                        relation = ToolComp.TargetTypes.Hostile;
-                                    }
-                                    else if (factionRelation == MyRelationsBetweenFactions.Friends)
+                                    if (toolFaction == targetFaction)
                                     {
                                         relation = ToolComp.TargetTypes.Friendly;
                                     }
+                                    else
+                                    {
+                                        var factionRelation = MyAPIGateway.Session.Factions.GetRelationBetweenFactions(toolFaction.FactionId, targetFaction.FactionId);
+                                        if (factionRelation == MyRelationsBetweenFactions.Enemies)
+                                        {
+                                            relation = ToolComp.TargetTypes.Hostile;
+                                        }
+                                        else if (factionRelation == MyRelationsBetweenFactions.Friends)
+                                        {
+                                            relation = ToolComp.TargetTypes.Friendly;
+                                        }
+                                    }
                                 }
                             }
-                        }
-                        else
-                        {
-                            relation = ToolComp.TargetTypes.Hostile;
+                            else
+                            {
+                                relation = ToolComp.TargetTypes.Hostile;
+                            }
+
                         }
 
+                        if ((relation & comp.Targets) == ToolComp.TargetTypes.None)
+                            continue;
                     }
-
-                    if ((relation & comp.Targets) == ToolComp.TargetTypes.None)
-                        continue;
 
                     switch (comp.Mode)
                     {

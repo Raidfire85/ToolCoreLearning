@@ -4,10 +4,9 @@ using System;
 using System.Collections.Generic;
 using ToolCore.Comp;
 using ToolCore.Definitions;
-using ToolCore.Definitions.Serialised;
 using ToolCore.Utils;
-using VRage;
 using VRageMath;
+using static ToolCore.Comp.ToolComp;
 
 namespace ToolCore.Session
 {
@@ -35,12 +34,17 @@ namespace ToolCore.Session
             MyModAPIHelper.MyMultiplayer.Static.SendMessageTo(ClientPacketId, rawData, client, true);
         }
 
-        public void SendPacketToClients(Packet packet, List<ulong> clients)
+        public void SendPacketToClients(Packet packet, List<ulong> clients, ulong source)
         {
             var rawData = MyAPIGateway.Utilities.SerializeToBinary(packet);
 
             foreach (var client in clients)
+            {
+                if (client == source)
+                    continue;
+
                 MyModAPIHelper.MyMultiplayer.Static.SendMessageTo(ClientPacketId, rawData, client, true);
+            }
         }
 
         internal void ProcessPacket(ushort id, byte[] rawData, ulong sender, bool reliable)
@@ -57,11 +61,6 @@ namespace ToolCore.Session
                 var comp = packet.EntityId == 0 ? null : Session.ToolMap[packet.EntityId];
                 switch ((PacketType)packet.PacketType)
                 {
-                    case PacketType.Update:
-                        var uPacket = packet as UpdatePacket;
-                        UpdateComp(uPacket, comp);
-                        if (Session.IsServer) SendPacketToClients(uPacket, comp.ReplicatedClients);
-                        break;
                     case PacketType.Replicate:
                         var rPacket = packet as ReplicationPacket;
                         if (rPacket.Add)
@@ -72,6 +71,11 @@ namespace ToolCore.Session
                     case PacketType.Settings:
                         var sPacket = packet as SettingsPacket;
                         Session.LoadSettings(sPacket.Settings);
+                        break;
+                    case PacketType.Update:
+                        var uPacket = packet as UpdatePacket;
+                        UpdateComp(uPacket, comp);
+                        if (Session.IsServer) SendPacketToClients(uPacket, comp.ReplicatedClients, sender);
                         break;
                     default:
                         Logs.WriteLine($"Invalid packet type - {packet.GetType()}");
@@ -90,19 +94,33 @@ namespace ToolCore.Session
             switch ((FieldType)packet.Field)
             {
                 case FieldType.Activated:
-                    comp.Activated = packet.Value == 1 ? true : false;
+                    comp.Activated = ((BoolUpdatePacket)packet).Value;
                     break;
                 case FieldType.Mode:
-                    comp.Mode = (ToolComp.ToolMode)packet.Value;
+                    comp.Mode = (ToolMode)((SbyteUpdatePacket)packet).Value;
                     break;
                 case FieldType.Action:
-                    comp.Action = (ToolComp.ToolAction)packet.Value;
+                    comp.Action = (ToolAction)((SbyteUpdatePacket)packet).Value;
                     break;
                 case FieldType.Draw:
-                    comp.Draw = packet.Value == 1 ? true : false;
+                    comp.Draw = ((BoolUpdatePacket)packet).Value;
+                    break;
+                case FieldType.TargetType:
+                    var value = ((SbyteUpdatePacket)packet).Value;
+                    var target = (TargetTypes)Math.Abs(value);
+                    var on = value > 0;
+                    if (on) comp.Targets |= target;
+                    else comp.Targets &= ~target;
+                    break;
+                case FieldType.UseColour:
+                    comp.UseWorkColour = ((BoolUpdatePacket)packet).Value;
+                    break;
+                case FieldType.Colour:
+                    var packedHsv = ((UintUpdatePacket)packet).Value;
+                    var hsv = ColorExtensions.UnpackHSVFromUint(packedHsv);
+                    comp.WorkColour = hsv;
                     break;
                 default:
-                    Logs.WriteLine($"Invalid packet value: {packet.Value} for field: {packet.Field}");
                     break;
             }
         }
@@ -131,12 +149,39 @@ namespace ToolCore.Session
     }
 
     [ProtoContract]
+    [ProtoInclude(4, typeof(BoolUpdatePacket))]
+    [ProtoInclude(6, typeof(SbyteUpdatePacket))]
+    [ProtoInclude(7, typeof(UintUpdatePacket))]
     public class UpdatePacket : Packet
     {
         [ProtoMember(1)] internal byte Field;
+    }
+
+    [ProtoContract]
+    public class BoolUpdatePacket : UpdatePacket
+    {
+        [ProtoMember(2)] internal bool Value;
+
+        public BoolUpdatePacket(long entityId, FieldType field, bool value)
+        {
+            EntityId = entityId;
+            PacketType = (byte)Session.PacketType.Update;
+            Field = (byte)field;
+            Value = value;
+        }
+
+        public BoolUpdatePacket()
+        {
+
+        }
+    }
+
+    [ProtoContract]
+    public class SbyteUpdatePacket : UpdatePacket
+    {
         [ProtoMember(2)] internal sbyte Value;
 
-        public UpdatePacket(long entityId, FieldType field, int value)
+        public SbyteUpdatePacket(long entityId, FieldType field, int value)
         {
             EntityId = entityId;
             PacketType = (byte)Session.PacketType.Update;
@@ -144,7 +189,26 @@ namespace ToolCore.Session
             Value = (sbyte)value;
         }
 
-        public UpdatePacket()
+        public SbyteUpdatePacket()
+        {
+
+        }
+    }
+
+    [ProtoContract]
+    public class UintUpdatePacket : UpdatePacket
+    {
+        [ProtoMember(2)] internal uint Value;
+
+        public UintUpdatePacket(long entityId, FieldType field, uint value)
+        {
+            EntityId = entityId;
+            PacketType = (byte)Session.PacketType.Update;
+            Field = (byte)field;
+            Value = value;
+        }
+
+        public UintUpdatePacket()
         {
 
         }
@@ -164,7 +228,7 @@ namespace ToolCore.Session
 
     //        public SerializableVector3 Offset;
     //        public SerializableVector3 HalfExtent;
-            
+
     //        public float Radius;
     //        public float Length;
     //        public float Speed;
@@ -202,9 +266,9 @@ namespace ToolCore.Session
 
     public enum PacketType : byte
     {
-        Update,
         Replicate,
-        Settings
+        Settings,
+        Update,
     }
 
     public enum FieldType : byte
@@ -215,6 +279,8 @@ namespace ToolCore.Session
         Action = 3,
         Draw = 4,
         TargetType = 5,
+        UseColour = 6,
+        Colour = 7,
     }
 
 }

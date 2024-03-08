@@ -172,6 +172,7 @@ namespace ToolCore.Session
                 if (exists)
                 {
                     pEffect.Particle.WorldMatrix = matrix;
+                    //pEffect.Particle.SetTranslation(ref position);
                 }
 
             }

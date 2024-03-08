@@ -25,6 +25,7 @@ using VRage.Utils;
 using VRage.Voxels;
 using VRageMath;
 using static ToolCore.Definitions.ToolDefinition;
+using static VRage.Game.ObjectBuilders.Definitions.MyObjectBuilder_GameDefinition;
 
 namespace ToolCore.Comp
 {
@@ -46,8 +47,6 @@ namespace ToolCore.Comp
         internal MyCubeGrid Grid;
         internal GridComp GridComp;
         internal ToolRepo Repo;
-
-        internal ConcurrentCachingList<ToolComp> ToolGroup;
 
         internal IMyTerminalControlOnOffSwitch ShowInToolbarSwitch;
 
@@ -89,6 +88,7 @@ namespace ToolCore.Comp
         internal bool LastPushSucceeded;
 
         internal bool Draw;
+        internal bool UseWorkColour;
         internal bool Working;
         internal bool WasHitting;
         internal readonly Hit HitInfo = new Hit();
@@ -102,6 +102,23 @@ namespace ToolCore.Comp
         internal int ActiveThreads;
 
         internal volatile int MaxLayer;
+
+        internal uint WorkColourPacked;
+
+        private Vector3 _workColour;
+        internal Vector3 WorkColour
+        {
+            get
+            {
+                return _workColour;
+            }
+            set
+            { 
+                _workColour = value;
+
+                WorkColourPacked = _workColour.PackHSVToUint();
+            }
+        }
 
         private bool _activated;
 
@@ -1093,6 +1110,8 @@ namespace ToolCore.Comp
             Mode = (ToolMode)repo.Mode;
             Action = (ToolAction)repo.Action;
             Targets = (TargetTypes)repo.Targets;
+            UseWorkColour = repo.UseWorkColour;
+            WorkColour = repo.WorkColour;
         }
 
         internal void OnDrillComplete(WorkData data)

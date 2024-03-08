@@ -142,6 +142,10 @@ namespace ToolCore
                         if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
                             continue;
 
+                        var colour = (grid.Projector as IMyProjector)?.SlimBlock.ColorMaskHSV ?? slim.ColorMaskHSV;
+                        if (comp.UseWorkColour && colour.PackHSVToUint() != comp.WorkColourPacked)
+                            return;
+
                         var layer = (int)Math.Ceiling(distSqr);
                         comp.MaxLayer = Math.Max(layer, comp.MaxLayer);
 
@@ -225,6 +229,10 @@ namespace ToolCore
                         if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
                             continue;
 
+                        var colour = (grid.Projector as IMyProjector)?.SlimBlock.ColorMaskHSV ?? slim.ColorMaskHSV;
+                        if (comp.UseWorkColour && colour.PackHSVToUint() != comp.WorkColourPacked)
+                            return;
+
                         var layer = (int)Math.Ceiling(distSqr);
                         comp.MaxLayer = Math.Max(layer, comp.MaxLayer);
 
@@ -273,6 +281,10 @@ namespace ToolCore
                         if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
                             continue;
 
+                        var colour = (grid.Projector as IMyProjector)?.SlimBlock.ColorMaskHSV ?? slim.ColorMaskHSV;
+                        if (comp.UseWorkColour && colour.PackHSVToUint() != comp.WorkColourPacked)
+                            return;
+
                         var distSqr = Vector3D.DistanceSquared(posD, obb.Center);
 
                         var layer = (int)Math.Ceiling(distSqr);
@@ -315,6 +327,10 @@ namespace ToolCore
                 if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
                     continue;
 
+                var colour = (grid.Projector as IMyProjector)?.SlimBlock.ColorMaskHSV ?? slim.ColorMaskHSV;
+                if (comp.UseWorkColour && colour.PackHSVToUint() != comp.WorkColourPacked)
+                    return;
+
                 var distSqr = Vector3D.DistanceSquared(start, grid.GridIntegerToWorld(pos));
 
                 var layer = (int)Math.Ceiling(distSqr);
@@ -346,6 +362,10 @@ namespace ToolCore
                 return;
 
             if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
+                return;
+
+            var colour = (grid.Projector as IMyProjector)?.SlimBlock.ColorMaskHSV ?? slim.ColorMaskHSV;
+            if (comp.UseWorkColour && colour.PackHSVToUint() != comp.WorkColourPacked)
                 return;
 
             var layer = (int)Math.Ceiling(data.RayLength);
