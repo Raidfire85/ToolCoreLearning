@@ -90,7 +90,10 @@ namespace ToolCore.Comp
                 if (Session.ToolMap.TryGetValue(block.EntityId, out comp) && comp?.GunBase != null && ToolComps.Remove(comp))
                 {
                     if (!block.CubeGrid.MarkedForClose && !block.CubeGrid.Closed)
+                    {
                         ((IMyCubeGrid)Grid).WeaponSystem.Unregister(comp.GunBase);
+                        Logs.WriteLine($"Removing tool \"{block.DisplayNameText}\" of type \"{block.BlockDefinition.Id.SubtypeName}\" from grid \"{block.CubeGrid.DisplayName}\"");
+                    }
                 }
             }
         }
