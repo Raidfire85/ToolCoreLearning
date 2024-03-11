@@ -329,6 +329,11 @@ namespace ToolCore.Comp
             }
         }
 
+        internal void ChangeGrid()
+        {
+            Grid = (MyCubeGrid)BlockTool.CubeGrid;
+        }
+
         internal class TurretComp
         {
             internal readonly TurretDefinition Definition;

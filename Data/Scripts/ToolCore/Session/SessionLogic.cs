@@ -197,6 +197,11 @@ namespace ToolCore.Session
                 comp.Dirty = true;
             }
 
+            if (isBlock && comp.Grid != block.CubeGrid)
+            {
+                comp.ChangeGrid();
+            }
+
             if (!comp.Functional)
                 return;
 
