@@ -140,7 +140,7 @@ namespace ToolCore.Comp
 
         public Vector3 DirectionToTarget(Vector3D target)
         {
-            return _comp.ModeData.Muzzle.Matrix.Forward;
+            return _comp.ModeData.Muzzle?.Matrix.Forward ?? Vector3.Forward;
         }
 
         public void DrawHud(IMyCameraController camera, long playerId)
@@ -182,12 +182,12 @@ namespace ToolCore.Comp
 
         public Vector3D GetMuzzlePosition()
         {
-            return _comp.ModeData.Muzzle.Matrix.Translation;
+            return _comp.ModeData.Muzzle?.Matrix.Translation ?? Vector3D.Zero;
         }
 
         public Vector3 GetShootDirection()
         {
-            return _comp.ModeData.Muzzle.Matrix.Forward;
+            return _comp.ModeData.Muzzle?.Matrix.Forward ?? Vector3.Forward;
         }
 
         public int GetTotalAmmunitionAmount()
