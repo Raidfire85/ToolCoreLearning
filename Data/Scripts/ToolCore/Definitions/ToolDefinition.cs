@@ -55,10 +55,13 @@ namespace ToolCore.Definitions
 
         internal class TurretDefinition
         {
+            internal readonly int TargetRadiusSqr;
             internal readonly List<TurretPartDef> Subparts = new List<TurretPartDef>();
 
             internal TurretDefinition(TurretValues values)
             {
+                TargetRadiusSqr = values.TargetRadius * values.TargetRadius;
+
                 for (int i = 0; i < values.Subparts.Length; i++)
                 {
                     var partValues = values.Subparts[i];
@@ -73,19 +76,21 @@ namespace ToolCore.Definitions
             internal class TurretPartDef
             {
                 internal readonly string Name;
+                internal readonly Direction RotationAxis;
                 internal readonly float RotationSpeed;
-                internal readonly int MinRotation;
-                internal readonly int MaxRotation;
+                internal readonly float MinRotation;
+                internal readonly float MaxRotation;
                 internal readonly bool RotationCapped;
 
                 internal TurretPartDef(SubpartValues values)
                 {
                     Name = values.Name;
-                    RotationSpeed = values.RotationSpeed;
-                    MinRotation = values.MinRotation;
-                    MaxRotation = values.MaxRotation;
-                    var range = MaxRotation - MinRotation;
+                    RotationAxis = values.RotationAxis;
+                    var range = values.MaxRotation - values.MinRotation;
                     RotationCapped = range == 0 || range == 360;
+                    MinRotation = MathHelper.ToRadians(values.MinRotation);
+                    MaxRotation = MathHelper.ToRadians(values.MaxRotation);
+                    RotationSpeed = MathHelper.ToRadians(values.RotationSpeed / 60);
                 }
             }
         }
@@ -283,15 +288,14 @@ namespace ToolCore.Definitions
             UpdateInterval = values.UpdateInterval;
             ActivePower = values.ActivePower;
             IdlePower = values.IdlePower;
-            //Turret = values.Turret;
             DamageCharacters = values.DamageCharacters;
             CacheBlocks = values.CacheBlocks;
             AffectOwnGrid = values.AffectOwnGrid;
             Debug = !session.IsDedicated && values.Debug;
             ShowTargetControls = values.ShowTargetControls;
 
-            IsTurret = DefineTurret(values.Turret, out Turret);
             DefineParameters(values, session);
+            IsTurret = DefineTurret(values.Turret, out Turret);
             _tempModifiers = values.MaterialSpecificModifiers;
 
             EventFlags = DefineEvents(values.Events, session, values.Length);
@@ -305,6 +309,7 @@ namespace ToolCore.Definitions
                 return false;
 
             def = new TurretDefinition(values);
+            EffectSphere = new BoundingSphereD(Vector3D.Zero, values.TargetRadius);
             return true;
         }
 

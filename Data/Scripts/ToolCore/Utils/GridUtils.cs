@@ -5,7 +5,7 @@ using Sandbox.ModAPI;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
+using System.Security.Cryptography;
 using ToolCore.Comp;
 using ToolCore.Definitions.Serialised;
 using ToolCore.Session;
@@ -16,13 +16,11 @@ using VRage.Game;
 using VRage.Game.ModAPI;
 using VRageMath;
 using static ToolCore.Comp.ToolComp;
-using static VRage.Game.ObjectBuilders.Definitions.MyObjectBuilder_GameDefinition;
 
 namespace ToolCore
 {
     internal static class GridUtils
     {
-
         internal static void GetBlocksInVolume(this ToolComp comp, WorkData workData)
         {
             try
@@ -137,7 +135,7 @@ namespace ToolCore
                         if (!data.HitBlocksHash.Add(slim))
                             continue;
 
-                        if (slim.FatBlock != null && (slim.FatBlock.MarkedForClose || slim.FatBlock.Closed))
+                        if (slim.FatBlock != null && (slim.FatBlock.MarkedForClose))
                             continue;
 
                         if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
@@ -224,7 +222,7 @@ namespace ToolCore
                         if (!data.HitBlocksHash.Add(slim))
                             continue;
 
-                        if (slim.FatBlock != null && (slim.FatBlock.MarkedForClose || slim.FatBlock.Closed))
+                        if (slim.FatBlock != null && (slim.FatBlock.MarkedForClose))
                             continue;
 
                         if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
@@ -276,7 +274,7 @@ namespace ToolCore
                         if (!data.HitBlocksHash.Add(slim))
                             continue;
 
-                        if (slim.FatBlock != null && (slim.FatBlock.MarkedForClose || slim.FatBlock.Closed))
+                        if (slim.FatBlock != null && (slim.FatBlock.MarkedForClose))
                             continue;
 
                         if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
@@ -322,7 +320,7 @@ namespace ToolCore
                 if (!data.HitBlocksHash.Add(slim))
                     continue;
 
-                if (slim.FatBlock != null && (slim.FatBlock.MarkedForClose || slim.FatBlock.Closed))
+                if (slim.FatBlock != null && (slim.FatBlock.MarkedForClose))
                     continue;
 
                 if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
@@ -359,7 +357,7 @@ namespace ToolCore
 
             var slim = (IMySlimBlock)cube.CubeBlock;
 
-            if (slim.FatBlock != null && (slim.FatBlock.MarkedForClose || slim.FatBlock.Closed))
+            if (slim.FatBlock != null && (slim.FatBlock.MarkedForClose))
                 return;
 
             if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
@@ -400,8 +398,8 @@ namespace ToolCore
                     for (int s = comp.WorkSet.Count - 1; s >= 0; s--)
                     {
                         var slim = comp.WorkSet[s];
-                        var fatClose = slim?.FatBlock == null ? false : slim.FatBlock.MarkedForClose || slim.FatBlock.Closed;
-                        var gridClose = slim?.CubeGrid == null || slim.CubeGrid.MarkedForClose || slim.CubeGrid.Closed;
+                        var fatClose = slim?.FatBlock == null ? false : slim.FatBlock.MarkedForClose;
+                        var gridClose = slim?.CubeGrid == null || slim.CubeGrid.MarkedForClose;
                         var skip = slim == null || slim.IsFullyDismounted || comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation;
                         if (fatClose || gridClose || skip)
                         {
@@ -487,7 +485,7 @@ namespace ToolCore
                     var slim = layer[j];
                     var fat = slim.FatBlock;
                     var grid = slim.CubeGrid as MyCubeGrid;
-                    if (slim.IsFullyDismounted || grid.Closed || grid.MarkedForClose || fat != null && (fat.Closed || fat.MarkedForClose))
+                    if (slim.IsFullyDismounted || grid.MarkedForClose || fat != null && fat.MarkedForClose)
                     {
                         if (def.Debug) comp.DebugDrawBlock(slim, Color.Red);
                         continue;
@@ -579,7 +577,7 @@ namespace ToolCore
                     var slim = layer[j];
                     var fat = slim.FatBlock;
                     var grid = slim.CubeGrid as MyCubeGrid;
-                    if (slim.IsFullyDismounted || grid.Closed || grid.MarkedForClose || fat != null && (fat.Closed || fat.MarkedForClose))
+                    if (slim.IsFullyDismounted || grid.MarkedForClose || fat != null && fat.MarkedForClose)
                     {
                         if (def.Debug) comp.DebugDrawBlock(slim, Color.Red);
                         continue;
@@ -812,7 +810,7 @@ namespace ToolCore
 
                         var fat = slim.FatBlock;
                         var grid = slim.CubeGrid as MyCubeGrid;
-                        if (slim.IsFullyDismounted || grid.Closed || grid.MarkedForClose || fat != null && (fat.Closed || fat.MarkedForClose))
+                        if (slim.IsFullyDismounted || grid.MarkedForClose || fat != null && fat.MarkedForClose)
                         {
                             if (def.Debug) comp.DebugDrawBlock(slim, Color.Red);
                             continue;
@@ -1001,5 +999,130 @@ namespace ToolCore
             }
 
         }
+
+        #region Turret targeting
+
+        internal static void GetBlockTargets(this ToolComp comp, WorkData workData)
+        {
+            try
+            {
+                var modeData = comp.ModeData;
+                var def = modeData.Definition;
+                var toolValues = comp.Values;
+                var data = workData as ToolData;
+                var grid = data.Entity as MyCubeGrid;
+
+                var gridMatrixNI = grid.PositionComp.WorldMatrixNormalizedInv;
+                var localCentre = grid.WorldToGridScaledLocal(data.Position);
+
+                var gridSizeR = grid.GridSizeR;
+                var radius = toolValues.BoundingRadius * gridSizeR;
+
+                var minExtent = localCentre - radius;
+                var maxExtent = localCentre + radius;
+
+                var sMin = Vector3I.Round(minExtent);
+                var sMax = Vector3I.Round(maxExtent);
+
+                var gMin = grid.Min;
+                var gMax = grid.Max;
+
+                var min = Vector3I.Max(sMin, gMin);
+                var max = Vector3I.Min(sMax, gMax);
+
+
+                int i, j, k;
+                for (i = min.X; i <= max.X; i++)
+                {
+                    for (j = min.Y; j <= max.Y; j++)
+                    {
+                        for (k = min.Z; k <= max.Z; k++)
+                        {
+                            var pos = new Vector3I(i, j, k);
+
+                            var posD = (Vector3D)pos;
+                            Vector3D corner = Vector3D.Clamp(localCentre, posD - 0.5, posD + 0.5);
+
+                            var distSqr = Vector3D.DistanceSquared(corner, localCentre);
+                            if (distSqr > radius * radius)
+                                continue;
+
+                            MyCube cube;
+                            if (!grid.TryGetCube(pos, out cube))
+                                continue;
+
+                            var slim = (IMySlimBlock)cube.CubeBlock;
+                            if (!data.HitBlocksHash.Add(slim))
+                                continue;
+
+                            if (slim.FatBlock != null && (slim.FatBlock.MarkedForClose))
+                                continue;
+
+                            if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
+                                continue;
+
+                            var colour = (grid.Projector as IMyProjector)?.SlimBlock.ColorMaskHSV ?? slim.ColorMaskHSV;
+                            if (comp.UseWorkColour && colour.PackHSVToUint() != comp.WorkColourPacked)
+                                return;
+
+                            var layer = (int)Math.Ceiling(distSqr);
+                            comp.MaxLayer = Math.Max(layer, comp.MaxLayer);
+
+                            ConcurrentCachingList<IMySlimBlock> list;
+                            if (!comp.HitBlockLayers.TryGetValue(layer, out list))
+                            {
+                                list = new ConcurrentCachingList<IMySlimBlock>();
+                                comp.HitBlockLayers[layer] = list;
+                            }
+                            list.Add(slim);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logs.LogException(ex);
+                comp.ActiveThreads--;
+            }
+        }
+
+        internal static void OnGetBlockTargetsComplete(this ToolComp comp, WorkData workData)
+        {
+            var session = ToolSession.Instance;
+            var turret = comp.ModeData.Turret;
+
+            if (workData != null)
+            {
+                var toolData = (ToolData)workData;
+                toolData.Clean();
+                session.ToolDataPool.Push(toolData);
+                comp.ActiveThreads--;
+            }
+
+            for (int i = comp.MaxLayer; i > 0; i--)
+            {
+                ConcurrentCachingList<IMySlimBlock> layer;
+                if (!comp.HitBlockLayers.TryGetValue(i, out layer))
+                    continue;
+
+                layer.ApplyAdditions();
+                for (int j = 0; j < layer.Count; j++)
+                {
+                    var slim = layer[j];
+                    var fat = slim.FatBlock;
+                    var grid = slim.CubeGrid as MyCubeGrid;
+                    if (slim.IsFullyDismounted || grid.MarkedForClose || fat != null && fat.MarkedForClose)
+                    {
+                        continue;
+                    }
+                    turret.Targets.Add(slim);
+                }
+            }
+
+            comp.HitBlockLayers.Clear();
+
+        }
+
+        #endregion
     }
 }

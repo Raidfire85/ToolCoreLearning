@@ -15,6 +15,7 @@ using VRage.Game.ModAPI.Interfaces;
 using VRage.ModAPI;
 using VRage.Utils;
 using VRageMath;
+using static ToolCore.Comp.ToolComp;
 using static ToolCore.Utils.Draw;
 using static ToolCore.Utils.Utils;
 
@@ -68,7 +69,7 @@ namespace ToolCore.Session
                 comp.AvActive = true;
             }
 
-            if (comp.Mode != ToolComp.ToolMode.Drill && modeData.WorkTick == Tick % def.UpdateInterval)
+            if (comp.Mode != ToolMode.Drill && modeData.WorkTick == Tick % def.UpdateInterval)
                 UpdateHitState(comp);
 
             if (!IsDedicated && comp.Draw && comp.Functional)
@@ -86,9 +87,10 @@ namespace ToolCore.Session
             CalculateWorldVectors(comp, out worldPos, out worldForward, out worldUp);
 
             var toolValues = comp.Values;
+            var modeData = comp.ModeData;
 
             MatrixD drawMatrix;
-            switch (comp.ModeData.Definition.EffectShape)
+            switch (modeData.Definition.EffectShape)
             {
                 case EffectShape.Sphere:
                     drawMatrix = MatrixD.CreateWorld(worldPos, worldForward, worldUp);
@@ -111,6 +113,47 @@ namespace ToolCore.Session
                     break;
                 default:
                     return;
+            }
+
+            if (modeData.Definition.IsTurret)
+            {
+                var turret = modeData.Turret;
+
+                var partMatrix = turret.Part1.Parent.PositionComp.WorldMatrixRef;
+                var emptyMatrix = (MatrixD)turret.Part1.Empty.Matrix;
+
+                var localPos = emptyMatrix.Translation;
+                var emptyForward = Vector3D.Normalize(emptyMatrix.Forward);
+                var emptyUp = Vector3D.Normalize(emptyMatrix.Up);
+                var emptyRight = Vector3D.Normalize(emptyMatrix.Right);
+
+                Vector3D worldRight;
+                Vector3D.Transform(ref localPos, ref partMatrix, out worldPos);
+                Vector3D.TransformNormal(ref emptyForward, ref partMatrix, out worldForward);
+                Vector3D.TransformNormal(ref emptyUp, ref partMatrix, out worldUp);
+                Vector3D.TransformNormal(ref emptyRight, ref partMatrix, out worldRight);
+
+                DrawLine(worldPos, worldForward, Color.Red, 0.025f, 2f);
+                DrawLine(worldPos, worldUp, Color.Yellow, 0.025f, 2f);
+                DrawLine(worldPos, worldRight, Color.Blue, 0.025f, 2f);
+
+
+                partMatrix = turret.Part2.Parent.PositionComp.WorldMatrixRef;
+                emptyMatrix = (MatrixD)turret.Part2.Empty.Matrix;
+
+                localPos = emptyMatrix.Translation;
+                emptyForward = Vector3D.Normalize(emptyMatrix.Forward);
+                emptyUp = Vector3D.Normalize(emptyMatrix.Up);
+                emptyRight = Vector3D.Normalize(emptyMatrix.Right);
+
+                Vector3D.Transform(ref localPos, ref partMatrix, out worldPos);
+                Vector3D.TransformNormal(ref emptyForward, ref partMatrix, out worldForward);
+                Vector3D.TransformNormal(ref emptyUp, ref partMatrix, out worldUp);
+                Vector3D.TransformNormal(ref emptyRight, ref partMatrix, out worldRight);
+
+                DrawLine(worldPos, worldForward, Color.Red, 0.025f, 2f);
+                DrawLine(worldPos, worldUp, Color.Yellow, 0.025f, 2f);
+                DrawLine(worldPos, worldRight, Color.Blue, 0.025f, 2f);
             }
         }
 
@@ -200,6 +243,7 @@ namespace ToolCore.Session
             var block = comp.BlockTool;
             var handTool = comp.HandTool;
             var isBlock = comp.IsBlock;
+            var isTurret = def.IsTurret;
 
             if (isBlock && comp.Functional != block.IsFunctional)
             {
@@ -253,7 +297,8 @@ namespace ToolCore.Session
 
             var activated = comp.Activated;
             var handToolShooting = !isBlock && comp.HandTool.IsShooting;
-            if (!activated && !comp.GunBase.Shooting && !handToolShooting)
+            var shooting = activated || handToolShooting || comp.GunBase.Shooting;
+            if (!shooting && !isTurret)
                 return;
 
             if (activated)
@@ -265,12 +310,19 @@ namespace ToolCore.Session
                 }
             }
 
-            if (IsServer && comp.CompTick60 == TickMod60 && comp.Mode != ToolComp.ToolMode.Weld)
+            if (shooting && IsServer && comp.CompTick60 == TickMod60 && comp.Mode != ToolMode.Weld)
                 comp.ManageInventory();
 
             Vector3D worldPos, worldForward, worldUp;
             CalculateWorldVectors(comp, out worldPos, out worldForward, out worldUp);
 
+            if (isTurret && !modeData.Turret.HasTarget && modeData.Turret.UpdateTick == Tick % def.UpdateInterval && comp.ActiveThreads < 1)
+            {
+                modeData.Turret.RefreshTargetList(def, worldPos);
+            }
+
+            if (!shooting)
+                return;
 
             var ownerId = isBlock ? block.OwnerId : handTool.OwnerIdentityId;
 
@@ -279,7 +331,7 @@ namespace ToolCore.Session
                 var leftMousePressed = MyAPIGateway.Input.IsLeftMousePressed();
                 if (leftMousePressed || MyAPIGateway.Input.IsRightMousePressed())
                 {
-                    var action = leftMousePressed ? ToolComp.ToolAction.Primary : ToolComp.ToolAction.Secondary;
+                    var action = leftMousePressed ? ToolAction.Primary : ToolAction.Secondary;
                     if (action != comp.Action)
                     {
                         comp.Action = action;
@@ -329,7 +381,30 @@ namespace ToolCore.Session
 
             comp.DrawBoxes.ClearList();
 
-            if (def.CacheBlocks && comp.Mode != ToolComp.ToolMode.Drill)
+            if (def.IsTurret)
+            {
+                var turret = modeData.Turret;
+                if (turret.HasTarget)
+                {
+                    var target = turret.ActiveTarget;
+                    var closing = target.CubeGrid.MarkedForClose || target.FatBlock != null && target.FatBlock.MarkedForClose;
+                    var finished = target.IsFullyDismounted || comp.Mode == ToolMode.Weld && target.IsFullIntegrity && !target.HasDeformation;
+                    var outOfRange = Vector3D.DistanceSquared(target.CubeGrid.GridIntegerToWorld(target.Position), worldPos) > turret.Definition.TargetRadiusSqr;
+                    if (closing || finished || outOfRange)
+                    {
+                        turret.SelectNewTarget(worldPos);
+                    }
+                }
+                else turret.SelectNewTarget(worldPos);
+
+                while (turret.HasTarget && !turret.TrackTarget())
+                {
+                    turret.SelectNewTarget(worldPos);
+                }
+
+            }
+
+            if (def.CacheBlocks && comp.Mode != ToolMode.Drill)
             {
                 if (!IsServer)
                 {
@@ -347,9 +422,9 @@ namespace ToolCore.Session
                 for (int s = comp.WorkSet.Count - 1; s >= 0; s--)
                 {
                     var slim = comp.WorkSet[s];
-                    var fatClose = slim?.FatBlock == null ? false : slim.FatBlock.MarkedForClose || slim.FatBlock.Closed;
-                    var gridClose = slim?.CubeGrid == null || slim.CubeGrid.MarkedForClose || slim.CubeGrid.Closed;
-                    var skip = slim == null || slim.IsFullyDismounted || comp.Mode == ToolComp.ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation;
+                    var fatClose = slim?.FatBlock == null ? false : slim.FatBlock.MarkedForClose;
+                    var gridClose = slim?.CubeGrid == null || slim.CubeGrid.MarkedForClose;
+                    var skip = slim == null || slim.IsFullyDismounted || comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation;
                     if (fatClose || gridClose || skip)
                     {
                         comp.WorkSet.RemoveAt(s);
@@ -373,7 +448,7 @@ namespace ToolCore.Session
                 case EffectShape.Cuboid:
                     def.EffectSphere.Center = worldPos;
                     def.EffectSphere.Radius = toolValues.BoundingRadius;
-                    MyGamePruningStructure.GetAllTopMostEntitiesInSphere(ref def.EffectSphere, _entities);
+                    MyGamePruningStructure.GetAllTopMostEntitiesInSphere(ref def.EffectSphere, Entities);
                     break;
                 case EffectShape.Line:
                     var effectLine = new LineD(worldPos, worldPos + worldForward * toolValues.Length);
@@ -383,7 +458,7 @@ namespace ToolCore.Session
                 case EffectShape.Ray:
                     if (hitInfo?.HitEntity != null)
                     {
-                        _entities.Add((MyEntity)hitInfo.HitEntity);
+                        Entities.Add((MyEntity)hitInfo.HitEntity);
                         rayLength *= hitInfo.Fraction;
                     }
                     break;
@@ -394,12 +469,12 @@ namespace ToolCore.Session
             var damageType = (int)def.ToolType < 2 ? MyDamageType.Drill : (int)def.ToolType < 4 ? MyDamageType.Grind : MyDamageType.Weld;
             var toolFaction = MyAPIGateway.Session.Factions.TryGetPlayerFaction(ownerId);
 
-            var count = line ? _lineOverlaps.Count : _entities.Count;
+            var count = line ? _lineOverlaps.Count : Entities.Count;
             for (int k = 0; k < count; k++)
             {
-                var entity = line ? _lineOverlaps[k].Element : _entities[k];
+                var entity = line ? _lineOverlaps[k].Element : Entities[k];
 
-                if (entity == null || entity.Closed || entity.MarkedForClose)
+                if (entity == null || entity.MarkedForClose)
                     continue;
 
                 if (DSAPIReady)
@@ -492,7 +567,7 @@ namespace ToolCore.Session
 
                 if (entity is IMyVoxelBase)
                 {
-                    if (comp.Mode != ToolComp.ToolMode.Drill)
+                    if (comp.Mode != ToolMode.Drill)
                         continue;
 
                     var voxel = (IMyVoxelBase)entity;
@@ -589,63 +664,15 @@ namespace ToolCore.Session
 
                     if (comp.HasTargetControls)
                     {
-                        var targetOwner = grid.Projector?.OwnerId ?? grid.BigOwners.FirstOrDefault();
-                        var relation = ToolComp.TargetTypes.Neutral;
-                        if (ownerId == targetOwner)
-                        {
-                            relation = ToolComp.TargetTypes.Own;
-                        }
-                        else if (ownerId != 0 && targetOwner != 0)
-                        {
-                            if (toolFaction != null)
-                            {
-                                var targetFaction = MyAPIGateway.Session.Factions.TryGetPlayerFaction(targetOwner);
-                                if (targetFaction != null)
-                                {
-                                    if (toolFaction == targetFaction)
-                                    {
-                                        relation = ToolComp.TargetTypes.Friendly;
-                                    }
-                                    else
-                                    {
-                                        var factionRelation = MyAPIGateway.Session.Factions.GetRelationBetweenFactions(toolFaction.FactionId, targetFaction.FactionId);
-                                        if (factionRelation == MyRelationsBetweenFactions.Enemies)
-                                        {
-                                            relation = ToolComp.TargetTypes.Hostile;
-                                        }
-                                        else if (factionRelation == MyRelationsBetweenFactions.Friends)
-                                        {
-                                            relation = ToolComp.TargetTypes.Friendly;
-                                        }
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                relation = ToolComp.TargetTypes.Hostile;
-                            }
-
-                        }
-
-                        if ((relation & comp.Targets) == ToolComp.TargetTypes.None)
+                        var relation = comp.GetRelationToGrid(grid, toolFaction);
+                        if ((relation & comp.Targets) == TargetTypes.None)
                             continue;
                     }
 
-                    switch (comp.Mode)
-                    {
-                        case ToolComp.ToolMode.Weld:
-                            
-                            break;
-                        case ToolComp.ToolMode.Grind:
-                        case ToolComp.ToolMode.Drill:
-                            if (grid.Immune || !grid.DestructibleBlocks || grid.Projector != null || grid.Physics == null || !grid.Physics.Enabled)
-                                continue;
-                            break;
-                        default:
-                            break;
-                    }
+                    if (comp.Mode != ToolMode.Weld && (grid.Immune || !grid.DestructibleBlocks || grid.Projector != null || grid.Physics == null || !grid.Physics.Enabled))
+                        continue;
 
-                    var toolData = ToolDataPool.Count > 0 ? ToolDataPool.Pop() : new ToolComp.ToolData();
+                    var toolData = ToolDataPool.Count > 0 ? ToolDataPool.Pop() : new ToolData();
                     toolData.Entity = entity;
                     toolData.Position = worldPos;
                     toolData.Forward = worldForward;
@@ -658,7 +685,7 @@ namespace ToolCore.Session
 
             } //Hits loop
 
-            _entities.Clear();
+            Entities.Clear();
             _lineOverlaps.Clear();
 
         }

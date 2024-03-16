@@ -51,10 +51,10 @@ namespace ToolCore.Session
         internal readonly List<ToolComp> HandTools = new List<ToolComp>();
         internal readonly List<GridComp> GridList = new List<GridComp>();
         internal readonly List<IMySlimBlock> TempBlocks = new List<IMySlimBlock>();
+        internal readonly List<MyEntity> Entities = new List<MyEntity>();
         internal readonly ConcurrentCachingList<ToolComp> AvComps = new ConcurrentCachingList<ToolComp>();
 
         private readonly HashSet<MyCubeGrid> _controlledGrids = new HashSet<MyCubeGrid>();
-        private readonly List<MyEntity> _entities = new List<MyEntity>();
         private readonly List<MyLineSegmentOverlapResult<MyEntity>> _lineOverlaps = new List<MyLineSegmentOverlapResult<MyEntity>>();
 
         private readonly ConcurrentCachingList<MyEntity> _startComps = new ConcurrentCachingList<MyEntity>();
@@ -118,7 +118,7 @@ namespace ToolCore.Session
             AvComps.ClearImmediate();
 
             _controlledGrids.Clear();
-            _entities.Clear();
+            Entities.Clear();
             _lineOverlaps.Clear();
 
             _startComps.ClearImmediate();

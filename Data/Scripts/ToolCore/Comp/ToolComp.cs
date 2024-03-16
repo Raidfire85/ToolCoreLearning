@@ -2,6 +2,7 @@
 using Sandbox.Definitions;
 using Sandbox.Game;
 using Sandbox.Game.Entities;
+using Sandbox.Game.Entities.Cube;
 using Sandbox.Game.EntityComponents;
 using Sandbox.ModAPI;
 using Sandbox.ModAPI.Interfaces.Terminal;
@@ -9,7 +10,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
 using ToolCore.Definitions;
 using ToolCore.Definitions.Serialised;
 using ToolCore.Session;
@@ -25,7 +25,6 @@ using VRage.Utils;
 using VRage.Voxels;
 using VRageMath;
 using static ToolCore.Definitions.ToolDefinition;
-using static VRage.Game.ObjectBuilders.Definitions.MyObjectBuilder_GameDefinition;
 
 namespace ToolCore.Comp
 {
@@ -261,7 +260,7 @@ namespace ToolCore.Comp
                 if (!def.IsTurret)
                     continue;
 
-                data.Turret = new TurretComp(def.Turret, this);
+                data.Turret = new TurretComp(def, this, data);
             }
 
             LoadModels(true);
@@ -336,11 +335,18 @@ namespace ToolCore.Comp
 
         internal class TurretComp
         {
+            internal readonly List<IMySlimBlock> Targets = new List<IMySlimBlock>();
+
+            internal readonly ToolComp Comp;
             internal readonly TurretDefinition Definition;
             internal readonly TurretPart Part1;
             internal readonly TurretPart Part2;
 
+            internal readonly int UpdateTick;
             internal readonly bool HasTwoParts = true;
+
+            internal IMySlimBlock ActiveTarget;
+            internal bool HasTarget;
             internal bool IsValid;
 
             internal void UpdateModelData(ToolComp comp)
@@ -348,14 +354,18 @@ namespace ToolCore.Comp
                 IsValid = Part1.UpdateModelData(comp) && (!HasTwoParts || Part2.UpdateModelData(comp));
             }
 
-            internal TurretComp(TurretDefinition def, ToolComp comp)
+            internal TurretComp(ToolDefinition def, ToolComp comp, ModeSpecificData data)
             {
-                Definition = def;
+                Comp = comp;
+                Definition = def.Turret;
+                var halfInterval = (int)(0.5f * def.UpdateInterval);
+                UpdateTick = (int)(Comp.ToolEntity.EntityId + halfInterval % def.UpdateInterval);
 
-                var partDefA = def.Subparts[0];
+                var subparts = def.Turret.Subparts;
+                var partDefA = subparts[0];
                 TurretPart partA;
-                var partAValid = SetupPart(partDefA, comp, out partA);
-                if (def.Subparts.Count == 1)
+                var partAValid = SetupPart(partDefA, out partA);
+                if (subparts.Count == 1)
                 {
                     Part1 = partA;
                     IsValid = partAValid;
@@ -363,9 +373,9 @@ namespace ToolCore.Comp
                     return;
                 }
 
-                var partDefB = def.Subparts[1];
+                var partDefB = subparts[1];
                 TurretPart partB;
-                var partBValid = SetupPart(partDefB, comp, out partB);
+                var partBValid = SetupPart(partDefB, out partB);
                 if (!partAValid || !partBValid)
                 {
                     IsValid = false;
@@ -384,7 +394,7 @@ namespace ToolCore.Comp
 
                 if (partB.Subpart.TryGetSubpartRecursive(partA.Definition.Name, out _))
                 {
-                    def.Subparts.Move(1, 0);
+                    subparts.Move(1, 0);
 
                     Part1 = partB;
                     Part2 = partA;
@@ -397,11 +407,11 @@ namespace ToolCore.Comp
 
             }
 
-            private bool SetupPart(TurretDefinition.TurretPartDef partDef, ToolComp comp, out TurretPart part)
+            private bool SetupPart(TurretDefinition.TurretPartDef partDef, out TurretPart part)
             {
                 part = null;
                 MyEntitySubpart subpart;
-                if (!comp.ToolEntity.TryGetSubpartRecursive(partDef.Name, out subpart))
+                if (!Comp.ToolEntity.TryGetSubpartRecursive(partDef.Name, out subpart))
                 {
                     Logs.WriteLine($"Failed to find turret subpart {partDef.Name}");
                     return false;
@@ -417,14 +427,113 @@ namespace ToolCore.Comp
                 return true;
             }
 
+            internal bool TrackTarget()
+            {
+                var target = ActiveTarget;
+                var targetWorld = target.CubeGrid.GridIntegerToWorld(target.Position);
+
+                Vector3D targetLocal;
+                var parentMatrixNI = Part1.Parent.PositionComp.WorldMatrixNormalizedInv;
+                Vector3D.Transform(ref targetWorld, ref parentMatrixNI, out targetLocal);
+                var targetVector = targetLocal - Part1.Subpart.PositionComp.LocalMatrixRef.Translation;
+
+                var desiredFacing = (Vector3)Vector3D.ProjectOnPlane(ref targetVector, ref Part1.Axis);
+                var desiredAngle1 = (float)Vector3.Angle(desiredFacing, Part1.Facing) * Vector3.Dot(desiredFacing, Part1.Normal);
+                if (desiredAngle1 > Part1.Definition.MaxRotation || desiredAngle1 < Part1.Definition.MinRotation)
+                    return false;
+
+                if (HasTwoParts)
+                {
+                    parentMatrixNI = Part2.Parent.PositionComp.WorldMatrixNormalizedInv;
+                    Vector3D.Transform(ref targetWorld, ref parentMatrixNI, out targetLocal);
+                    targetVector = targetLocal - Part2.Subpart.PositionComp.LocalMatrixRef.Translation;
+
+                    desiredFacing = (Vector3)Vector3D.ProjectOnPlane(ref targetVector, ref Part2.Axis);
+                    var desiredAngle2 = (float)Vector3.Angle(desiredFacing, Part2.Facing) * Vector3.Dot(desiredFacing, Part2.Normal);
+                    if (desiredAngle2 > Part2.Definition.MaxRotation || desiredAngle2 < Part2.Definition.MinRotation)
+                        return false;
+
+                    Part2.DesiredRotation = desiredAngle2;
+                }
+
+                Part1.DesiredRotation = desiredAngle1;
+
+                return true;
+            }
+
+            internal void SelectNewTarget(Vector3D worldPos)
+            {
+                for (int i = Targets.Count - 1; i >= 0; i--)
+                {
+                    var next = Targets[i];
+                    var closing = next.CubeGrid.MarkedForClose || next.FatBlock != null && next.FatBlock.MarkedForClose;
+                    var finished = next.IsFullyDismounted || Comp.Mode == ToolMode.Weld && next.IsFullIntegrity && !next.HasDeformation;
+                    var outOfRange = Vector3D.DistanceSquared(next.CubeGrid.GridIntegerToWorld(next.Position), worldPos) > Definition.TargetRadiusSqr;
+                    if (closing || finished || outOfRange)
+                    {
+                        Targets.RemoveAtFast(i);
+                        continue;
+                    }
+
+                    HasTarget = true;
+                    ActiveTarget = next;
+                    break;
+                }
+            }
+
+            internal void RefreshTargetList(ToolDefinition def, Vector3D worldPos)
+            {
+                var ownerId = Comp.IsBlock ? Comp.BlockTool.OwnerId : Comp.HandTool.OwnerIdentityId;
+                var toolFaction = MyAPIGateway.Session.Factions.TryGetPlayerFaction(ownerId);
+                def.EffectSphere.Center = worldPos;
+
+                var session = ToolSession.Instance;
+                var entities = session.Entities;
+                MyGamePruningStructure.GetAllTopMostEntitiesInSphere(ref def.EffectSphere, entities);
+                foreach (var entity in entities)
+                {
+                    if (!(entity is MyCubeGrid))
+                        continue;
+
+                    var grid = entity as MyCubeGrid;
+
+                    if (Comp.IsBlock && !def.AffectOwnGrid && grid == Comp.Grid || !grid.Editable)
+                        continue;
+
+                    if (Comp.HasTargetControls)
+                    {
+                        var relation = Comp.GetRelationToGrid(grid, toolFaction);
+                        if ((relation & Comp.Targets) == TargetTypes.None)
+                            continue;
+                    }
+
+                    if (Comp.Mode != ToolMode.Weld && (grid.Immune || !grid.DestructibleBlocks || grid.Projector != null || grid.Physics == null || !grid.Physics.Enabled))
+                        continue;
+
+                    var toolData = session.ToolDataPool.Count > 0 ? session.ToolDataPool.Pop() : new ToolData();
+                    toolData.Entity = entity;
+                    toolData.Position = worldPos;
+
+                    Comp.ActiveThreads++;
+                    MyAPIGateway.Parallel.Start(Comp.GetBlockTargets, Comp.OnGetBlockTargetsComplete, toolData);
+                }
+
+                entities.Clear();
+            }
+
             internal class TurretPart
             {
                 internal readonly TurretDefinition.TurretPartDef Definition;
 
+                internal Func<float, Matrix> RotationFactory;
+
                 internal MyEntitySubpart Subpart;
                 internal MyEntity Parent;
                 internal IMyModelDummy Empty;
-                internal Vector3 Axis;
+                internal Vector3 Position;
+                internal Vector3D Axis;
+                internal Vector3 Facing;
+                internal Vector3 Normal;
 
                 internal float CurrentRotation;
                 internal float DesiredRotation;
@@ -443,7 +552,31 @@ namespace ToolCore.Comp
                         return false;
 
                     Parent = comp.DummyMap[Empty];
-                    Axis = Empty.Matrix.Forward;
+
+                    Position = Empty.Matrix.Translation;
+
+                    switch (Definition.RotationAxis)
+                    {
+                        case Direction.Up:
+                            RotationFactory = Matrix.CreateRotationY;
+                            Axis = Vector3D.Normalize(Empty.Matrix.Up);
+                            Facing = Vector3D.Normalize(Empty.Matrix.Forward);
+                            Normal = Vector3D.Normalize(Empty.Matrix.Right);
+                            break;
+                        case Direction.Forward:
+                            RotationFactory = Matrix.CreateRotationZ;
+                            Axis = Vector3D.Normalize(Empty.Matrix.Forward);
+                            Facing = Vector3D.Normalize(Empty.Matrix.Up);
+                            Normal = Vector3D.Normalize(Empty.Matrix.Right);
+                            break;
+                        case Direction.Right:
+                            RotationFactory = Matrix.CreateRotationX;
+                            Axis = Vector3D.Normalize(Empty.Matrix.Right);
+                            Facing = Vector3D.Normalize(Empty.Matrix.Forward);
+                            Normal = Vector3D.Normalize(Empty.Matrix.Up);
+                            break;
+                    }
+
                     return true;
                 }
             }
@@ -826,6 +959,50 @@ namespace ToolCore.Comp
                 }
 
             }
+        }
+
+        internal TargetTypes GetRelationToGrid(MyCubeGrid grid, IMyFaction toolFaction)
+        {
+            var ownerId = IsBlock ? BlockTool.OwnerId : HandTool.OwnerIdentityId;
+            var targetOwner = grid.Projector?.OwnerId ?? grid.BigOwners.FirstOrDefault();
+            if (ownerId == targetOwner)
+            {
+                return TargetTypes.Own;
+            }
+
+            if (ownerId == 0 || targetOwner == 0)
+            {
+                return TargetTypes.Neutral;
+            }
+
+            if (toolFaction == null)
+            {
+                return TargetTypes.Hostile;
+            }
+
+            var targetFaction = MyAPIGateway.Session.Factions.TryGetPlayerFaction(targetOwner);
+            if (targetFaction == null)
+            {
+                return TargetTypes.Hostile;
+            }
+
+            if (toolFaction == targetFaction)
+            {
+                return TargetTypes.Friendly;
+            }
+
+            var factionRelation = MyAPIGateway.Session.Factions.GetRelationBetweenFactions(toolFaction.FactionId, targetFaction.FactionId);
+            if (factionRelation == MyRelationsBetweenFactions.Enemies)
+            {
+                return TargetTypes.Hostile;
+            }
+
+            if (factionRelation == MyRelationsBetweenFactions.Friends)
+            {
+                return TargetTypes.Friendly;
+            }
+
+            return TargetTypes.Neutral;
         }
 
         internal void SetMode(ToolMode newMode)

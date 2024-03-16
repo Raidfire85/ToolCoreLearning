@@ -133,6 +133,7 @@ namespace ToolCore.Definitions.Serialised
 
     public class TurretValues
     {
+        public int TargetRadius = 100;
         [XmlElement("Subpart")]
         public SubpartValues[] Subparts;
     }
@@ -140,7 +141,8 @@ namespace ToolCore.Definitions.Serialised
     public class SubpartValues
     {
         public string Name;
-        public float RotationSpeed = 0.5f;
+        public Direction RotationAxis;
+        public float RotationSpeed = 0.5f; // degrees/s
         public int MinRotation;
         public int MaxRotation;
     }
@@ -218,6 +220,13 @@ namespace ToolCore.Definitions.Serialised
         Linear = 1,
         Hide = 2,
         Unhide = 3,
+    }
+
+    public enum Direction
+    {
+        Up = 0,
+        Forward = 1,
+        Right = 2,
     }
 
     #endregion

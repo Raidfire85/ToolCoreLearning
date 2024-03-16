@@ -1,10 +1,11 @@
 ﻿using Sandbox.Game.Entities;
-using Sandbox.ModAPI;
 using System.Collections.Generic;
 using ToolCore.Comp;
 using ToolCore.Definitions.Serialised;
 using ToolCore.Utils;
 using VRage.Game;
+using VRage.Game.ModAPI;
+using VRage.Utils;
 using VRageMath;
 using static ToolCore.Comp.ToolComp;
 using static ToolCore.Utils.Draw;
@@ -15,6 +16,51 @@ namespace ToolCore.Session
     {
         internal void AvLoop()
         {
+            for (int i = 0; i < GridList.Count; i++)
+            {
+                var gridComp = GridList[i];
+
+                for (int j = 0; j < gridComp.ToolComps.Count; j++)
+                {
+                    var comp = gridComp.ToolComps[j];
+                    var isBlock = comp.IsBlock;
+
+                    if (!comp.Functional || !comp.Enabled || !comp.Powered)
+                        continue;
+
+                    if (!isBlock && ((IMyCharacter)comp.Parent).SuitEnergyLevel <= 0)
+                        continue;
+
+                    var modeData = comp.ModeData;
+                    if (modeData.Definition.IsTurret)
+                    {
+                        var turret = modeData.Turret;
+                        var part1 = turret.Part1;
+                        var diff1 = part1.DesiredRotation - part1.CurrentRotation;
+                        if (!MyUtils.IsZero(diff1, 0.001f))
+                        {
+                            var amount = MathHelper.Clamp(diff1, - part1.Definition.RotationSpeed, part1.Definition.RotationSpeed);
+                            var rotation = part1.RotationFactory.Invoke(amount);
+                            var lm = part1.Subpart.PositionComp.LocalMatrixRef * rotation;
+                            part1.Subpart.PositionComp.SetLocalMatrix(ref lm);
+                        }
+
+                        if (turret.HasTwoParts)
+                        {
+                            var part2 = turret.Part2;
+                            var diff2 = part2.DesiredRotation - part2.CurrentRotation;
+                            if (!MyUtils.IsZero(diff2, 0.001f))
+                            {
+                                var amount = MathHelper.Clamp(diff2, -part2.Definition.RotationSpeed, part2.Definition.RotationSpeed);
+                                var rotation = part2.RotationFactory.Invoke(amount);
+                                var lm = part2.Subpart.PositionComp.LocalMatrixRef * rotation;
+                                part2.Subpart.PositionComp.SetLocalMatrix(ref lm);
+                            }
+                        }
+                    }
+                }
+            }
+
             AvComps.ApplyAdditions();
             for (int i = 0; i < AvComps.Count; i++)
             {
