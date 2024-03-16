@@ -142,7 +142,7 @@ namespace ToolCore.Definitions.Serialised
     {
         public string Name;
         public Direction RotationAxis;
-        public float RotationSpeed = 0.5f; // degrees/s
+        public float RotationSpeed = 60f; // degrees/s
         public int MinRotation;
         public int MaxRotation;
     }

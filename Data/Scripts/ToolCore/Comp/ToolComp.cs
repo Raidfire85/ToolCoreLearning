@@ -26,6 +26,7 @@ using VRage.Utils;
 using VRage.Voxels;
 using VRageMath;
 using static ToolCore.Definitions.ToolDefinition;
+using static ToolCore.Utils.Draw;
 
 namespace ToolCore.Comp
 {
@@ -360,7 +361,7 @@ namespace ToolCore.Comp
                 Comp = comp;
                 Definition = def.Turret;
                 var halfInterval = (int)(0.5f * def.UpdateInterval);
-                UpdateTick = (int)(Comp.ToolEntity.EntityId + halfInterval % def.UpdateInterval);
+                UpdateTick = (int)((Comp.ToolEntity.EntityId + halfInterval) % def.UpdateInterval);
 
                 var subparts = def.Turret.Subparts;
                 var partDefA = subparts[0];
@@ -439,9 +440,13 @@ namespace ToolCore.Comp
                 var targetVector = targetLocal - Part1.Subpart.PositionComp.LocalMatrixRef.Translation;
 
                 var desiredFacing = (Vector3)Vector3D.ProjectOnPlane(ref targetVector, ref Part1.Axis);
-                var desiredAngle1 = (float)Vector3.Angle(desiredFacing, Part1.Facing) * Vector3.Dot(desiredFacing, Part1.Normal);
-                if (desiredAngle1 > Part1.Definition.MaxRotation || desiredAngle1 < Part1.Definition.MinRotation)
+                Part1.DesiredFacing = desiredFacing;
+                var desiredAngle1 = (float)Vector3.Angle(desiredFacing, Part1.Facing) * Math.Sign(Vector3.Dot(desiredFacing, Part1.Normal));
+                if (Part1.Definition.RotationCapped && (desiredAngle1 > Part1.Definition.MaxRotation || desiredAngle1 < Part1.Definition.MinRotation))
+                {
+                    Logs.WriteLine("Tracking false");
                     return false;
+                }
 
                 if (HasTwoParts)
                 {
@@ -450,27 +455,35 @@ namespace ToolCore.Comp
                     targetVector = targetLocal - Part2.Subpart.PositionComp.LocalMatrixRef.Translation;
 
                     desiredFacing = (Vector3)Vector3D.ProjectOnPlane(ref targetVector, ref Part2.Axis);
-                    var desiredAngle2 = (float)Vector3.Angle(desiredFacing, Part2.Facing) * Vector3.Dot(desiredFacing, Part2.Normal);
-                    if (desiredAngle2 > Part2.Definition.MaxRotation || desiredAngle2 < Part2.Definition.MinRotation)
+                    Part2.DesiredFacing = desiredFacing;
+                    var desiredAngle2 = (float)Vector3.Angle(desiredFacing, Part2.Facing) * Math.Sign(Vector3.Dot(desiredFacing, Part2.Normal));
+                    if (Part2.Definition.RotationCapped && (desiredAngle2 > Part2.Definition.MaxRotation || desiredAngle2 < Part2.Definition.MinRotation))
+                    {
+                        Logs.WriteLine("Tracking false");
                         return false;
+                    }
 
                     Part2.DesiredRotation = desiredAngle2;
                 }
 
                 Part1.DesiredRotation = desiredAngle1;
 
+                //Logs.WriteLine("Tracking true");
                 return true;
             }
 
             internal void SelectNewTarget(Vector3D worldPos)
             {
+                Logs.WriteLine($"Selecting from {Targets.Count} targets");
                 for (int i = Targets.Count - 1; i >= 0; i--)
                 {
                     var next = Targets[i];
+                    var projector = ((MyCubeGrid)next.CubeGrid).Projector as IMyProjector;
+
                     var closing = next.CubeGrid.MarkedForClose || next.FatBlock != null && next.FatBlock.MarkedForClose;
-                    var finished = next.IsFullyDismounted || Comp.Mode == ToolMode.Weld && next.IsFullIntegrity && !next.HasDeformation;
+                    var finished = next.IsFullyDismounted || Comp.Mode == ToolMode.Weld && projector == null && next.IsFullIntegrity && !next.HasDeformation;
                     var outOfRange = Vector3D.DistanceSquared(next.CubeGrid.GridIntegerToWorld(next.Position), worldPos) > Definition.TargetRadiusSqr;
-                    if (closing || finished || outOfRange)
+                    if (closing || finished || outOfRange || projector?.CanBuild(next, true) != BuildCheckResult.OK)
                     {
                         Targets.RemoveAtFast(i);
                         continue;
@@ -480,6 +493,7 @@ namespace ToolCore.Comp
                     ActiveTarget = next;
                     break;
                 }
+                Logs.WriteLine($"{Targets.Count} targets remaining");
             }
 
             internal void RefreshTargetList(ToolDefinition def, Vector3D worldPos)
@@ -536,6 +550,8 @@ namespace ToolCore.Comp
                 internal Vector3 Facing;
                 internal Vector3 Normal;
 
+                internal Vector3 DesiredFacing;
+
                 internal float CurrentRotation;
                 internal float DesiredRotation;
 
@@ -560,23 +576,28 @@ namespace ToolCore.Comp
                     {
                         case Direction.Up:
                             RotationFactory = Matrix.CreateRotationY;
-                            Axis = Vector3D.Normalize(Empty.Matrix.Up);
-                            Facing = Vector3D.Normalize(Empty.Matrix.Forward);
-                            Normal = Vector3D.Normalize(Empty.Matrix.Right);
+                            Axis = Subpart.PositionComp.LocalMatrixRef.Up;
+                            Facing = Subpart.PositionComp.LocalMatrixRef.Forward;
+                            Normal = Subpart.PositionComp.LocalMatrixRef.Left;
                             break;
                         case Direction.Forward:
                             RotationFactory = Matrix.CreateRotationZ;
-                            Axis = Vector3D.Normalize(Empty.Matrix.Forward);
-                            Facing = Vector3D.Normalize(Empty.Matrix.Up);
-                            Normal = Vector3D.Normalize(Empty.Matrix.Right);
+                            Axis = Subpart.PositionComp.LocalMatrixRef.Forward;
+                            Facing = Subpart.PositionComp.LocalMatrixRef.Up;
+                            Normal = Subpart.PositionComp.LocalMatrixRef.Right;
                             break;
                         case Direction.Right:
                             RotationFactory = Matrix.CreateRotationX;
-                            Axis = Vector3D.Normalize(Empty.Matrix.Right);
-                            Facing = Vector3D.Normalize(Empty.Matrix.Forward);
-                            Normal = Vector3D.Normalize(Empty.Matrix.Up);
+                            Axis = Subpart.PositionComp.LocalMatrixRef.Right;
+                            Facing = Subpart.PositionComp.LocalMatrixRef.Forward;
+                            Normal = Subpart.PositionComp.LocalMatrixRef.Up;
                             break;
                     }
+
+                    DesiredRotation = 0;
+                    CurrentRotation = 0;
+
+                    Logs.WriteLine("Loaded turret models");
 
                     return true;
                 }
@@ -614,10 +635,10 @@ namespace ToolCore.Comp
                             effects.UpdateModelData(comp);
                         }
                     }
-
-                    if (Definition.IsTurret)
-                        Turret.UpdateModelData(comp);
                 }
+
+                if (Definition.IsTurret)
+                    Turret.UpdateModelData(comp);
 
                 if (string.IsNullOrEmpty(Definition.EmitterName) || !comp.Dummies.TryGetValue(Definition.EmitterName, out Muzzle))
                     return;
@@ -1408,11 +1429,6 @@ namespace ToolCore.Comp
                 ShowInToolbarSwitch.Setter(BlockTool, !originalSetting);
                 ShowInToolbarSwitch.Setter(BlockTool, originalSetting);
             }
-        }
-
-        internal void UpdateConnections()
-        {
-
         }
 
         internal void Close()

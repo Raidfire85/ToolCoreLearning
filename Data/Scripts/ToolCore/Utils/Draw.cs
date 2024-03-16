@@ -1,4 +1,5 @@
 ﻿using VRage.Game;
+using VRage.Game.Entity;
 using VRage.Utils;
 using VRageMath;
 
@@ -7,6 +8,14 @@ namespace ToolCore.Utils
     internal class Draw
     {
         internal static readonly MyStringId _square = MyStringId.GetOrCompute("Square");
+
+        internal static void DrawLocalVector(Vector3 local, MyEntity entity, Color color, float length = 5f)
+        {
+            Vector3 world;
+            var matrix = (Matrix)entity.PositionComp.WorldMatrixRef;
+            Vector3.TransformNormal(ref local, ref matrix, out world);
+            DrawLine(matrix.Translation, world, color, 0.05f, length);
+        }
 
         internal static void DrawBox(MyOrientedBoundingBoxD obb, Color color, bool solid = true, int divideRatio = 20, float lineWidth = 0.02f)
         {

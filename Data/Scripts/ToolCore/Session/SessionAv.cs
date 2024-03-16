@@ -1,4 +1,6 @@
 ﻿using Sandbox.Game.Entities;
+using Sandbox.ModAPI;
+using System;
 using System.Collections.Generic;
 using ToolCore.Comp;
 using ToolCore.Definitions.Serialised;
@@ -32,20 +34,25 @@ namespace ToolCore.Session
                         continue;
 
                     var modeData = comp.ModeData;
-                    if (modeData.Definition.IsTurret)
+                    if (modeData.Turret != null)
                     {
                         var turret = modeData.Turret;
                         var part1 = turret.Part1;
                         var diff1 = part1.DesiredRotation - part1.CurrentRotation;
                         if (!MyUtils.IsZero(diff1, 0.001f))
                         {
-                            var amount = MathHelper.Clamp(diff1, - part1.Definition.RotationSpeed, part1.Definition.RotationSpeed);
+                            var amount = MathHelper.Clamp(diff1, -part1.Definition.RotationSpeed, part1.Definition.RotationSpeed);
                             var rotation = part1.RotationFactory.Invoke(amount);
                             var lm = part1.Subpart.PositionComp.LocalMatrixRef * rotation;
                             part1.Subpart.PositionComp.SetLocalMatrix(ref lm);
+                            part1.CurrentRotation += amount;
                         }
 
-                        if (turret.HasTwoParts)
+                        var forward1 = part1.Subpart.PositionComp.LocalMatrixRef.Forward;
+                        DrawLocalVector(part1.DesiredFacing, part1.Parent, Color.Blue);
+                        DrawLocalVector(forward1, part1.Parent, Color.Green);
+
+                        if (turret.HasTwoParts && Math.Abs(diff1) < MathHelper.PiOver2)
                         {
                             var part2 = turret.Part2;
                             var diff2 = part2.DesiredRotation - part2.CurrentRotation;
@@ -55,9 +62,15 @@ namespace ToolCore.Session
                                 var rotation = part2.RotationFactory.Invoke(amount);
                                 var lm = part2.Subpart.PositionComp.LocalMatrixRef * rotation;
                                 part2.Subpart.PositionComp.SetLocalMatrix(ref lm);
+                                part2.CurrentRotation += amount;
                             }
+
+                            var forward2 = part2.Subpart.PositionComp.LocalMatrixRef.Forward;
+                            DrawLocalVector(part2.DesiredFacing, part2.Parent, Color.Blue);
+                            DrawLocalVector(forward2, part2.Parent, Color.Green);      
                         }
                     }
+
                 }
             }
 
@@ -85,7 +98,7 @@ namespace ToolCore.Session
                     var animationsFinished = !effects.HasAnimations || RunAnimations(effects);
 
                     if (effects.HasBeams) RunBeams(effects, comp.HitInfo);
-                    
+
                     if (effects.HasSound) RunSound(effects, comp);
 
                     effects.LastActiveTick = Tick;
@@ -140,7 +153,7 @@ namespace ToolCore.Session
                     default:
                         return;
                 }
-                
+
                 DrawLine(startPos, endPos, def.Color, def.Width, def.Material);
             }
         }
@@ -335,7 +348,7 @@ namespace ToolCore.Session
                 Logs.WriteLine("Sound emitter null!");
                 return;
             }
-            
+
             if (effects.Expired && !effects.SoundStopped)
             {
                 if (emitter.IsPlaying)

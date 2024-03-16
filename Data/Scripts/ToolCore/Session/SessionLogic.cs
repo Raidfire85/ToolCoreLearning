@@ -114,47 +114,6 @@ namespace ToolCore.Session
                 default:
                     return;
             }
-
-            if (modeData.Definition.IsTurret)
-            {
-                var turret = modeData.Turret;
-
-                var partMatrix = turret.Part1.Parent.PositionComp.WorldMatrixRef;
-                var emptyMatrix = (MatrixD)turret.Part1.Empty.Matrix;
-
-                var localPos = emptyMatrix.Translation;
-                var emptyForward = Vector3D.Normalize(emptyMatrix.Forward);
-                var emptyUp = Vector3D.Normalize(emptyMatrix.Up);
-                var emptyRight = Vector3D.Normalize(emptyMatrix.Right);
-
-                Vector3D worldRight;
-                Vector3D.Transform(ref localPos, ref partMatrix, out worldPos);
-                Vector3D.TransformNormal(ref emptyForward, ref partMatrix, out worldForward);
-                Vector3D.TransformNormal(ref emptyUp, ref partMatrix, out worldUp);
-                Vector3D.TransformNormal(ref emptyRight, ref partMatrix, out worldRight);
-
-                DrawLine(worldPos, worldForward, Color.Red, 0.025f, 2f);
-                DrawLine(worldPos, worldUp, Color.Yellow, 0.025f, 2f);
-                DrawLine(worldPos, worldRight, Color.Blue, 0.025f, 2f);
-
-
-                partMatrix = turret.Part2.Parent.PositionComp.WorldMatrixRef;
-                emptyMatrix = (MatrixD)turret.Part2.Empty.Matrix;
-
-                localPos = emptyMatrix.Translation;
-                emptyForward = Vector3D.Normalize(emptyMatrix.Forward);
-                emptyUp = Vector3D.Normalize(emptyMatrix.Up);
-                emptyRight = Vector3D.Normalize(emptyMatrix.Right);
-
-                Vector3D.Transform(ref localPos, ref partMatrix, out worldPos);
-                Vector3D.TransformNormal(ref emptyForward, ref partMatrix, out worldForward);
-                Vector3D.TransformNormal(ref emptyUp, ref partMatrix, out worldUp);
-                Vector3D.TransformNormal(ref emptyRight, ref partMatrix, out worldRight);
-
-                DrawLine(worldPos, worldForward, Color.Red, 0.025f, 2f);
-                DrawLine(worldPos, worldUp, Color.Yellow, 0.025f, 2f);
-                DrawLine(worldPos, worldRight, Color.Blue, 0.025f, 2f);
-            }
         }
 
         private void DrawDebug(ToolComp comp)
@@ -316,9 +275,12 @@ namespace ToolCore.Session
             Vector3D worldPos, worldForward, worldUp;
             CalculateWorldVectors(comp, out worldPos, out worldForward, out worldUp);
 
-            if (isTurret && !modeData.Turret.HasTarget && modeData.Turret.UpdateTick == Tick % def.UpdateInterval && comp.ActiveThreads < 1)
+            if (isTurret && !modeData.Turret.HasTarget && comp.ActiveThreads < 1)
             {
-                modeData.Turret.RefreshTargetList(def, worldPos);
+                if (modeData.Turret.UpdateTick == Tick % def.UpdateInterval)
+                {
+                    modeData.Turret.RefreshTargetList(def, worldPos);
+                }
             }
 
             if (!shooting)
@@ -387,18 +349,21 @@ namespace ToolCore.Session
                 if (turret.HasTarget)
                 {
                     var target = turret.ActiveTarget;
+                    var projector = ((MyCubeGrid)target.CubeGrid).Projector as IMyProjector;
+
                     var closing = target.CubeGrid.MarkedForClose || target.FatBlock != null && target.FatBlock.MarkedForClose;
-                    var finished = target.IsFullyDismounted || comp.Mode == ToolMode.Weld && target.IsFullIntegrity && !target.HasDeformation;
+                    var finished = target.IsFullyDismounted || comp.Mode == ToolMode.Weld && projector == null && target.IsFullIntegrity && !target.HasDeformation;
                     var outOfRange = Vector3D.DistanceSquared(target.CubeGrid.GridIntegerToWorld(target.Position), worldPos) > turret.Definition.TargetRadiusSqr;
-                    if (closing || finished || outOfRange)
+                    if (closing || finished || outOfRange || projector?.CanBuild(target, true) != BuildCheckResult.OK)
                     {
                         turret.SelectNewTarget(worldPos);
                     }
                 }
                 else turret.SelectNewTarget(worldPos);
 
-                while (turret.HasTarget && !turret.TrackTarget())
+                while (turret.HasTarget && !turret.TrackTarget() && turret.Targets.Count > 0)
                 {
+                    turret.Targets.RemoveAtFast(turret.Targets.Count - 1);
                     turret.SelectNewTarget(worldPos);
                 }
 

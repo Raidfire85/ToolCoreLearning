@@ -87,7 +87,7 @@ namespace ToolCore.Definitions
                     Name = values.Name;
                     RotationAxis = values.RotationAxis;
                     var range = values.MaxRotation - values.MinRotation;
-                    RotationCapped = range == 0 || range == 360;
+                    RotationCapped = range != 0 && range != 360;
                     MinRotation = MathHelper.ToRadians(values.MinRotation);
                     MaxRotation = MathHelper.ToRadians(values.MaxRotation);
                     RotationSpeed = MathHelper.ToRadians(values.RotationSpeed / 60);
