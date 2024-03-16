@@ -1,8 +1,7 @@
-﻿using ParallelTasks;
-using Sandbox.Game.Entities;
+﻿using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using System;
-using System.ComponentModel;
+using System.Collections.Generic;
 using ToolCore.Comp;
 using ToolCore.Utils;
 using VRage.Game.Entity;
@@ -16,7 +15,7 @@ namespace ToolCore.Session
     {
         private void OnEntityCreate(MyEntity entity)
         {
-            //if (!Inited) lock (InitObj) Init();
+            if (!Inited) lock (InitObj) Init();
 
             var grid = entity as MyCubeGrid;
             if (grid != null)
@@ -70,6 +69,9 @@ namespace ToolCore.Session
         {
             if (Inited) return;
             Inited = true;
+
+            MyAPIGateway.GridGroups.OnGridGroupCreated += GridGroupsOnOnGridGroupCreated;
+            MyAPIGateway.GridGroups.OnGridGroupDestroyed += GridGroupsOnOnGridGroupDestroyed;
         }
 
         private void OnGridClose(IMyEntity entity)
@@ -84,6 +86,64 @@ namespace ToolCore.Session
                 comp.Clean();
                 GridCompPool.Push(comp);
             }
+        }
+
+        private void OnCloseAll()
+        {
+            try
+            {
+                var list = new List<IMyGridGroupData>(GridGroupMap.Keys);
+                foreach (var value in list)
+                {
+                    GridGroupsOnOnGridGroupDestroyed(value);
+                }
+
+                MyAPIGateway.GridGroups.OnGridGroupDestroyed -= GridGroupsOnOnGridGroupDestroyed;
+                MyAPIGateway.GridGroups.OnGridGroupCreated -= GridGroupsOnOnGridGroupCreated;
+
+                GridGroupMap.Clear();
+            }
+            catch (Exception ex)
+            {
+                Logs.LogException(ex);
+            }
+
+        }
+
+        private void GridGroupsOnOnGridGroupCreated(IMyGridGroupData groupData)
+        {
+            if (groupData.LinkType != GridLinkTypeEnum.Logical)
+                return;
+
+            var map = GroupMapPool.Count > 0 ? GroupMapPool.Pop() : new GroupMap();
+            map.Init(groupData);
+
+            //groupData.OnReleased += map.OnReleased;
+            groupData.OnGridAdded += map.OnGridAdded;
+            groupData.OnGridRemoved += map.OnGridRemoved;
+            GridGroupMap[groupData] = map;
+        }
+
+        private void GridGroupsOnOnGridGroupDestroyed(IMyGridGroupData groupData)
+        {
+            if (groupData.LinkType != GridLinkTypeEnum.Logical)
+                return;
+
+            GroupMap map;
+            if (GridGroupMap.TryGetValue(groupData, out map))
+            {
+                //groupData.OnReleased -= map.OnReleased;
+                groupData.OnGridAdded -= map.OnGridAdded;
+                groupData.OnGridRemoved -= map.OnGridRemoved;
+
+                GridGroupMap.Remove(groupData);
+                map.Clean();
+                GroupMapPool.Push(map);
+
+                return;
+            }
+
+            Logs.WriteLine($"GridGroupsOnOnGridGroupDestroyed() - could not find map");
         }
 
         private void PlayerConnected(long id)

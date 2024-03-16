@@ -34,6 +34,7 @@ namespace ToolCore.Session
             IsDedicated = MyAPIGateway.Utilities.IsDedicated;
 
             MyEntities.OnEntityCreate += OnEntityCreate;
+            MyEntities.OnCloseAll += OnCloseAll;
 
             Logs.InitLogs();
 
@@ -144,6 +145,7 @@ namespace ToolCore.Session
             }
 
             MyEntities.OnEntityCreate -= OnEntityCreate;
+            MyEntities.OnCloseAll -= OnCloseAll;
 
             if (!IsDedicated)
             {

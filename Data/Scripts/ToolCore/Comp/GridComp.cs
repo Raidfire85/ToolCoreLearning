@@ -1,15 +1,9 @@
-﻿using Sandbox.Game;
-using Sandbox.Game.Entities;
-using Sandbox.Game.EntityComponents;
+﻿using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using ToolCore.Session;
 using ToolCore.Utils;
-using VRage.Collections;
-using VRage.Game.Components;
 using VRage.Game.ModAPI;
-using VRage.Utils;
 
 namespace ToolCore.Comp
 {
@@ -18,9 +12,8 @@ namespace ToolCore.Comp
     /// </summary>
     internal class GridComp
     {
-        internal ToolSession Session;
-
         internal MyCubeGrid Grid;
+        internal GroupMap GroupMap;
 
         internal readonly List<ToolComp> ToolComps = new List<ToolComp>();
 
@@ -30,10 +23,8 @@ namespace ToolCore.Comp
         internal bool UnderControl;
         internal bool Dirty;
 
-        internal void Init(MyCubeGrid grid, ToolSession session)
+        internal void Init(MyCubeGrid grid)
         {
-            Session = session;
-
             Grid = grid;
 
             CompTick20 = Grid.EntityId % 20;
@@ -45,12 +36,18 @@ namespace ToolCore.Comp
             Grid.OnFatBlockAdded += FatBlockAdded;
             Grid.OnFatBlockRemoved += FatBlockRemoved;
 
+            var group = MyAPIGateway.GridGroups.GetGridGroup(GridLinkTypeEnum.Logical, grid);
+            if (group != null)
+            {
+                GroupMap map;
+                if (ToolSession.Instance.GridGroupMap.TryGetValue(group, out map))
+                    GroupMap = map;
+            }
+            else Logs.WriteLine("group null at GridComp.Init()");
+
             foreach (var block in Grid.GetFatBlocks())
             {
-                if (block.HasInventory)
-                    FatBlockAdded(block);
-
-                if (block is IMyProjector)
+                if (block is IMyConveyorSorter)
                     FatBlockAdded(block);
             }
 
@@ -74,7 +71,7 @@ namespace ToolCore.Comp
             if (block is IMyConveyorSorter)
             {
                 ToolComp comp;
-                if (Session.ToolMap.TryGetValue(block.EntityId, out comp) && !ToolComps.Contains(comp))
+                if (ToolSession.Instance.ToolMap.TryGetValue(block.EntityId, out comp) && !ToolComps.Contains(comp))
                 {
                     ToolComps.Add(comp);
                     ((IMyCubeGrid)Grid).WeaponSystem.Register(comp.GunBase);
@@ -87,7 +84,7 @@ namespace ToolCore.Comp
             if (block is IMyConveyorSorter)
             {
                 ToolComp comp;
-                if (Session.ToolMap.TryGetValue(block.EntityId, out comp) && comp?.GunBase != null && ToolComps.Remove(comp))
+                if (ToolSession.Instance.ToolMap.TryGetValue(block.EntityId, out comp) && comp?.GunBase != null && ToolComps.Remove(comp))
                 {
                     if (!Grid.MarkedForClose && Grid.BlocksCount > 1)
                     {
@@ -107,6 +104,41 @@ namespace ToolCore.Comp
             //Dirty = true;
         }
 
+    }
+
+    internal class GroupMap
+    {
+        internal IMyGridGroupData GroupData;
+
+        internal HashSet<IMyCubeGrid> ConnectedGrids = new HashSet<IMyCubeGrid>();
+
+        internal void Init(IMyGridGroupData data)
+        {
+            GroupData = data;
+        }
+
+        public void OnGridAdded(IMyGridGroupData newGroup, IMyCubeGrid grid, IMyGridGroupData oldGroup)
+        {
+            ConnectedGrids.Add(grid);
+
+            GridComp gridComp;
+            if (!ToolSession.Instance.GridMap.TryGetValue(grid, out gridComp))
+                return;
+
+            gridComp.GroupMap = this;
+        }
+
+        public void OnGridRemoved(IMyGridGroupData oldGroup, IMyCubeGrid grid, IMyGridGroupData newGroup)
+        {
+            ConnectedGrids.Remove(grid);
+        }
+
+        internal void Clean()
+        {
+            GroupData = null;
+
+            ConnectedGrids.Clear();
+        }
     }
 
 }

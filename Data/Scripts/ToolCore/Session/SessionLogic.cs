@@ -29,9 +29,20 @@ namespace ToolCore.Session
             {
                 var gridComp = GridList[i];
 
+                if (gridComp.GroupMap == null)
+                {
+                    var group = MyAPIGateway.GridGroups.GetGridGroup(GridLinkTypeEnum.Logical, gridComp.Grid);
+                    if (group != null)
+                    {
+                        GroupMap map;
+                        if (GridGroupMap.TryGetValue(group, out map))
+                            gridComp.GroupMap = map;
+                    }
+                }
+
                 for (int j = 0; j < gridComp.ToolComps.Count; j++)
                 {
-                    UpdateComp(gridComp.ToolComps[j]);
+                    UpdateComp(gridComp.ToolComps[j], gridComp);
                 } //Tools loop
 
             } //Grids loop
@@ -43,12 +54,12 @@ namespace ToolCore.Session
 
         }
 
-        private void UpdateComp(ToolComp comp)
+        private void UpdateComp(ToolComp comp, GridComp gridComp = null)
         {
             var modeData = comp.ModeData;
             var def = modeData.Definition;
 
-            UpdateTool(comp);
+            UpdateTool(comp, gridComp);
 
             var avState = comp.AvState & def.EventFlags;
             if (!comp.AvActive && avState > 0)
@@ -179,7 +190,7 @@ namespace ToolCore.Session
             }
         }
 
-        private void UpdateTool(ToolComp comp)
+        private void UpdateTool(ToolComp comp, GridComp gridComp = null)
         {
             var modeData = comp.ModeData;
             var def = modeData.Definition;
@@ -570,7 +581,10 @@ namespace ToolCore.Session
                 {
                     var grid = entity as MyCubeGrid;
 
-                    if (isBlock && !def.AffectOwnGrid && grid == comp.Grid || !grid.Editable)
+                    if (!grid.Editable)
+                        continue;
+
+                    if (isBlock && !def.AffectOwnGrid && (grid == comp.Grid || gridComp.GroupMap.ConnectedGrids.Contains(grid)))
                         continue;
 
                     if (comp.HasTargetControls)
@@ -662,7 +676,7 @@ namespace ToolCore.Session
                         continue;
 
                     var gridComp = GridCompPool.Count > 0 ? GridCompPool.Pop() : new GridComp();
-                    gridComp.Init(grid, this);
+                    gridComp.Init(grid);
 
                     GridList.Add(gridComp);
                     GridMap[grid] = gridComp;

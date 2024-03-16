@@ -28,6 +28,7 @@ namespace ToolCore.Session
         internal readonly MyDefinitionId SteelPlate = new MyDefinitionId(typeof(MyObjectBuilder_Component), "SteelPlate");
 
         internal readonly Stack<GridComp> GridCompPool = new Stack<GridComp>(64);
+        internal readonly Stack<GroupMap> GroupMapPool = new Stack<GroupMap>(64);
         internal readonly Stack<DrillData> DrillDataPool = new Stack<DrillData>(64);
         internal readonly Stack<ToolComp.ToolData> ToolDataPool = new Stack<ToolComp.ToolData>(64);
 
@@ -38,6 +39,7 @@ namespace ToolCore.Session
         internal readonly Dictionary<string, Dictionary<MyStringHash, MySoundPair>> SoundMap = new Dictionary<string, Dictionary<MyStringHash, MySoundPair>>();
         internal readonly Dictionary<MyVoxelMaterialDefinition, float> MaterialModifiers = new Dictionary<MyVoxelMaterialDefinition, float>();
         internal readonly Dictionary<string, List<MyVoxelMaterialDefinition>> MaterialCategoryMap = new Dictionary<string, List<MyVoxelMaterialDefinition>>();
+        internal readonly Dictionary<IMyGridGroupData, GroupMap> GridGroupMap = new Dictionary<IMyGridGroupData, GroupMap>();
         internal readonly Dictionary<long, ToolComp> ToolMap = new Dictionary<long, ToolComp>();
         internal readonly Dictionary<IMySlimBlock, float> WorkMap = new Dictionary<IMySlimBlock, float>();
         internal readonly Dictionary<string, int> MissingComponents = new Dictionary<string, int>();
