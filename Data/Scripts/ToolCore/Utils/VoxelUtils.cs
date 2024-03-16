@@ -233,12 +233,10 @@ namespace ToolCore
                             harvestRatio *= toolValues.HarvestRatio;
                             if (harvestRatio > 0 && session.IsServer && validVoxel && voxelDef.CanBeHarvested && !string.IsNullOrEmpty(voxelDef.MinedOre))
                             {
-                                var oreOb = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>(voxelDef.MinedOre);
-                                oreOb.MaterialTypeName = voxelDef.Id.SubtypeId;
                                 var yield = harvestRatio * voxelDef.MinedOreRatio * session.VoxelHarvestRatio * removal / 255f;
 
-                                if (!comp.Yields.TryAdd(oreOb, yield))
-                                    comp.Yields[oreOb] += yield;
+                                if (!comp.Yields.TryAdd(voxelDef.MinedOre, yield))
+                                    comp.Yields[voxelDef.MinedOre] += yield;
                             }
 
                             var newContent = content - removal;
@@ -444,12 +442,10 @@ namespace ToolCore
                             harvestRatio *= toolValues.HarvestRatio;
                             if (harvestRatio > 0 && session.IsServer && validVoxel && voxelDef.CanBeHarvested && !string.IsNullOrEmpty(voxelDef.MinedOre))
                             {
-                                var oreOb = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>(voxelDef.MinedOre);
-                                oreOb.MaterialTypeName = voxelDef.Id.SubtypeId;
                                 var yield = removal * harvestRatio * voxelDef.MinedOreRatio * session.VoxelHarvestRatio / 255f;
 
-                                if (!comp.Yields.TryAdd(oreOb, yield))
-                                    comp.Yields[oreOb] += yield;
+                                if (!comp.Yields.TryAdd(voxelDef.MinedOre, yield))
+                                    comp.Yields[voxelDef.MinedOre] += yield;
                             }
 
                             var newContent = content - removal;
@@ -700,12 +696,10 @@ namespace ToolCore
                             harvestRatio *= toolValues.HarvestRatio;
                             if (harvestRatio > 0 && session.IsServer && validVoxel && voxelDef.CanBeHarvested && !string.IsNullOrEmpty(voxelDef.MinedOre))
                             {
-                                var oreOb = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>(voxelDef.MinedOre);
-                                oreOb.MaterialTypeName = voxelDef.Id.SubtypeId;
                                 var yield = removal * harvestRatio * voxelDef.MinedOreRatio * session.VoxelHarvestRatio / 255f;
 
-                                if (!comp.Yields.TryAdd(oreOb, yield))
-                                    comp.Yields[oreOb] += yield;
+                                if (!comp.Yields.TryAdd(voxelDef.MinedOre, yield))
+                                    comp.Yields[voxelDef.MinedOre] += yield;
                             }
 
                             var newContent = content - removal;
@@ -913,12 +907,10 @@ namespace ToolCore
                             harvestRatio *= toolValues.HarvestRatio;
                             if (harvestRatio > 0 && session.IsServer && validVoxel && voxelDef.CanBeHarvested && !string.IsNullOrEmpty(voxelDef.MinedOre))
                             {
-                                var oreOb = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>(voxelDef.MinedOre);
-                                oreOb.MaterialTypeName = voxelDef.Id.SubtypeId;
                                 var yield = removal * harvestRatio * voxelDef.MinedOreRatio * session.VoxelHarvestRatio / 255f;
 
-                                if (!comp.Yields.TryAdd(oreOb, yield))
-                                    comp.Yields[oreOb] += yield;
+                                if (!comp.Yields.TryAdd(voxelDef.MinedOre, yield))
+                                    comp.Yields[voxelDef.MinedOre] += yield;
                             }
 
                             var newContent = content - removal;

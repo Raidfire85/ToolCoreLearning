@@ -21,6 +21,7 @@ using VRage.Game.Components;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
 using VRage.ModAPI;
+using VRage.ObjectBuilders;
 using VRage.Utils;
 using VRage.Voxels;
 using VRageMath;
@@ -56,7 +57,7 @@ namespace ToolCore.Comp
         internal TargetTypes Targets = TargetTypes.All;
 
         internal readonly ConcurrentDictionary<int, ConcurrentCachingList<IMySlimBlock>> HitBlockLayers = new ConcurrentDictionary<int, ConcurrentCachingList<IMySlimBlock>>();
-        internal readonly ConcurrentDictionary<MyObjectBuilder_Ore, float> Yields = new ConcurrentDictionary<MyObjectBuilder_Ore, float>();
+        internal readonly ConcurrentDictionary<string, float> Yields = new ConcurrentDictionary<string, float>();
         internal readonly Dictionary<MyCubeGrid, Vector3I> ClientWorkSet = new Dictionary<MyCubeGrid, Vector3I>();
 
         internal readonly Dictionary<ToolMode, ModeSpecificData> ModeMap = new Dictionary<ToolMode, ModeSpecificData>();
@@ -1344,9 +1345,11 @@ namespace ToolCore.Comp
         internal void ManageInventory()
         {
             var tryPush = IsBlock && (LastPushSucceeded || ToolSession.Tick - LastPushTick > 1200);
+
             foreach (var ore in Yields.Keys)
             {
-                var itemDef = MyDefinitionManager.Static.GetPhysicalItemDefinition(ore);
+                var oreOb = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>(ore);
+                var itemDef = MyDefinitionManager.Static.GetPhysicalItemDefinition(oreOb);
                 var amount = (MyFixedPoint)(Yields[ore] / itemDef.Volume);
                 if (tryPush)
                 {
@@ -1359,7 +1362,7 @@ namespace ToolCore.Comp
                     tryPush = false;
                 }
 
-                Inventory.AddItems(amount, ore);
+                Inventory.AddItems(amount, oreOb);
             }
             Yields.Clear();
 
