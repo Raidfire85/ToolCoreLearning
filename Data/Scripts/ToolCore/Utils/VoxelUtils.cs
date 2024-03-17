@@ -624,7 +624,7 @@ namespace ToolCore
                         }
                     }
 
-                    session.DsUtil.Complete("sort", true, true);
+                    session.DsUtil.Complete("sort", true);
 
                     session.DsUtil.Start("calc");
                     if ((int)def.Pattern <= 2)
@@ -713,7 +713,7 @@ namespace ToolCore
                             break;
                     }
                     drillData.WorkLayers.Clear();
-                    session.DsUtil.Complete("calc", true, true);
+                    session.DsUtil.Complete("calc", true);
 
                     voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
 
@@ -722,7 +722,7 @@ namespace ToolCore
                 }
             }
 
-            session.DsUtil2.Complete("total", true, true);
+            session.DsUtil2.Complete("total", true);
 
         }
 
