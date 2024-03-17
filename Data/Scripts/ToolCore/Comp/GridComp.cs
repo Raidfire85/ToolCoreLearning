@@ -86,9 +86,11 @@ namespace ToolCore.Comp
                 ToolComp comp;
                 if (ToolSession.Instance.ToolMap.TryGetValue(block.EntityId, out comp) && comp?.GunBase != null && ToolComps.Remove(comp))
                 {
-                    if (!Grid.MarkedForClose && Grid.BlocksCount > 1)
+                    if (!Grid.MarkedForClose)
                     {
-                        ((IMyCubeGrid)Grid).WeaponSystem.Unregister(comp.GunBase);
+                        var weaponSystem = ((IMyCubeGrid)Grid).WeaponSystem;
+                        weaponSystem.Register(comp.GunBase);
+                        weaponSystem.Unregister(comp.GunBase);
                     }
                 }
             }
