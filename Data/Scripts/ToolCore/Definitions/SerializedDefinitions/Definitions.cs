@@ -40,6 +40,7 @@ namespace ToolCore.Definitions.Serialised
         public float ActivePower = 1f;
 
         public bool DamageCharacters = true;
+        public bool PickUpFloatings = false;
         public bool AffectOwnGrid = false;
         public bool CacheBlocks = false;
         public bool? ShowTargetControls;

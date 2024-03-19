@@ -217,9 +217,6 @@ namespace ToolCore.Comp
 
                 return;
             }
-
-            SinkInit();
-            StorageInit();
             Inventory = (MyInventory)ToolEntity.GetInventoryBase();
             Grid = BlockTool.CubeGrid as MyCubeGrid;
             Parent = Grid;
@@ -229,6 +226,8 @@ namespace ToolCore.Comp
 
             Enabled = BlockTool.Enabled;
             Functional = BlockTool.IsFunctional;
+
+            SinkInit();
 
             if (!ToolSession.Instance.IsDedicated)
                 GetShowInToolbarSwitch();
@@ -272,6 +271,7 @@ namespace ToolCore.Comp
                 SoundEmitter = new MyEntity3DSoundEmitter(ToolEntity);
 
             UpdateAvState(Trigger.Functional, true);
+            StorageInit();
         }
 
         internal void LoadModels(bool init = false)
@@ -1101,35 +1101,6 @@ namespace ToolCore.Comp
                     if (flag == Trigger.RayHit) HitInfo.IsValid = false;
                 }
             }
-
-            //foreach (var flag in ModeData.Definition.Triggers)
-            //{
-            //    //Logs.WriteLine($"Checking flag {flag}");
-            //    if (add && (flag & state) == 0)
-            //        continue;
-
-            //    if (keepFiring || flag < state)
-            //        continue;
-
-            //    //Logs.WriteLine($"Current state: {AvState}");
-
-            //    if (add) AvState |= flag;
-            //    else AvState &= ~flag;
-
-            //    //Logs.WriteLine($"New state: {AvState}");
-
-            //    foreach (var monitor in EventMonitors)
-            //        monitor.Invoke((int)state, add);
-
-            //    //Logs.WriteLine($"UpdateEffects() {flag} {add}");
-            //    UpdateEffects(flag, add);
-
-            //    if (!add) // maybe remove this later :|
-            //    {
-            //        if (flag == Trigger.Hit) WasHitting = false;
-            //        if (flag == Trigger.RayHit) HitInfo.IsValid = false;
-            //    }
-            //}
         }
 
         internal void UpdateEffects(Trigger state, bool add)
@@ -1139,7 +1110,6 @@ namespace ToolCore.Comp
             Effects effects;
             if (!ModeData.EffectsMap.TryGetValue(state, out effects))
                 return;
-
 
             if (!add)
             {

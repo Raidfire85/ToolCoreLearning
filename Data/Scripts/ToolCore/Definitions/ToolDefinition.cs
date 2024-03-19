@@ -28,6 +28,7 @@ namespace ToolCore.Definitions
         internal readonly float ActivePower;
         internal readonly float IdlePower;
         internal readonly bool DamageCharacters;
+        internal readonly bool PickUpFloatings;
         internal readonly bool AffectOwnGrid;
         internal readonly bool CacheBlocks;
         internal readonly bool Debug;
@@ -289,6 +290,7 @@ namespace ToolCore.Definitions
             ActivePower = values.ActivePower;
             IdlePower = values.IdlePower;
             DamageCharacters = values.DamageCharacters;
+            PickUpFloatings = values.PickUpFloatings;
             CacheBlocks = values.CacheBlocks;
             AffectOwnGrid = values.AffectOwnGrid;
             Debug = !session.IsDedicated && values.Debug;

@@ -8,6 +8,7 @@ using ToolCore.Comp;
 using ToolCore.Definitions;
 using ToolCore.Definitions.Serialised;
 using ToolCore.Utils;
+using VRage;
 using VRage.Game;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
@@ -455,6 +456,9 @@ namespace ToolCore.Session
 
                 if (entity is IMyDestroyableObject)
                 {
+                    if (!IsServer)
+                        continue;
+
                     if (entity is IMyCharacter && !def.DamageCharacters)
                         continue;
 
@@ -502,6 +506,18 @@ namespace ToolCore.Session
 
                     }
                     comp.Working = true;
+
+                    if (entity is MyFloatingObject && isBlock && def.PickUpFloatings)
+                    {
+                        var floating = (MyFloatingObject)entity;
+                        var id = floating.Item.Content.GetObjectId();
+                        var amount = floating.Item.Amount;
+                        MyFixedPoint transferred;
+                        comp.LastPushSucceeded = comp.Grid.ConveyorSystem.PushGenerateItem(id, amount, out transferred, comp.BlockTool, false);
+                        MyFloatingObjects.RemoveFloatingObject(floating, true);
+                        continue;
+                    }
+
                     var destroyableObject = (IMyDestroyableObject)entity;
                     destroyableObject.DoDamage(1f, damageType, true, null, ownerId);
                     continue;
