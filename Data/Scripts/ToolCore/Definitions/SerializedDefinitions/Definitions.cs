@@ -141,10 +141,10 @@ namespace ToolCore.Definitions.Serialised
     public class SubpartValues
     {
         public string Name;
-        public Direction RotationAxis;
-        public float RotationSpeed = 60f; // degrees/s
-        public int MinRotation;
-        public int MaxRotation;
+        public Direction RotationAxis; // Up | Forward | Right
+        public float RotationSpeed = 60f; // degrees per second
+        public int MinRotation; // degrees
+        public int MaxRotation; // degrees
     }
 
     #endregion

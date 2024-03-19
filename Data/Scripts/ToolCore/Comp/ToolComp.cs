@@ -83,6 +83,7 @@ namespace ToolCore.Comp
         internal bool Powered = true;
         internal bool FullInit;
         internal bool Dirty;
+        internal bool TargetsDirty;
         internal bool AvActive;
         internal bool UpdatePower;
         internal bool LastPushSucceeded;
@@ -444,7 +445,6 @@ namespace ToolCore.Comp
                 var desiredAngle1 = (float)Vector3.Angle(desiredFacing, Part1.Facing) * Math.Sign(Vector3.Dot(desiredFacing, Part1.Normal));
                 if (Part1.Definition.RotationCapped && (desiredAngle1 > Part1.Definition.MaxRotation || desiredAngle1 < Part1.Definition.MinRotation))
                 {
-                    Logs.WriteLine("Tracking false");
                     return false;
                 }
 
@@ -459,7 +459,6 @@ namespace ToolCore.Comp
                     var desiredAngle2 = (float)Vector3.Angle(desiredFacing, Part2.Facing) * Math.Sign(Vector3.Dot(desiredFacing, Part2.Normal));
                     if (Part2.Definition.RotationCapped && (desiredAngle2 > Part2.Definition.MaxRotation || desiredAngle2 < Part2.Definition.MinRotation))
                     {
-                        Logs.WriteLine("Tracking false");
                         return false;
                     }
 
@@ -468,7 +467,6 @@ namespace ToolCore.Comp
 
                 Part1.DesiredRotation = desiredAngle1;
 
-                //Logs.WriteLine("Tracking true");
                 return true;
             }
 
@@ -483,7 +481,7 @@ namespace ToolCore.Comp
                     var closing = next.CubeGrid.MarkedForClose || next.FatBlock != null && next.FatBlock.MarkedForClose;
                     var finished = next.IsFullyDismounted || Comp.Mode == ToolMode.Weld && projector == null && next.IsFullIntegrity && !next.HasDeformation;
                     var outOfRange = Vector3D.DistanceSquared(next.CubeGrid.GridIntegerToWorld(next.Position), worldPos) > Definition.TargetRadiusSqr;
-                    if (closing || finished || outOfRange || projector?.CanBuild(next, true) != BuildCheckResult.OK)
+                    if (closing || finished || outOfRange || (projector != null && projector.CanBuild(next, true) != BuildCheckResult.OK))
                     {
                         Targets.RemoveAtFast(i);
                         continue;
@@ -498,6 +496,9 @@ namespace ToolCore.Comp
 
             internal void RefreshTargetList(ToolDefinition def, Vector3D worldPos)
             {
+                Targets.Clear();
+                Logs.WriteLine("Refreshing target list");
+
                 var ownerId = Comp.IsBlock ? Comp.BlockTool.OwnerId : Comp.HandTool.OwnerIdentityId;
                 var toolFaction = MyAPIGateway.Session.Factions.TryGetPlayerFaction(ownerId);
                 def.EffectSphere.Center = worldPos;

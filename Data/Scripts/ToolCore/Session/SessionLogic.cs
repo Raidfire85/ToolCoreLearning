@@ -248,9 +248,6 @@ namespace ToolCore.Session
                 comp.LoadModels();
             }
 
-            //if (gridComp.ConveyorsDirty)
-            //    comp.UpdateConnections();
-
             if (isBlock && !block.Enabled)
                 return;
 
@@ -275,11 +272,16 @@ namespace ToolCore.Session
             Vector3D worldPos, worldForward, worldUp;
             CalculateWorldVectors(comp, out worldPos, out worldForward, out worldUp);
 
-            if (isTurret && !modeData.Turret.HasTarget && comp.ActiveThreads < 1)
+            // turret targets
+            if (isTurret && comp.ActiveThreads < 1 && modeData.Turret.UpdateTick == Tick % def.UpdateInterval)
             {
-                if (modeData.Turret.UpdateTick == Tick % def.UpdateInterval)
+                if (comp.TargetsDirty || modeData.Turret.Targets.Count < 1)
                 {
                     modeData.Turret.RefreshTargetList(def, worldPos);
+
+                    if (comp.TargetsDirty)
+                        modeData.Turret.HasTarget = false;
+                    comp.TargetsDirty = false;
                 }
             }
 
@@ -354,7 +356,7 @@ namespace ToolCore.Session
                     var closing = target.CubeGrid.MarkedForClose || target.FatBlock != null && target.FatBlock.MarkedForClose;
                     var finished = target.IsFullyDismounted || comp.Mode == ToolMode.Weld && projector == null && target.IsFullIntegrity && !target.HasDeformation;
                     var outOfRange = Vector3D.DistanceSquared(target.CubeGrid.GridIntegerToWorld(target.Position), worldPos) > turret.Definition.TargetRadiusSqr;
-                    if (closing || finished || outOfRange || projector?.CanBuild(target, true) != BuildCheckResult.OK)
+                    if (closing || finished || outOfRange || (projector != null && projector.CanBuild(target, true) != BuildCheckResult.OK))
                     {
                         turret.SelectNewTarget(worldPos);
                     }
@@ -634,7 +636,15 @@ namespace ToolCore.Session
                             continue;
                     }
 
-                    if (comp.Mode != ToolMode.Weld && (grid.Immune || !grid.DestructibleBlocks || grid.Projector != null || grid.Physics == null || !grid.Physics.Enabled))
+                    var weldMode = comp.Mode == ToolMode.Weld;
+                    var projector = grid.Projector as IMyProjector;
+                    if (projector != null)
+                    {
+                        if (!weldMode || projector.BuildableBlocksCount == 0)
+                            continue;
+                    }
+
+                    if (!weldMode && (grid.Immune || !grid.DestructibleBlocks || grid.Physics == null || !grid.Physics.Enabled))
                         continue;
 
                     var toolData = ToolDataPool.Count > 0 ? ToolDataPool.Pop() : new ToolData();

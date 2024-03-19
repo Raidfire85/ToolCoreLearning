@@ -43,7 +43,10 @@ namespace ToolCore.Session
                         {
                             var amount = MathHelper.Clamp(diff1, -part1.Definition.RotationSpeed, part1.Definition.RotationSpeed);
                             var rotation = part1.RotationFactory.Invoke(amount);
-                            var lm = part1.Subpart.PositionComp.LocalMatrixRef * rotation;
+                            var lm = part1.Subpart.PositionComp.LocalMatrixRef;
+                            var translation = lm.Translation;
+                            lm *= rotation;
+                            lm.Translation = translation;
                             part1.Subpart.PositionComp.SetLocalMatrix(ref lm);
                             part1.CurrentRotation += amount;
                         }
@@ -60,7 +63,10 @@ namespace ToolCore.Session
                             {
                                 var amount = MathHelper.Clamp(diff2, -part2.Definition.RotationSpeed, part2.Definition.RotationSpeed);
                                 var rotation = part2.RotationFactory.Invoke(amount);
-                                var lm = part2.Subpart.PositionComp.LocalMatrixRef * rotation;
+                                var lm = part2.Subpart.PositionComp.LocalMatrixRef;
+                                var translation = lm.Translation;
+                                lm *= rotation;
+                                lm.Translation = translation;
                                 part2.Subpart.PositionComp.SetLocalMatrix(ref lm);
                                 part2.CurrentRotation += amount;
                             }

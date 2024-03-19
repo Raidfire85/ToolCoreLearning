@@ -657,6 +657,8 @@ namespace ToolCore.Session
             if (on) comp.Targets |= TargetTypes.Own;
             else comp.Targets &= ~TargetTypes.Own;
 
+            comp.TargetsDirty = true;
+
             if (_session.IsServer) return;
 
             var syncValue = on ? (int)TargetTypes.Own : - (int)TargetTypes.Own;
@@ -682,6 +684,8 @@ namespace ToolCore.Session
                 return;
 
             comp.Targets ^= TargetTypes.Own;
+
+            comp.TargetsDirty = true;
 
             if (_session.IsServer) return;
 
@@ -737,6 +741,8 @@ namespace ToolCore.Session
             if (on) comp.Targets |= TargetTypes.Friendly;
             else comp.Targets &= ~TargetTypes.Friendly;
 
+            comp.TargetsDirty = true;
+
             if (_session.IsServer) return;
 
             var syncValue = on ? (int)TargetTypes.Friendly : -(int)TargetTypes.Friendly;
@@ -762,6 +768,8 @@ namespace ToolCore.Session
                 return;
 
             comp.Targets ^= TargetTypes.Friendly;
+
+            comp.TargetsDirty = true;
 
             if (_session.IsServer) return;
 
@@ -817,6 +825,8 @@ namespace ToolCore.Session
             if (on) comp.Targets |= TargetTypes.Neutral;
             else comp.Targets &= ~TargetTypes.Neutral;
 
+            comp.TargetsDirty = true;
+
             if (_session.IsServer) return;
 
             var syncValue = on ? (int)TargetTypes.Neutral : -(int)TargetTypes.Neutral;
@@ -844,6 +854,8 @@ namespace ToolCore.Session
             comp.Targets ^= TargetTypes.Neutral;
 
             if (_session.IsServer) return;
+
+            comp.TargetsDirty = true;
 
             var on = (comp.Targets & TargetTypes.Neutral) > TargetTypes.None;
             var syncValue = on ? (int)TargetTypes.Neutral : -(int)TargetTypes.Neutral;
@@ -897,6 +909,8 @@ namespace ToolCore.Session
             if (on) comp.Targets |= TargetTypes.Hostile;
             else comp.Targets &= ~TargetTypes.Hostile;
 
+            comp.TargetsDirty = true;
+
             if (_session.IsServer) return;
 
             var syncValue = on ? (int)TargetTypes.Hostile : -(int)TargetTypes.Hostile;
@@ -922,6 +936,8 @@ namespace ToolCore.Session
                 return;
 
             comp.Targets ^= TargetTypes.Hostile;
+
+            comp.TargetsDirty = true;
 
             if (_session.IsServer) return;
 
@@ -983,6 +999,8 @@ namespace ToolCore.Session
 
             comp.UseWorkColour = on;
 
+            comp.TargetsDirty = true;
+
             comp.RefreshTerminal();
 
             if (_session.IsServer)
@@ -1040,6 +1058,8 @@ namespace ToolCore.Session
 
             comp.WorkColour = newColour;
 
+            comp.TargetsDirty = true;
+
             if (_session.IsServer)
                 return;
 
@@ -1067,6 +1087,8 @@ namespace ToolCore.Session
                 return;
 
             comp.WorkColour = MyAPIGateway.Session.LocalHumanPlayer.SelectedBuildColor;
+
+            comp.TargetsDirty = true;
 
             foreach (var control in _customControls)
             {

@@ -143,7 +143,7 @@ namespace ToolCore
 
                         var colour = (grid.Projector as IMyProjector)?.SlimBlock.ColorMaskHSV ?? slim.ColorMaskHSV;
                         if (comp.UseWorkColour && colour.PackHSVToUint() != comp.WorkColourPacked)
-                            return;
+                            continue;
 
                         var layer = (int)Math.Ceiling(distSqr);
                         comp.MaxLayer = Math.Max(layer, comp.MaxLayer);
@@ -230,7 +230,7 @@ namespace ToolCore
 
                         var colour = (grid.Projector as IMyProjector)?.SlimBlock.ColorMaskHSV ?? slim.ColorMaskHSV;
                         if (comp.UseWorkColour && colour.PackHSVToUint() != comp.WorkColourPacked)
-                            return;
+                            continue;
 
                         var layer = (int)Math.Ceiling(distSqr);
                         comp.MaxLayer = Math.Max(layer, comp.MaxLayer);
@@ -282,7 +282,7 @@ namespace ToolCore
 
                         var colour = (grid.Projector as IMyProjector)?.SlimBlock.ColorMaskHSV ?? slim.ColorMaskHSV;
                         if (comp.UseWorkColour && colour.PackHSVToUint() != comp.WorkColourPacked)
-                            return;
+                            continue;
 
                         var distSqr = Vector3D.DistanceSquared(posD, obb.Center);
 
@@ -328,7 +328,7 @@ namespace ToolCore
 
                 var colour = (grid.Projector as IMyProjector)?.SlimBlock.ColorMaskHSV ?? slim.ColorMaskHSV;
                 if (comp.UseWorkColour && colour.PackHSVToUint() != comp.WorkColourPacked)
-                    return;
+                    continue;
 
                 var distSqr = Vector3D.DistanceSquared(start, grid.GridIntegerToWorld(pos));
 
@@ -1030,7 +1030,7 @@ namespace ToolCore
                 var min = Vector3I.Max(sMin, gMin);
                 var max = Vector3I.Min(sMax, gMax);
 
-
+                var count = 0;
                 int i, j, k;
                 for (i = min.X; i <= max.X; i++)
                 {
@@ -1063,7 +1063,7 @@ namespace ToolCore
 
                             var colour = (grid.Projector as IMyProjector)?.SlimBlock.ColorMaskHSV ?? slim.ColorMaskHSV;
                             if (comp.UseWorkColour && colour.PackHSVToUint() != comp.WorkColourPacked)
-                                return;
+                                continue;
 
                             var layer = (int)Math.Ceiling(distSqr);
                             comp.MaxLayer = Math.Max(layer, comp.MaxLayer);
@@ -1075,6 +1075,7 @@ namespace ToolCore
                                 comp.HitBlockLayers[layer] = list;
                             }
                             list.Add(slim);
+                            count++;
                         }
                     }
                 }
@@ -1088,38 +1089,49 @@ namespace ToolCore
 
         internal static void OnGetBlockTargetsComplete(this ToolComp comp, WorkData workData)
         {
-            var session = ToolSession.Instance;
-            var turret = comp.ModeData.Turret;
-
-            if (workData != null)
+            try
             {
-                var toolData = (ToolData)workData;
-                toolData.Clean();
-                session.ToolDataPool.Push(toolData);
-                comp.ActiveThreads--;
-            }
+                var session = ToolSession.Instance;
+                var turret = comp.ModeData.Turret;
 
-            for (int i = comp.MaxLayer; i > 0; i--)
-            {
-                ConcurrentCachingList<IMySlimBlock> layer;
-                if (!comp.HitBlockLayers.TryGetValue(i, out layer))
-                    continue;
-
-                layer.ApplyAdditions();
-                for (int j = 0; j < layer.Count; j++)
+                if (workData != null)
                 {
-                    var slim = layer[j];
-                    var fat = slim.FatBlock;
-                    var grid = slim.CubeGrid as MyCubeGrid;
-                    if (slim.IsFullyDismounted || grid.MarkedForClose || fat != null && fat.MarkedForClose)
-                    {
-                        continue;
-                    }
-                    turret.Targets.Add(slim);
+                    var toolData = (ToolData)workData;
+                    toolData.Clean();
+                    session.ToolDataPool.Push(toolData);
+                    comp.ActiveThreads--;
                 }
+
+                if (comp.ActiveThreads > 0)
+                    return;
+
+                for (int i = comp.MaxLayer; i > 0; i--)
+                {
+                    ConcurrentCachingList<IMySlimBlock> layer;
+                    if (!comp.HitBlockLayers.TryGetValue(i, out layer))
+                        continue;
+
+                    layer.ApplyAdditions();
+                    for (int j = 0; j < layer.Count; j++)
+                    {
+                        var slim = layer[j];
+                        var fat = slim.FatBlock;
+                        var grid = slim.CubeGrid as MyCubeGrid;
+                        if (slim.IsFullyDismounted || grid.MarkedForClose || fat != null && fat.MarkedForClose)
+                        {
+                            continue;
+                        }
+                        turret.Targets.Add(slim);
+                    }
+                }
+
+                comp.HitBlockLayers.Clear();
+            }
+            catch (Exception ex)
+            {
+                Logs.LogException(ex);
             }
 
-            comp.HitBlockLayers.Clear();
 
         }
 

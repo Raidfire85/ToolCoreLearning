@@ -111,14 +111,17 @@ namespace ToolCore.Session
                     var on = value > 0;
                     if (on) comp.Targets |= target;
                     else comp.Targets &= ~target;
+                    comp.TargetsDirty = true;
                     break;
                 case FieldType.UseColour:
                     comp.UseWorkColour = ((BoolUpdatePacket)packet).Value;
+                    comp.TargetsDirty = true;
                     break;
                 case FieldType.Colour:
                     var packedHsv = ((UintUpdatePacket)packet).Value;
                     var hsv = ColorExtensions.UnpackHSVFromUint(packedHsv);
                     comp.WorkColour = hsv;
+                    comp.TargetsDirty = true;
                     break;
                 default:
                     break;
