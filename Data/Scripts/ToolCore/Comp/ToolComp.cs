@@ -2,7 +2,6 @@
 using Sandbox.Definitions;
 using Sandbox.Game;
 using Sandbox.Game.Entities;
-using Sandbox.Game.Entities.Cube;
 using Sandbox.Game.EntityComponents;
 using Sandbox.ModAPI;
 using Sandbox.ModAPI.Interfaces.Terminal;
@@ -26,7 +25,6 @@ using VRage.Utils;
 using VRage.Voxels;
 using VRageMath;
 using static ToolCore.Definitions.ToolDefinition;
-using static ToolCore.Utils.Draw;
 
 namespace ToolCore.Comp
 {
@@ -37,6 +35,7 @@ namespace ToolCore.Comp
     {
         internal readonly CoreGun GunBase;
         internal readonly MyInventory Inventory;
+        internal readonly GridData GridData = new GridData();
 
         internal MyEntity ToolEntity;
         internal MyEntity Parent;
@@ -49,6 +48,7 @@ namespace ToolCore.Comp
         internal GridComp GridComp;
         internal ToolRepo Repo;
 
+        internal Task GridsTask = new Task();
         internal IMyTerminalControlOnOffSwitch ShowInToolbarSwitch;
 
         internal ToolMode Mode;
@@ -57,9 +57,9 @@ namespace ToolCore.Comp
         internal Trigger AvState;
         internal TargetTypes Targets = TargetTypes.All;
 
-        internal readonly ConcurrentDictionary<int, ConcurrentCachingList<IMySlimBlock>> HitBlockLayers = new ConcurrentDictionary<int, ConcurrentCachingList<IMySlimBlock>>();
         internal readonly ConcurrentDictionary<string, float> Yields = new ConcurrentDictionary<string, float>();
         internal readonly Dictionary<MyCubeGrid, Vector3I> ClientWorkSet = new Dictionary<MyCubeGrid, Vector3I>();
+        internal readonly Dictionary<int, List<IMySlimBlock>> HitBlockLayers = new Dictionary<int, List<IMySlimBlock>>();
 
         internal readonly Dictionary<ToolMode, ModeSpecificData> ModeMap = new Dictionary<ToolMode, ModeSpecificData>();
 
@@ -262,7 +262,33 @@ namespace ToolCore.Comp
                 if (!def.IsTurret)
                     continue;
 
-                data.Turret = new TurretComp(def, this, data);
+                foreach (var other in ModeMap.Values)
+                {
+                    if (other.Turret == null)
+                        continue;
+
+                    var same = true;
+                    foreach (var subpart in def.Turret.Subparts)
+                    {
+                        var isPart1 = subpart.Name == other.Turret.Part1.Definition.Name;
+                        var isPart2 = other.Turret.HasTwoParts && subpart.Name == other.Turret.Part2.Definition.Name;
+                        if (!isPart1 && !isPart2)
+                        {
+                            same = false;
+                            break;
+                        }
+                    }
+                    if (same)
+                    {
+                        data.Turret = other.Turret;
+                        break;
+                    }
+                }
+
+                if (data.Turret == null)
+                {
+                    data.Turret = new TurretComp(def, this);
+                }
             }
 
             LoadModels(true);
@@ -351,18 +377,17 @@ namespace ToolCore.Comp
             internal IMySlimBlock ActiveTarget;
             internal bool HasTarget;
             internal bool IsValid;
+            internal int LastRefreshTick;
 
             internal void UpdateModelData(ToolComp comp)
             {
                 IsValid = Part1.UpdateModelData(comp) && (!HasTwoParts || Part2.UpdateModelData(comp));
             }
 
-            internal TurretComp(ToolDefinition def, ToolComp comp, ModeSpecificData data)
+            internal TurretComp(ToolDefinition def, ToolComp comp)
             {
                 Comp = comp;
                 Definition = def.Turret;
-                var halfInterval = (int)(0.5f * def.UpdateInterval);
-                UpdateTick = (int)((Comp.ToolEntity.EntityId + halfInterval) % def.UpdateInterval);
 
                 var subparts = def.Turret.Subparts;
                 var partDefA = subparts[0];
@@ -470,12 +495,21 @@ namespace ToolCore.Comp
                 return true;
             }
 
+            internal void DeselectTarget()
+            {
+                HasTarget = false;
+                Part1.DesiredRotation = 0;
+                if (HasTwoParts) Part2.DesiredRotation = 0;
+            }
+
             internal void SelectNewTarget(Vector3D worldPos)
             {
                 Logs.WriteLine($"Selecting from {Targets.Count} targets");
                 for (int i = Targets.Count - 1; i >= 0; i--)
                 {
                     var next = Targets[i];
+                    Targets.RemoveAt(i);
+
                     var projector = ((MyCubeGrid)next.CubeGrid).Projector as IMyProjector;
 
                     var closing = next.CubeGrid.MarkedForClose || next.FatBlock != null && next.FatBlock.MarkedForClose;
@@ -483,7 +517,6 @@ namespace ToolCore.Comp
                     var outOfRange = Vector3D.DistanceSquared(next.CubeGrid.GridIntegerToWorld(next.Position), worldPos) > Definition.TargetRadiusSqr;
                     if (closing || finished || outOfRange || (projector != null && projector.CanBuild(next, true) != BuildCheckResult.OK))
                     {
-                        Targets.RemoveAtFast(i);
                         continue;
                     }
 
@@ -502,6 +535,7 @@ namespace ToolCore.Comp
                 var ownerId = Comp.IsBlock ? Comp.BlockTool.OwnerId : Comp.HandTool.OwnerIdentityId;
                 var toolFaction = MyAPIGateway.Session.Factions.TryGetPlayerFaction(ownerId);
                 def.EffectSphere.Center = worldPos;
+                var gridData = Comp.GridData;
 
                 var session = ToolSession.Instance;
                 var entities = session.Entities;
@@ -526,15 +560,15 @@ namespace ToolCore.Comp
                     if (Comp.Mode != ToolMode.Weld && (grid.Immune || !grid.DestructibleBlocks || grid.Projector != null || grid.Physics == null || !grid.Physics.Enabled))
                         continue;
 
-                    var toolData = session.ToolDataPool.Count > 0 ? session.ToolDataPool.Pop() : new ToolData();
-                    toolData.Entity = entity;
-                    toolData.Position = worldPos;
-
-                    Comp.ActiveThreads++;
-                    MyAPIGateway.Parallel.Start(Comp.GetBlockTargets, Comp.OnGetBlockTargetsComplete, toolData);
+                    gridData.Grids.Add(grid);
                 }
-
                 entities.Clear();
+
+                if (gridData.Grids.Count == 0)
+                    return;
+
+                gridData.Position = worldPos;
+                MyAPIGateway.Parallel.Start(Comp.GetBlockTargets, Comp.OnGetBlockTargetsComplete);
             }
 
             internal class TurretPart
@@ -581,11 +615,29 @@ namespace ToolCore.Comp
                             Facing = Subpart.PositionComp.LocalMatrixRef.Forward;
                             Normal = Subpart.PositionComp.LocalMatrixRef.Left;
                             break;
+                        case Direction.Down:
+                            RotationFactory = Matrix.CreateRotationY;
+                            Axis = Subpart.PositionComp.LocalMatrixRef.Down;
+                            Facing = Subpart.PositionComp.LocalMatrixRef.Backward;
+                            Normal = Subpart.PositionComp.LocalMatrixRef.Left;
+                            break;
                         case Direction.Forward:
                             RotationFactory = Matrix.CreateRotationZ;
                             Axis = Subpart.PositionComp.LocalMatrixRef.Forward;
                             Facing = Subpart.PositionComp.LocalMatrixRef.Up;
                             Normal = Subpart.PositionComp.LocalMatrixRef.Right;
+                            break;
+                        case Direction.Back:
+                            RotationFactory = Matrix.CreateRotationZ;
+                            Axis = Subpart.PositionComp.LocalMatrixRef.Backward;
+                            Facing = Subpart.PositionComp.LocalMatrixRef.Down;
+                            Normal = Subpart.PositionComp.LocalMatrixRef.Right;
+                            break;
+                        case Direction.Left:
+                            RotationFactory = Matrix.CreateRotationX;
+                            Axis = Subpart.PositionComp.LocalMatrixRef.Left;
+                            Facing = Subpart.PositionComp.LocalMatrixRef.Backward;
+                            Normal = Subpart.PositionComp.LocalMatrixRef.Up;
                             break;
                         case Direction.Right:
                             RotationFactory = Matrix.CreateRotationX;
@@ -650,23 +702,6 @@ namespace ToolCore.Comp
                 var functional = !comp.IsBlock || comp.BlockTool.IsFunctional;
                 if (!HasEmitter && functional && Definition.Location == Location.Emitter)
                     Definition.Location = Location.Centre;
-            }
-        }
-
-        internal class ToolData : WorkData
-        {
-            internal MyEntity Entity;
-            internal Vector3D Position;
-            internal Vector3D Forward;
-            internal Vector3D Up;
-            internal float RayLength;
-
-            internal readonly HashSet<IMySlimBlock> HitBlocksHash = new HashSet<IMySlimBlock>();
-
-            internal void Clean()
-            {
-                Entity = null;
-                HitBlocksHash.Clear();
             }
         }
 

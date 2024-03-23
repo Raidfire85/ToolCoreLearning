@@ -226,8 +226,11 @@ namespace ToolCore.Definitions.Serialised
     public enum Direction
     {
         Up = 0,
-        Forward = 1,
-        Right = 2,
+        Down = 1,
+        Forward = 2,
+        Back = 3,
+        Left = 4,
+        Right = 5,
     }
 
     #endregion

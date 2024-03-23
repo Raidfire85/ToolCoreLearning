@@ -13,102 +13,124 @@ using ToolCore.Utils;
 using VRage;
 using VRage.Collections;
 using VRage.Game;
+using VRage.Game.Entity;
 using VRage.Game.ModAPI;
 using VRageMath;
 using static ToolCore.Comp.ToolComp;
 
 namespace ToolCore
 {
+    internal class GridData : WorkData
+    {
+        internal Vector3D Position;
+        internal Vector3D Forward;
+        internal Vector3D Up;
+        internal float RayLength;
+
+        internal readonly List<MyCubeGrid> Grids = new List<MyCubeGrid>();
+        internal readonly HashSet<IMySlimBlock> HitBlocksHash = new HashSet<IMySlimBlock>();
+
+        internal void Clean()
+        {
+            Grids.Clear();
+            HitBlocksHash.Clear();
+        }
+    }
+
     internal static class GridUtils
     {
-        internal static void GetBlocksInVolume(this ToolComp comp, WorkData workData)
+        internal static void GetBlocksInVolume(this ToolComp comp)
         {
             try
             {
                 var modeData = comp.ModeData;
                 var def = modeData.Definition;
                 var toolValues = comp.Values;
-                var data = workData as ToolData;
-                var grid = data.Entity as MyCubeGrid;
+                var data = comp.GridData;
 
-                var gridMatrixNI = grid.PositionComp.WorldMatrixNormalizedInv;
-                var localCentre = grid.WorldToGridScaledLocal(data.Position);
-                Vector3D localForward;
-                Vector3D.TransformNormal(ref data.Forward, ref gridMatrixNI, out localForward);
-
-                var gridSizeR = grid.GridSizeR;
-                var radius = toolValues.BoundingRadius * gridSizeR;
-
-                Vector3D minExtent;
-                Vector3D maxExtent;
-
-                if (def.EffectShape == EffectShape.Cuboid)
+                for (int i = 0; i < data.Grids.Count; i++)
                 {
-                    Vector3D localUp;
-                    Vector3D.TransformNormal(ref data.Up, ref gridMatrixNI, out localUp);
-                    var orientation = Quaternion.CreateFromForwardUp(localForward, localUp);
+                    var grid = data.Grids[i];
+                    var gridMatrixNI = grid.PositionComp.WorldMatrixNormalizedInv;
+                    var localCentre = grid.WorldToGridScaledLocal(data.Position);
+                    Vector3D localForward;
+                    Vector3D.TransformNormal(ref data.Forward, ref gridMatrixNI, out localForward);
 
-                    comp.Obb.Center = localCentre;
-                    comp.Obb.Orientation = orientation;
-                    comp.Obb.HalfExtent = toolValues.HalfExtent * gridSizeR;
+                    var gridSizeR = grid.GridSizeR;
+                    var radius = toolValues.BoundingRadius * gridSizeR;
 
-                    var box = comp.Obb.GetAABB();
+                    Vector3D minExtent;
+                    Vector3D maxExtent;
 
-                    minExtent = localCentre - box.HalfExtents;
-                    maxExtent = localCentre + box.HalfExtents;
-
-                    if (def.Debug)
+                    if (def.EffectShape == EffectShape.Cuboid)
                     {
-                        var gridSize = grid.GridSize;
-                        var drawBox = new BoundingBoxD(minExtent * gridSize, maxExtent * gridSize);
-                        var drawObb = new MyOrientedBoundingBoxD(drawBox, grid.PositionComp.LocalMatrixRef);
-                        comp.DrawBoxes.Add(new MyTuple<MyOrientedBoundingBoxD, Color>(drawObb, Color.LightBlue));
+                        Vector3D localUp;
+                        Vector3D.TransformNormal(ref data.Up, ref gridMatrixNI, out localUp);
+                        var orientation = Quaternion.CreateFromForwardUp(localForward, localUp);
+
+                        comp.Obb.Center = localCentre;
+                        comp.Obb.Orientation = orientation;
+                        comp.Obb.HalfExtent = toolValues.HalfExtent * gridSizeR;
+
+                        var box = comp.Obb.GetAABB();
+
+                        minExtent = localCentre - box.HalfExtents;
+                        maxExtent = localCentre + box.HalfExtents;
+
+                        if (def.Debug)
+                        {
+                            var gridSize = grid.GridSize;
+                            var drawBox = new BoundingBoxD(minExtent * gridSize, maxExtent * gridSize);
+                            var drawObb = new MyOrientedBoundingBoxD(drawBox, grid.PositionComp.LocalMatrixRef);
+                            comp.DrawBoxes.Add(new MyTuple<MyOrientedBoundingBoxD, Color>(drawObb, Color.LightBlue));
+                        }
                     }
-                }
-                else
-                {
-                    minExtent = localCentre - radius;
-                    maxExtent = localCentre + radius;
-                }
+                    else
+                    {
+                        minExtent = localCentre - radius;
+                        maxExtent = localCentre + radius;
+                    }
 
-                var sMin = Vector3I.Round(minExtent);
-                var sMax = Vector3I.Round(maxExtent);
+                    var sMin = Vector3I.Round(minExtent);
+                    var sMax = Vector3I.Round(maxExtent);
 
-                var gMin = grid.Min;
-                var gMax = grid.Max;
+                    var gMin = grid.Min;
+                    var gMax = grid.Max;
 
-                var min = Vector3I.Max(sMin, gMin);
-                var max = Vector3I.Min(sMax, gMax);
+                    var min = Vector3I.Max(sMin, gMin);
+                    var max = Vector3I.Min(sMax, gMax);
 
-                switch (def.EffectShape)
-                {
-                    case EffectShape.Sphere:
-                        comp.GetBlocksInSphere(data, grid, min, max, localCentre, radius);
-                        break;
-                    case EffectShape.Cylinder:
-                        comp.GetBlocksInCylinder(data, grid, min, max, localCentre, localForward, toolValues.Radius * gridSizeR, toolValues.Length * gridSizeR);
-                        break;
-                    case EffectShape.Cuboid:
-                        comp.GetBlocksInCuboid(data, grid, min, max, comp.Obb);
-                        break;
-                    case EffectShape.Line:
-                        comp.GetBlocksOverlappingLine(data, grid, data.Position, data.Position + data.Forward * toolValues.Length);
-                        break;
-                    case EffectShape.Ray:
-                        comp.GetBlockInRayPath(data, grid, data.Position + data.Forward * (data.RayLength + 0.01));
-                        break;
-                    default:
-                        break;
+                    switch (def.EffectShape)
+                    {
+                        case EffectShape.Sphere:
+                            comp.GetBlocksInSphere(data, grid, min, max, localCentre, radius);
+                            break;
+                        case EffectShape.Cylinder:
+                            comp.GetBlocksInCylinder(data, grid, min, max, localCentre, localForward, toolValues.Radius * gridSizeR, toolValues.Length * gridSizeR);
+                            break;
+                        case EffectShape.Cuboid:
+                            comp.GetBlocksInCuboid(data, grid, min, max, comp.Obb);
+                            break;
+                        case EffectShape.Line:
+                            comp.GetBlocksOverlappingLine(data, grid, data.Position, data.Position + data.Forward * toolValues.Length);
+                            break;
+                        case EffectShape.Ray:
+                            comp.GetBlockInRayPath(data, grid, data.Position + data.Forward * (data.RayLength + 0.01));
+                            break;
+                        default:
+                            break;
+                    }
+
+                    data.HitBlocksHash.Clear();
                 }
             }
             catch (Exception ex)
             {
                 Logs.LogException(ex);
-                comp.ActiveThreads--;
             }
         }
 
-        private static void GetBlocksInSphere(this ToolComp comp, ToolData data, MyCubeGrid grid, 
+        private static void GetBlocksInSphere(this ToolComp comp, GridData data, MyCubeGrid grid, 
             Vector3I min, Vector3I max, Vector3D centre, double radius)
         {
             int i, j, k;
@@ -148,10 +170,10 @@ namespace ToolCore
                         var layer = (int)Math.Ceiling(distSqr);
                         comp.MaxLayer = Math.Max(layer, comp.MaxLayer);
 
-                        ConcurrentCachingList<IMySlimBlock> list;
+                        List<IMySlimBlock> list;
                         if (!comp.HitBlockLayers.TryGetValue(layer, out list))
                         {
-                            list = new ConcurrentCachingList<IMySlimBlock>();
+                            list = new List<IMySlimBlock>();
                             comp.HitBlockLayers[layer] = list;
                         }
                         list.Add(slim);
@@ -160,7 +182,7 @@ namespace ToolCore
             }
         }
 
-        private static void GetBlocksInCylinder(this ToolComp comp, ToolData data, MyCubeGrid grid, 
+        private static void GetBlocksInCylinder(this ToolComp comp, GridData data, MyCubeGrid grid, 
             Vector3I min, Vector3I max, Vector3D centre, Vector3D forward, double radius, double length)
         {
             var endOffset = forward * (length / 2);
@@ -235,10 +257,10 @@ namespace ToolCore
                         var layer = (int)Math.Ceiling(distSqr);
                         comp.MaxLayer = Math.Max(layer, comp.MaxLayer);
 
-                        ConcurrentCachingList<IMySlimBlock> list;
+                        List<IMySlimBlock> list;
                         if (!comp.HitBlockLayers.TryGetValue(layer, out list))
                         {
-                            list = new ConcurrentCachingList<IMySlimBlock>();
+                            list = new List<IMySlimBlock>();
                             comp.HitBlockLayers[layer] = list;
                         }
                         list.Add(slim);
@@ -248,7 +270,7 @@ namespace ToolCore
             }
         }
 
-        private static void GetBlocksInCuboid(this ToolComp comp, ToolData data, MyCubeGrid grid, 
+        private static void GetBlocksInCuboid(this ToolComp comp, GridData data, MyCubeGrid grid, 
             Vector3I min, Vector3I max, MyOrientedBoundingBoxD obb)
         {
             int i, j, k;
@@ -289,10 +311,10 @@ namespace ToolCore
                         var layer = (int)Math.Ceiling(distSqr);
                         comp.MaxLayer = Math.Max(layer, comp.MaxLayer);
 
-                        ConcurrentCachingList<IMySlimBlock> list;
+                        List<IMySlimBlock> list;
                         if (!comp.HitBlockLayers.TryGetValue(layer, out list))
                         {
-                            list = new ConcurrentCachingList<IMySlimBlock>();
+                            list = new List<IMySlimBlock>();
                             comp.HitBlockLayers[layer] = list;
                         }
                         list.Add(slim);
@@ -302,7 +324,7 @@ namespace ToolCore
             }
         }
 
-        private static void GetBlocksOverlappingLine(this ToolComp comp, ToolData data, MyCubeGrid grid, 
+        private static void GetBlocksOverlappingLine(this ToolComp comp, GridData data, MyCubeGrid grid, 
             Vector3D start, Vector3D end)
         {
             var hitPositions = new List<Vector3I>();
@@ -335,17 +357,17 @@ namespace ToolCore
                 var layer = (int)Math.Ceiling(distSqr);
                 comp.MaxLayer = Math.Max(layer, comp.MaxLayer);
 
-                ConcurrentCachingList<IMySlimBlock> list;
+                List<IMySlimBlock> list;
                 if (!comp.HitBlockLayers.TryGetValue(layer, out list))
                 {
-                    list = new ConcurrentCachingList<IMySlimBlock>();
+                    list = new List<IMySlimBlock>();
                     comp.HitBlockLayers[layer] = list;
                 }
                 list.Add(slim);
             }
         }
 
-        private static void GetBlockInRayPath(this ToolComp comp, ToolData data, MyCubeGrid grid, 
+        private static void GetBlockInRayPath(this ToolComp comp, GridData data, MyCubeGrid grid, 
             Vector3D pos)
         {
             var localPos = Vector3D.Transform(pos, grid.PositionComp.WorldMatrixNormalizedInv);
@@ -370,93 +392,81 @@ namespace ToolCore
             var layer = (int)Math.Ceiling(data.RayLength);
             comp.MaxLayer = Math.Max(layer, comp.MaxLayer);
 
-            ConcurrentCachingList<IMySlimBlock> list;
+            List<IMySlimBlock> list;
             if (!comp.HitBlockLayers.TryGetValue(layer, out list))
             {
-                list = new ConcurrentCachingList<IMySlimBlock>();
+                list = new List<IMySlimBlock>();
                 comp.HitBlockLayers[layer] = list;
             }
             list.Add(slim);
         }
 
-        internal static void OnGetBlocksComplete(this ToolComp comp, WorkData workData)
+        internal static void OnGetBlocksComplete(this ToolComp comp)
         {
             var session = ToolSession.Instance;
+            var modeData = comp.ModeData;
+            var def = modeData.Definition;
+            var workSet = comp.WorkSet;
+            var layers = comp.HitBlockLayers;
+
+            var gridData = comp.GridData;
+            var pos = gridData.Position;
+
+            if (def.CacheBlocks && gridData.Grids.Count > 0)
+            {
+                for (int s = workSet.Count - 1; s >= 0; s--)
+                {
+                    var slim = workSet[s];
+                    var fatClose = slim?.FatBlock == null ? false : slim.FatBlock.MarkedForClose;
+                    var gridClose = slim?.CubeGrid == null || slim.CubeGrid.MarkedForClose;
+                    var skip = slim == null || slim.IsFullyDismounted || comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation;
+                    if (fatClose || gridClose || skip)
+                    {
+                        workSet.RemoveAt(s);
+                        continue;
+                    }
+                }
+            }
+            gridData.Clean();
 
             try
             {
-                if (workData != null)
-                {
-                    var toolData = (ToolData)workData;
-                    toolData.Clean();
-                    session.ToolDataPool.Push(toolData);
-                    comp.ActiveThreads--;
-
-                    if (comp.ActiveThreads != 0)
-                        return;
-
-                    for (int s = comp.WorkSet.Count - 1; s >= 0; s--)
-                    {
-                        var slim = comp.WorkSet[s];
-                        var fatClose = slim?.FatBlock == null ? false : slim.FatBlock.MarkedForClose;
-                        var gridClose = slim?.CubeGrid == null || slim.CubeGrid.MarkedForClose;
-                        var skip = slim == null || slim.IsFullyDismounted || comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation;
-                        if (fatClose || gridClose || skip)
-                        {
-                            comp.WorkSet.RemoveAt(s);
-                            continue;
-                        }
-                    }
-                }
-
-                var modeData = comp.ModeData;
-                var def = modeData.Definition;
-                var workSet = comp.WorkSet;
-                var layers = comp.HitBlockLayers;
                 if (workSet.Count > 0)
                 {
-                    var workLayer = new ConcurrentCachingList<IMySlimBlock>();
-                    layers[0] = workLayer;
-                    foreach (var slim in workSet)
-                        workLayer.Add(slim);
+                    layers[0] = workSet;
                 }
 
-                if (layers.Count == 0)
-                    return;
-
-                switch (comp.Mode)
+                if (layers.Count > 0)
                 {
-                    case ToolMode.Drill:
-                        break;
-                    case ToolMode.Grind:
-                        comp.GrindBlocks();
-                        break;
-                    case ToolMode.Weld:
-                        if (def.Rate > 4)
-                        {
-                            comp.WeldBlocksBulk();
+                    switch (comp.Mode)
+                    {
+                        case ToolMode.Drill:
                             break;
-                        }
-                        comp.WeldBlocks();
-                        break;
-                    default:
-                        break;
+                        case ToolMode.Grind:
+                            comp.GrindBlocks();
+                            break;
+                        case ToolMode.Weld:
+                            if (def.Rate > 4)
+                            {
+                                comp.WeldBlocksBulk();
+                                break;
+                            }
+                            comp.WeldBlocks();
+                            break;
+                        default:
+                            break;
+                    }
                 }
-
-                comp.FailedPulls.Clear();
-                comp.HitBlockLayers.Clear();
-                comp.MaxLayer = 0;
             }
             catch (Exception ex)
             {
                 Logs.LogException(ex);
-
-                session.TempBlocks.Clear();
-                comp.FailedPulls.Clear();
-                comp.HitBlockLayers.Clear();
-                comp.MaxLayer = 0;
             }
 
+            session.TempBlocks.Clear();
+            comp.FailedPulls.Clear();
+            comp.HitBlockLayers.Clear();
+            comp.MaxLayer = 0;
         }
 
         internal static void GrindBlocks(this ToolComp comp)
@@ -472,11 +482,10 @@ namespace ToolCore
             var count = 0;
             for (int i = 0; i <= comp.MaxLayer; i++)
             {
-                ConcurrentCachingList<IMySlimBlock> layer;
+                List<IMySlimBlock> layer;
                 if (!comp.HitBlockLayers.TryGetValue(i, out layer))
                     continue;
 
-                layer.ApplyAdditions();
                 for (int j = 0; j < layer.Count; j++)
                 {
                     if (count >= maxBlocks)
@@ -564,11 +573,10 @@ namespace ToolCore
             var count = 0;
             for (int i = 0; i <= comp.MaxLayer; i++)
             {
-                ConcurrentCachingList<IMySlimBlock> layer;
+                List<IMySlimBlock> layer;
                 if (!comp.HitBlockLayers.TryGetValue(i, out layer))
                     continue;
 
-                layer.ApplyAdditions();
                 for (int j = 0; j < layer.Count; j++)
                 {
                     if (count >= maxBlocks)
@@ -611,6 +619,7 @@ namespace ToolCore
 
                     if (!creative && ToolSession.Instance.MissingComponents.Count > 0 && !comp.TryPullComponents())
                     {
+                        if (def.IsTurret && modeData.Turret.ActiveTarget == slim) modeData.Turret.DeselectTarget();
                         if (def.Debug) comp.DebugDrawBlock(slim, Color.Pink);
                         continue;
                     }
@@ -625,22 +634,26 @@ namespace ToolCore
 
                         if (!ToolSession.Instance.IsServer)
                         {
-                            if (creative || inventory.GetItemAmount(cubeDef.Components[0].Definition.Id) >= 1)
+                            if (!creative && inventory.GetItemAmount(cubeDef.Components[0].Definition.Id) < 1)
                             {
-                                comp.Working = true;
-                                count++;
+                                if (def.IsTurret && modeData.Turret.ActiveTarget == slim) modeData.Turret.DeselectTarget();
+                                continue;
+                            }
 
-                                if (def.CacheBlocks && !creative)
-                                {
-                                    var newPos = projector.CubeGrid.WorldToGridInteger(grid.GridIntegerToWorld(slim.Position));
-                                    comp.ClientWorkSet.Add((MyCubeGrid)projector.CubeGrid, newPos);
-                                }
+                            comp.Working = true;
+                            count++;
+
+                            if (def.CacheBlocks && !creative)
+                            {
+                                var newPos = projector.CubeGrid.WorldToGridInteger(grid.GridIntegerToWorld(slim.Position));
+                                comp.ClientWorkSet.Add((MyCubeGrid)projector.CubeGrid, newPos);
                             }
                             continue;
                         }
 
                         if (!creative && inventory.RemoveItemsOfType(1, cubeDef.Components[0].Definition.Id) < 1)
                         {
+                            if (def.IsTurret && modeData.Turret.ActiveTarget == slim) modeData.Turret.DeselectTarget();
                             if (def.Debug) comp.DebugDrawBlock(slim, Color.Pink);
                             continue;
                         }
@@ -668,6 +681,7 @@ namespace ToolCore
 
                     if (!slim.IsFullIntegrity && !slim.CanContinueBuild(inventory))
                     {
+                        if (def.IsTurret && modeData.Turret.ActiveTarget == slim) modeData.Turret.DeselectTarget();
                         if (def.Debug) comp.DebugDrawBlock(slim, Color.Blue);
                         continue;
                     }
@@ -795,11 +809,10 @@ namespace ToolCore
                 while (i <= comp.MaxLayer)
                 {
                     i++;
-                    ConcurrentCachingList<IMySlimBlock> layer;
+                    List<IMySlimBlock> layer;
                     if (!comp.HitBlockLayers.TryGetValue(i, out layer))
                         continue;
 
-                    layer.ApplyAdditions();
                     while (j < layer.Count)
                     {
                         if (tryCount >= remaining)
@@ -828,7 +841,10 @@ namespace ToolCore
                             tempMissing.Clear();
                             slim.GetMissingComponents(tempMissing);
                             if (comp.FailedPulls.Contains(tempMissing.Keys.FirstOrDefault()))
+                            {
+                                if (def.IsTurret && modeData.Turret.ActiveTarget == slim) modeData.Turret.DeselectTarget();
                                 continue;
+                            }
 
                             foreach (var item in tempMissing)
                             {
@@ -916,22 +932,26 @@ namespace ToolCore
 
                         if (!ToolSession.Instance.IsServer)
                         {
-                            if (creative || inventory.GetItemAmount(cubeDef.Components[0].Definition.Id) >= 1)
+                            if (!creative && inventory.GetItemAmount(cubeDef.Components[0].Definition.Id) < 1)
                             {
-                                comp.Working = true;
-                                successCount++;
+                                if (def.IsTurret && modeData.Turret.ActiveTarget == slim) modeData.Turret.DeselectTarget();
+                                continue;
+                            }
 
-                                if (def.CacheBlocks && !creative)
-                                {
-                                    var slimPos = projector.CubeGrid.WorldToGridInteger(slim.CubeGrid.GridIntegerToWorld(slim.Position));
-                                    comp.ClientWorkSet.Add((MyCubeGrid)projector.CubeGrid, slimPos);
-                                }
+                            comp.Working = true;
+                            successCount++;
+
+                            if (def.CacheBlocks && !creative)
+                            {
+                                var slimPos = projector.CubeGrid.WorldToGridInteger(slim.CubeGrid.GridIntegerToWorld(slim.Position));
+                                comp.ClientWorkSet.Add((MyCubeGrid)projector.CubeGrid, slimPos);
                             }
                             continue;
                         }
 
                         if (!creative && inventory.RemoveItemsOfType(1, cubeDef.Components[0].Definition.Id) < 1)
                         {
+                            if (def.IsTurret && modeData.Turret.ActiveTarget == slim) modeData.Turret.DeselectTarget();
                             if (def.Debug) comp.DebugDrawBlock(slim, Color.Pink);
                             continue;
                         }
@@ -958,6 +978,7 @@ namespace ToolCore
 
                     if (!slim.IsFullIntegrity && !slim.CanContinueBuild(inventory))
                     {
+                        if (def.IsTurret && modeData.Turret.ActiveTarget == slim) modeData.Turret.DeselectTarget();
                         if (def.Debug) comp.DebugDrawBlock(slim, Color.Blue);
                         continue;
                     }
@@ -1002,116 +1023,110 @@ namespace ToolCore
 
         #region Turret targeting
 
-        internal static void GetBlockTargets(this ToolComp comp, WorkData workData)
+        internal static void GetBlockTargets(this ToolComp comp)
         {
             try
             {
                 var modeData = comp.ModeData;
                 var def = modeData.Definition;
                 var toolValues = comp.Values;
-                var data = workData as ToolData;
-                var grid = data.Entity as MyCubeGrid;
+                var data = comp.GridData;
 
-                var gridMatrixNI = grid.PositionComp.WorldMatrixNormalizedInv;
-                var localCentre = grid.WorldToGridScaledLocal(data.Position);
-
-                var gridSizeR = grid.GridSizeR;
-                var radius = toolValues.BoundingRadius * gridSizeR;
-
-                var minExtent = localCentre - radius;
-                var maxExtent = localCentre + radius;
-
-                var sMin = Vector3I.Round(minExtent);
-                var sMax = Vector3I.Round(maxExtent);
-
-                var gMin = grid.Min;
-                var gMax = grid.Max;
-
-                var min = Vector3I.Max(sMin, gMin);
-                var max = Vector3I.Min(sMax, gMax);
-
-                var count = 0;
-                int i, j, k;
-                for (i = min.X; i <= max.X; i++)
+                for (int i = 0; i < data.Grids.Count; i++)
                 {
-                    for (j = min.Y; j <= max.Y; j++)
+                    var grid = data.Grids[i];
+                    var gridMatrixNI = grid.PositionComp.WorldMatrixNormalizedInv;
+                    var localCentre = grid.WorldToGridScaledLocal(data.Position);
+
+                    var gridSizeR = grid.GridSizeR;
+                    var radius = toolValues.BoundingRadius * gridSizeR;
+
+                    var minExtent = localCentre - radius;
+                    var maxExtent = localCentre + radius;
+
+                    var sMin = Vector3I.Round(minExtent);
+                    var sMax = Vector3I.Round(maxExtent);
+
+                    var gMin = grid.Min;
+                    var gMax = grid.Max;
+
+                    var min = Vector3I.Max(sMin, gMin);
+                    var max = Vector3I.Min(sMax, gMax);
+
+                    var count = 0;
+                    int x, y, z;
+                    for (x = min.X; x <= max.X; x++)
                     {
-                        for (k = min.Z; k <= max.Z; k++)
+                        for (y = min.Y; y <= max.Y; y++)
                         {
-                            var pos = new Vector3I(i, j, k);
-
-                            var posD = (Vector3D)pos;
-                            Vector3D corner = Vector3D.Clamp(localCentre, posD - 0.5, posD + 0.5);
-
-                            var distSqr = Vector3D.DistanceSquared(corner, localCentre);
-                            if (distSqr > radius * radius)
-                                continue;
-
-                            MyCube cube;
-                            if (!grid.TryGetCube(pos, out cube))
-                                continue;
-
-                            var slim = (IMySlimBlock)cube.CubeBlock;
-                            if (!data.HitBlocksHash.Add(slim))
-                                continue;
-
-                            if (slim.FatBlock != null && (slim.FatBlock.MarkedForClose))
-                                continue;
-
-                            if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
-                                continue;
-
-                            var colour = (grid.Projector as IMyProjector)?.SlimBlock.ColorMaskHSV ?? slim.ColorMaskHSV;
-                            if (comp.UseWorkColour && colour.PackHSVToUint() != comp.WorkColourPacked)
-                                continue;
-
-                            var layer = (int)Math.Ceiling(distSqr);
-                            comp.MaxLayer = Math.Max(layer, comp.MaxLayer);
-
-                            ConcurrentCachingList<IMySlimBlock> list;
-                            if (!comp.HitBlockLayers.TryGetValue(layer, out list))
+                            for (z = min.Z; z <= max.Z; z++)
                             {
-                                list = new ConcurrentCachingList<IMySlimBlock>();
-                                comp.HitBlockLayers[layer] = list;
+                                var pos = new Vector3I(x, y, z);
+
+                                var posD = (Vector3D)pos;
+                                Vector3D corner = Vector3D.Clamp(localCentre, posD - 0.5, posD + 0.5);
+
+                                var distSqr = Vector3D.DistanceSquared(corner, localCentre);
+                                if (distSqr > radius * radius)
+                                    continue;
+
+                                MyCube cube;
+                                if (!grid.TryGetCube(pos, out cube))
+                                    continue;
+
+                                var slim = (IMySlimBlock)cube.CubeBlock;
+                                if (!data.HitBlocksHash.Add(slim))
+                                    continue;
+
+                                if (slim.FatBlock != null && (slim.FatBlock.MarkedForClose))
+                                    continue;
+
+                                if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
+                                    continue;
+
+                                var colour = (grid.Projector as IMyProjector)?.SlimBlock.ColorMaskHSV ?? slim.ColorMaskHSV;
+                                if (comp.UseWorkColour && colour.PackHSVToUint() != comp.WorkColourPacked)
+                                    continue;
+
+                                var layer = (int)Math.Ceiling(distSqr);
+                                comp.MaxLayer = Math.Max(layer, comp.MaxLayer);
+
+                                List<IMySlimBlock> list;
+                                if (!comp.HitBlockLayers.TryGetValue(layer, out list))
+                                {
+                                    list = new List<IMySlimBlock>();
+                                    comp.HitBlockLayers[layer] = list;
+                                }
+                                list.Add(slim);
+                                count++;
                             }
-                            list.Add(slim);
-                            count++;
                         }
                     }
+                    data.HitBlocksHash.Clear();
                 }
             }
             catch (Exception ex)
             {
                 Logs.LogException(ex);
-                comp.ActiveThreads--;
             }
         }
 
-        internal static void OnGetBlockTargetsComplete(this ToolComp comp, WorkData workData)
+        internal static void OnGetBlockTargetsComplete(this ToolComp comp)
         {
             try
             {
                 var session = ToolSession.Instance;
                 var turret = comp.ModeData.Turret;
 
-                if (workData != null)
-                {
-                    var toolData = (ToolData)workData;
-                    toolData.Clean();
-                    session.ToolDataPool.Push(toolData);
-                    comp.ActiveThreads--;
-                }
-
-                if (comp.ActiveThreads > 0)
-                    return;
+                var toolData = comp.GridData;
+                toolData.Clean();
 
                 for (int i = comp.MaxLayer; i > 0; i--)
                 {
-                    ConcurrentCachingList<IMySlimBlock> layer;
+                    List<IMySlimBlock> layer;
                     if (!comp.HitBlockLayers.TryGetValue(i, out layer))
                         continue;
 
-                    layer.ApplyAdditions();
                     for (int j = 0; j < layer.Count; j++)
                     {
                         var slim = layer[j];
@@ -1131,8 +1146,6 @@ namespace ToolCore
             {
                 Logs.LogException(ex);
             }
-
-
         }
 
         #endregion

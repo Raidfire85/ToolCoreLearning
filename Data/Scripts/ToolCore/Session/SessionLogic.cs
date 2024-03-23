@@ -197,7 +197,8 @@ namespace ToolCore.Session
         {
             var modeData = comp.ModeData;
             var def = modeData.Definition;
-            var workTick = modeData.WorkTick == Tick % def.UpdateInterval;
+            var tickModUpdate = Tick % def.UpdateInterval;
+            var workTick = modeData.WorkTick == tickModUpdate;
 
             var tool = comp.ToolEntity;
             var block = comp.BlockTool;
@@ -255,7 +256,7 @@ namespace ToolCore.Session
             var activated = comp.Activated;
             var handToolShooting = !isBlock && comp.HandTool.IsShooting;
             var shooting = activated || handToolShooting || comp.GunBase.Shooting;
-            if (!shooting && !isTurret)
+            if (!shooting)
                 return;
 
             if (activated)
@@ -267,27 +268,11 @@ namespace ToolCore.Session
                 }
             }
 
-            if (shooting && IsServer && comp.CompTick60 == TickMod60 && comp.Mode != ToolMode.Weld)
+            if (IsServer && comp.CompTick60 == TickMod60 && comp.Mode != ToolMode.Weld)
                 comp.ManageInventory();
 
             Vector3D worldPos, worldForward, worldUp;
             CalculateWorldVectors(comp, out worldPos, out worldForward, out worldUp);
-
-            // turret targets
-            if (isTurret && comp.ActiveThreads < 1 && modeData.Turret.UpdateTick == Tick % def.UpdateInterval)
-            {
-                if (comp.TargetsDirty || modeData.Turret.Targets.Count < 1)
-                {
-                    modeData.Turret.RefreshTargetList(def, worldPos);
-
-                    if (comp.TargetsDirty)
-                        modeData.Turret.HasTarget = false;
-                    comp.TargetsDirty = false;
-                }
-            }
-
-            if (!shooting)
-                return;
 
             var ownerId = isBlock ? block.OwnerId : handTool.OwnerIdentityId;
 
@@ -338,6 +323,23 @@ namespace ToolCore.Session
                 else comp.UpdateHitInfo(false);
             }
 
+            if (def.IsTurret)
+            {
+                var turret = modeData.Turret;
+                var dirty = comp.TargetsDirty || turret.Targets.Count < 1;
+                if (dirty && (Tick - turret.LastRefreshTick) > def.UpdateInterval && tickModUpdate < (def.UpdateInterval / 2) && comp.GridsTask.IsComplete)
+                {
+                    turret.RefreshTargetList(def, worldPos);
+                    turret.LastRefreshTick = Tick;
+                    
+                    if (comp.TargetsDirty)
+                    {
+                        turret.DeselectTarget();
+                        comp.TargetsDirty = false;
+                    }
+                }
+            }
+
             if (!workTick)
                 return;
 
@@ -359,14 +361,16 @@ namespace ToolCore.Session
                     var outOfRange = Vector3D.DistanceSquared(target.CubeGrid.GridIntegerToWorld(target.Position), worldPos) > turret.Definition.TargetRadiusSqr;
                     if (closing || finished || outOfRange || (projector != null && projector.CanBuild(target, true) != BuildCheckResult.OK))
                     {
-                        turret.SelectNewTarget(worldPos);
+                        turret.DeselectTarget();
                     }
                 }
-                else turret.SelectNewTarget(worldPos);
+
+                if (!turret.HasTarget && turret.Targets.Count > 0)
+                    turret.SelectNewTarget(worldPos);
 
                 while (turret.HasTarget && !turret.TrackTarget() && turret.Targets.Count > 0)
                 {
-                    turret.Targets.RemoveAtFast(turret.Targets.Count - 1);
+                    turret.Targets.RemoveAt(turret.Targets.Count - 1);
                     turret.SelectNewTarget(worldPos);
                 }
 
@@ -402,7 +406,8 @@ namespace ToolCore.Session
 
                 if (comp.WorkSet.Count == def.Rate)
                 {
-                    comp.OnGetBlocksComplete(null);
+                    comp.GridData.Position = worldPos;
+                    comp.OnGetBlocksComplete();
                     return;
                 }
             }
@@ -663,18 +668,20 @@ namespace ToolCore.Session
                     if (!weldMode && (grid.Immune || !grid.DestructibleBlocks || grid.Physics == null || !grid.Physics.Enabled))
                         continue;
 
-                    var toolData = ToolDataPool.Count > 0 ? ToolDataPool.Pop() : new ToolData();
-                    toolData.Entity = entity;
-                    toolData.Position = worldPos;
-                    toolData.Forward = worldForward;
-                    toolData.Up = worldUp;
-                    toolData.RayLength = rayLength;
-
-                    MyAPIGateway.Parallel.Start(comp.GetBlocksInVolume, comp.OnGetBlocksComplete, toolData);
-                    comp.ActiveThreads++;
+                    comp.GridData.Grids.Add(grid);
                 }
 
             } //Hits loop
+
+            var gridData = comp.GridData;
+            if (gridData.Grids.Count == 0)
+                return;
+
+            gridData.Position = worldPos;
+            gridData.Forward = worldForward;
+            gridData.Up = worldUp;
+            gridData.RayLength = rayLength;
+            comp.GridsTask = MyAPIGateway.Parallel.Start(comp.GetBlocksInVolume, comp.OnGetBlocksComplete);
 
             Entities.Clear();
             _lineOverlaps.Clear();
