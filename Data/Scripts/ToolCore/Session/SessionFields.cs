@@ -63,8 +63,6 @@ namespace ToolCore.Session
 
         internal readonly Settings Settings = new Settings();
         internal readonly ShieldApi DSAPI = new ShieldApi();
-        internal readonly DSUtils DsUtil;
-        internal readonly DSUtils DsUtil2;
         internal readonly Controls Controls;
         internal readonly Networking Networking;
         internal readonly APIBackend API;
@@ -86,8 +84,6 @@ namespace ToolCore.Session
         {
             Instance = this;
 
-            DsUtil = new DSUtils(this);
-            DsUtil2 = new DSUtils(this);
             Controls = new Controls(this);
             Networking = new Networking(this);
             API = new APIBackend(this);

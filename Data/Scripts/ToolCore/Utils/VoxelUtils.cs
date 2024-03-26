@@ -1,22 +1,18 @@
-﻿using Sandbox.Definitions;
+﻿using ParallelTasks;
+using Sandbox.Definitions;
 using Sandbox.Game.Entities;
 using System;
 using System.Collections.Generic;
 using ToolCore.Comp;
 using ToolCore.Definitions.Serialised;
+using ToolCore.Session;
 using ToolCore.Utils;
 using VRage;
-using VRage.Game;
-using VRage.ObjectBuilders;
+using VRage.ModAPI;
 using VRage.Voxels;
 using VRageMath;
 using PositionData = ToolCore.Comp.ToolComp.PositionData;
 using StorageInfo = ToolCore.Comp.ToolComp.StorageInfo;
-using ParallelTasks;
-using VRage.ModAPI;
-using System.Collections.Concurrent;
-using VRage.Collections;
-using ToolCore.Session;
 
 namespace ToolCore
 {
@@ -69,10 +65,7 @@ namespace ToolCore
                     StorageInfo info = null;
                     var data = new MyStorageData();
                     data.Resize(min, max);
-
-                    session.DsUtil.Start("read");
                     voxel.Storage.ReadRange(data, MyStorageDataTypeFlags.ContentAndMaterial, 0, min, max);
-                    session.DsUtil.Complete("read", true);
 
                     Vector3I pos;
                     MyFixedPoint amount = 0;
@@ -80,7 +73,6 @@ namespace ToolCore
                     int content;
                     byte material;
 
-                    session.DsUtil.Start("sort");
                     var maxLayer = 0;
                     var foundContent = false;
                     for (int i = 0; i < data.SizeLinear; i++)
@@ -140,9 +132,7 @@ namespace ToolCore
                         else
                             drillData.WorkLayers[roundDist] = new List<PositionData>() { posData };
                     }
-                    session.DsUtil.Complete("sort", true);
 
-                    session.DsUtil.Start("calc");
                     var hit = false;
                     for (int i = 0; i <= maxLayer; i++)
                     {
@@ -249,11 +239,8 @@ namespace ToolCore
                         if (reduction <= 0)
                             break;
                     }
-                    session.DsUtil.Complete("calc", true);
 
-                    session.DsUtil.Start("write");
                     voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
-                    session.DsUtil.Complete("write", true);
 
                 }
                 drillData.WorkLayers.Clear();
@@ -295,10 +282,7 @@ namespace ToolCore
                 {
                     var data = new MyStorageData();
                     data.Resize(min, max);
-
-                    session.DsUtil.Start("read");
                     voxel.Storage.ReadRange(data, MyStorageDataTypeFlags.ContentAndMaterial, 0, min, max);
-                    session.DsUtil.Complete("read", true);
 
                     MyFixedPoint amount = 0;
                     Vector3I pos;
@@ -306,7 +290,6 @@ namespace ToolCore
                     byte content;
                     byte material;
 
-                    session.DsUtil.Start("sort");
                     var maxLayer = 0;
                     for (int i = 0; i < data.SizeLinear; i++)
                     {
@@ -360,9 +343,7 @@ namespace ToolCore
                             layer.Add(posData);
                         else drillData.WorkLayers[roundDist] = new List<PositionData>() { posData };
                     }
-                    session.DsUtil.Complete("sort", true);
 
-                    session.DsUtil.Start("calc");
                     var removedContent = false;
                     //MyAPIGateway.Utilities.ShowNotification($"{WorkLayers.Count} layers", 160);
                     for (int i = 0; i <= maxLayer; i++)
@@ -458,16 +439,13 @@ namespace ToolCore
                         if (reduction <= 0)
                             break;
                     }
-                    session.DsUtil.Complete("calc", true);
 
-                    session.DsUtil.Start("write");
                     if (removedContent)
                     {
                         comp.Working = true;
                         drillData.StorageDatas.Add(new StorageInfo(min, max, true));
                         voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
                     }
-                    session.DsUtil.Complete("write", true);
 
                 }
                 drillData.WorkLayers.Clear();
@@ -484,7 +462,6 @@ namespace ToolCore
             var modeData = comp.ModeData;
             var def = modeData.Definition;
 
-            session.DsUtil2.Start("total");
             var drillData = (DrillData)workData;
             var toolValues = comp.Values;
             var origin = drillData.Origin;
@@ -538,7 +515,6 @@ namespace ToolCore
                     voxel.Storage.ReadRange(data, MyStorageDataTypeFlags.ContentAndMaterial, 0, min, max);
 
                     var foundContent = false;
-                    session.DsUtil.Start("sort");
                     for (int i = min.X; i <= max.X; i++)
                     {
                         pos.X = i;
@@ -624,9 +600,6 @@ namespace ToolCore
                         }
                     }
 
-                    session.DsUtil.Complete("sort", true);
-
-                    session.DsUtil.Start("calc");
                     if ((int)def.Pattern <= 2)
                         reduction = (int)(toolValues.Speed * 255);
 
@@ -713,7 +686,6 @@ namespace ToolCore
                             break;
                     }
                     drillData.WorkLayers.Clear();
-                    session.DsUtil.Complete("calc", true);
 
                     voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
 
@@ -721,9 +693,6 @@ namespace ToolCore
                         break;
                 }
             }
-
-            session.DsUtil2.Complete("total", true);
-
         }
 
         internal static void DrillCuboid(this ToolComp comp, WorkData workData)
@@ -751,10 +720,7 @@ namespace ToolCore
                 {
                     var data = new MyStorageData();
                     data.Resize(min, max);
-
-                    session.DsUtil.Start("read");
                     voxel.Storage.ReadRange(data, MyStorageDataTypeFlags.ContentAndMaterial, 0, min, max);
-                    session.DsUtil.Complete("read", true);
 
                     Vector3I pos;
                     MyFixedPoint amount = 0;
@@ -762,7 +728,6 @@ namespace ToolCore
                     int content;
                     byte material;
 
-                    session.DsUtil.Start("sort");
                     var maxLayer = 0;
                     var foundContent = false;
                     var obb = comp.Obb;
@@ -818,9 +783,7 @@ namespace ToolCore
                             layer.Add(posData);
                         else drillData.WorkLayers[roundDist] = new List<PositionData>() { posData };
                     }
-                    session.DsUtil.Complete("sort", true);
 
-                    session.DsUtil.Start("calc");
                     var removedContent = false;
                     for (int i = 0; i <= maxLayer; i++)
                     {
@@ -923,15 +886,12 @@ namespace ToolCore
                         if (reduction <= 0)
                             break;
                     }
-                    session.DsUtil.Complete("calc", true);
 
-                    session.DsUtil.Start("write");
                     if (removedContent)
                     {
                         drillData.StorageDatas.Add(new StorageInfo(min, max, true));
                         voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
                     }
-                    session.DsUtil.Complete("write", true);
 
                 }
                 drillData.WorkLayers.Clear();

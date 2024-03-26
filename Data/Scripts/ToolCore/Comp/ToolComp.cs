@@ -1326,7 +1326,6 @@ namespace ToolCore.Comp
         internal void OnDrillComplete(WorkData data)
         {
             var session = ToolSession.Instance;
-            session.DsUtil.Start("notify");
             var drillData = (DrillData)data;
             var storageDatas = drillData.StorageDatas;
             if (drillData?.Voxel?.Storage == null)
@@ -1345,8 +1344,6 @@ namespace ToolCore.Comp
             drillData.Clean();
             session.DrillDataPool.Push(drillData);
 
-            session.DsUtil.Complete("notify", true);
-
             ActiveThreads--;
             if (ActiveThreads > 0) return;
 
@@ -1355,16 +1352,6 @@ namespace ToolCore.Comp
             {
                 UpdateAvState(Trigger.Hit, isHitting);
                 WasHitting = isHitting;
-
-                if (ModeData.Definition.Debug && !isHitting)
-                {
-                    Logs.WriteLine("read: " + session.DsUtil.GetValue("read").ToString());
-                    Logs.WriteLine("sort: " + session.DsUtil.GetValue("sort").ToString());
-                    Logs.WriteLine("calc: " + session.DsUtil.GetValue("calc").ToString());
-                    Logs.WriteLine("write: " + session.DsUtil.GetValue("write").ToString());
-                    Logs.WriteLine("notify: " + session.DsUtil.GetValue("notify").ToString());
-                    session.DsUtil.Clean();
-                }
             }
             Working = false;
         }
