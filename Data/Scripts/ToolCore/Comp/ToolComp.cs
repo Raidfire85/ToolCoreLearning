@@ -1388,9 +1388,10 @@ namespace ToolCore.Comp
                     var item = items[i];
                     MyFixedPoint transferred;
                     LastPushSucceeded = Grid.ConveyorSystem.PushGenerateItem(item.Content.GetId(), item.Amount, out transferred, BlockTool, false);
-                    Inventory.RemoveItems(item.ItemId, transferred);
                     if (!LastPushSucceeded)
                         break;
+
+                    Inventory.RemoveItems(item.ItemId, transferred);
                 }
             }
 

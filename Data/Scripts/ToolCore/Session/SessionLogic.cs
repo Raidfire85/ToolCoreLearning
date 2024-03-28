@@ -515,10 +515,15 @@ namespace ToolCore.Session
                     if (entity is MyFloatingObject && isBlock && def.PickUpFloatings)
                     {
                         var floating = (MyFloatingObject)entity;
-                        var id = floating.Item.Content.GetObjectId();
+                        var id = floating.Item.Content.GetId();
                         var amount = floating.Item.Amount;
                         MyFixedPoint transferred;
                         comp.LastPushSucceeded = comp.Grid.ConveyorSystem.PushGenerateItem(id, amount, out transferred, comp.BlockTool, false);
+                        if (!comp.LastPushSucceeded)
+                        {
+                            comp.Inventory.AddItems(amount - transferred, floating.Item.Content);
+                        }
+
                         MyFloatingObjects.RemoveFloatingObject(floating, true);
                         continue;
                     }
