@@ -170,7 +170,7 @@ namespace ToolCore.Session
             var wasActivated = comp.Activated;
             comp.Activated = activated;
 
-            if (_session.IsServer || comp.Activated == wasActivated) return;
+            if (!_session.IsMultiPlayer || comp.Activated == wasActivated) return;
 
             _session.Networking.SendPacketToServer(new BoolUpdatePacket(comp.ToolEntity.EntityId, FieldType.Activated, activated));
         }
@@ -196,7 +196,7 @@ namespace ToolCore.Session
             var wasActivated = comp.Activated;
             comp.Activated = !comp.Activated;
 
-            if (_session.IsServer || comp.Activated == wasActivated)
+            if (!_session.IsMultiPlayer || comp.Activated == wasActivated)
                 return;
 
             _session.Networking.SendPacketToServer(new BoolUpdatePacket(comp.ToolEntity.EntityId, FieldType.Activated, comp.Activated));
@@ -232,7 +232,7 @@ namespace ToolCore.Session
             var wasActivated = comp.Activated;
             comp.Activated = true;
 
-            if (_session.IsServer || comp.Activated == wasActivated)
+            if (!_session.IsMultiPlayer || comp.Activated == wasActivated)
                 return;
 
             _session.Networking.SendPacketToServer(new SbyteUpdatePacket(comp.ToolEntity.EntityId, FieldType.Activated, 1));
@@ -268,7 +268,7 @@ namespace ToolCore.Session
             var wasActivated = comp.Activated;
             comp.Activated = false;
 
-            if (_session.IsServer || comp.Activated == wasActivated)
+            if (!_session.IsMultiPlayer || comp.Activated == wasActivated)
                 return;
 
             _session.Networking.SendPacketToServer(new SbyteUpdatePacket(comp.ToolEntity.EntityId, FieldType.Activated, 0));
@@ -336,7 +336,7 @@ namespace ToolCore.Session
             //comp.Mode = (ToolComp.ToolMode)id;
             comp.SetMode((ToolComp.ToolMode)id);
 
-            if (_session.IsServer) return;
+            if (!_session.IsMultiPlayer) return;
 
             _session.Networking.SendPacketToServer(new SbyteUpdatePacket(comp.ToolEntity.EntityId, FieldType.Mode, (int)comp.Mode));
         }
@@ -379,7 +379,7 @@ namespace ToolCore.Session
 
             comp.SetMode(newMode);
 
-            if (_session.IsServer) return;
+            if (!_session.IsMultiPlayer) return;
 
             _session.Networking.SendPacketToServer(new SbyteUpdatePacket(comp.ToolEntity.EntityId, FieldType.Mode, (int)comp.Mode));
         }
@@ -447,7 +447,7 @@ namespace ToolCore.Session
             var actions = comp.ModeData.Definition.ToolActions;
             comp.Action = actions[(int)id];
 
-            if (_session.IsServer) return;
+            if (!_session.IsMultiPlayer) return;
 
             _session.Networking.SendPacketToServer(new SbyteUpdatePacket(comp.ToolEntity.EntityId, FieldType.Action, (int)comp.Action));
         }
@@ -485,7 +485,7 @@ namespace ToolCore.Session
             var newIndex = next < actions.Count ? next : 0;
             comp.Action = comp.ModeData.Definition.ToolActions[newIndex];
 
-            if (_session.IsServer) return;
+            if (!_session.IsMultiPlayer) return;
 
             _session.Networking.SendPacketToServer(new SbyteUpdatePacket(comp.ToolEntity.EntityId, FieldType.Action, (int)comp.Action));
         }
@@ -536,7 +536,7 @@ namespace ToolCore.Session
 
             comp.Draw = enabled;
 
-            if (_session.IsServer) return;
+            if (!_session.IsMultiPlayer) return;
 
             _session.Networking.SendPacketToServer(new BoolUpdatePacket(comp.ToolEntity.EntityId, FieldType.Draw, enabled));
         }
@@ -561,7 +561,7 @@ namespace ToolCore.Session
 
             comp.Draw = !comp.Draw;
 
-            if (_session.IsServer) return;
+            if (!_session.IsMultiPlayer) return;
 
             _session.Networking.SendPacketToServer(new BoolUpdatePacket(comp.ToolEntity.EntityId, FieldType.Draw, comp.Draw));
         }
@@ -659,7 +659,7 @@ namespace ToolCore.Session
 
             comp.TargetsDirty = true;
 
-            if (_session.IsServer) return;
+            if (!_session.IsMultiPlayer) return;
 
             var syncValue = on ? (int)TargetTypes.Own : - (int)TargetTypes.Own;
             _session.Networking.SendPacketToServer(new SbyteUpdatePacket(comp.ToolEntity.EntityId, FieldType.TargetType, syncValue));
@@ -687,7 +687,7 @@ namespace ToolCore.Session
 
             comp.TargetsDirty = true;
 
-            if (_session.IsServer) return;
+            if (!_session.IsMultiPlayer) return;
 
             var on = (comp.Targets & TargetTypes.Own) > TargetTypes.None;
             var syncValue = on ? (int)TargetTypes.Own : -(int)TargetTypes.Own;
@@ -743,7 +743,7 @@ namespace ToolCore.Session
 
             comp.TargetsDirty = true;
 
-            if (_session.IsServer) return;
+            if (!_session.IsMultiPlayer) return;
 
             var syncValue = on ? (int)TargetTypes.Friendly : -(int)TargetTypes.Friendly;
             _session.Networking.SendPacketToServer(new SbyteUpdatePacket(comp.ToolEntity.EntityId, FieldType.TargetType, syncValue));
@@ -771,7 +771,7 @@ namespace ToolCore.Session
 
             comp.TargetsDirty = true;
 
-            if (_session.IsServer) return;
+            if (!_session.IsMultiPlayer) return;
 
             var on = (comp.Targets & TargetTypes.Friendly) > TargetTypes.None;
             var syncValue = on ? (int)TargetTypes.Friendly : -(int)TargetTypes.Friendly;
@@ -827,7 +827,7 @@ namespace ToolCore.Session
 
             comp.TargetsDirty = true;
 
-            if (_session.IsServer) return;
+            if (!_session.IsMultiPlayer) return;
 
             var syncValue = on ? (int)TargetTypes.Neutral : -(int)TargetTypes.Neutral;
             _session.Networking.SendPacketToServer(new SbyteUpdatePacket(comp.ToolEntity.EntityId, FieldType.TargetType, syncValue));
@@ -853,7 +853,7 @@ namespace ToolCore.Session
 
             comp.Targets ^= TargetTypes.Neutral;
 
-            if (_session.IsServer) return;
+            if (!_session.IsMultiPlayer) return;
 
             comp.TargetsDirty = true;
 
@@ -911,7 +911,7 @@ namespace ToolCore.Session
 
             comp.TargetsDirty = true;
 
-            if (_session.IsServer) return;
+            if (!_session.IsMultiPlayer) return;
 
             var syncValue = on ? (int)TargetTypes.Hostile : -(int)TargetTypes.Hostile;
             _session.Networking.SendPacketToServer(new SbyteUpdatePacket(comp.ToolEntity.EntityId, FieldType.TargetType, syncValue));
@@ -939,7 +939,7 @@ namespace ToolCore.Session
 
             comp.TargetsDirty = true;
 
-            if (_session.IsServer) return;
+            if (!_session.IsMultiPlayer) return;
 
             var on = (comp.Targets & TargetTypes.Hostile) > TargetTypes.None;
             var syncValue = on ? (int)TargetTypes.Hostile : -(int)TargetTypes.Hostile;
@@ -1003,7 +1003,7 @@ namespace ToolCore.Session
 
             comp.RefreshTerminal();
 
-            if (_session.IsServer)
+            if (!_session.IsMultiPlayer)
                 return;
 
             _session.Networking.SendPacketToServer(new BoolUpdatePacket(comp.ToolEntity.EntityId, FieldType.UseColour, on));
@@ -1060,7 +1060,7 @@ namespace ToolCore.Session
 
             comp.TargetsDirty = true;
 
-            if (_session.IsServer)
+            if (!_session.IsMultiPlayer)
                 return;
 
             _session.Networking.SendPacketToServer(new UintUpdatePacket(comp.ToolEntity.EntityId, FieldType.Colour, comp.WorkColourPacked));
@@ -1095,7 +1095,7 @@ namespace ToolCore.Session
                 control.UpdateVisual();
             }
 
-            if (_session.IsServer)
+            if (!_session.IsMultiPlayer)
                 return;
 
             _session.Networking.SendPacketToServer(new UintUpdatePacket(comp.ToolEntity.EntityId, FieldType.Colour, comp.WorkColourPacked));
