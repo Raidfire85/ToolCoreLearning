@@ -448,14 +448,11 @@ namespace ToolCore
                             break;
                     }
 
-                    if (removedContent)
+                    if (removedContent && toolValues.DestroyVoxels)
                     {
                         comp.Working = true;
                         drillData.StorageDatas.Add(new StorageInfo(min, max, true));
-						if (toolValues.DestroyVoxels)
-						{
-							voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
-						}
+						voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
                     }
 
                 }
@@ -907,14 +904,10 @@ namespace ToolCore
                             break;
                     }
 
-                    if (removedContent)
+                    if (removedContent && toolValues.DestroyVoxels)
                     {
                         drillData.StorageDatas.Add(new StorageInfo(min, max, true));
-
-						if (toolValues.DestroyVoxels)
-						{
-							voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
-						}
+						voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
                     }
 
                 }
