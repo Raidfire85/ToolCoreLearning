@@ -32,6 +32,7 @@ namespace ToolCore.Definitions.Serialised
         public float Length = 1f; //Cylinder, Line
         public float Speed = 1f;
         public float HarvestRatio = 1f;
+        public bool DestroyVoxels = true;
         public int WorkRate = int.MaxValue;
         public int UpdateInterval = 20;
 
@@ -69,6 +70,8 @@ namespace ToolCore.Definitions.Serialised
         public float SpeedRatio = 1f;
         [XmlAttribute]
         public float HarvestRatio = 1f;
+        [XmlAttribute]
+        public bool DestroyVoxels = true;
     }
 
     public class Event
