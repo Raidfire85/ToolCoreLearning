@@ -117,16 +117,18 @@ namespace ToolCore.Definitions
         {
             internal float Speed;
             internal float HarvestRatio;
+            internal bool DestroyVoxels;
 
             internal Vector3 HalfExtent;
             internal float Radius;
             internal float Length;
             internal float BoundingRadius;
 
-            public ActionDefinition(ActionValues values, float speed, float harvestRatio, Vector3 half, float radius, float length, float bRadius, EffectShape shape)
+            public ActionDefinition(ActionValues values, float speed, float harvestRatio, bool destroyVoxels, Vector3 half, float radius, float length, float bRadius, EffectShape shape)
             {
                 Speed = speed * values.SpeedRatio;
                 HarvestRatio = harvestRatio * values.HarvestRatio;
+                DestroyVoxels = destroyVoxels;
                 HalfExtent = half * values.SizeRatio;
                 Radius = radius * values.SizeRatio;
                 Length = length;
@@ -139,10 +141,11 @@ namespace ToolCore.Definitions
                 }
             }
 
-            public ActionDefinition(float speed, float harvestRatio, Vector3 half, float radius, float length, float bRadius)
+            public ActionDefinition(float speed, float harvestRatio, bool destroyVoxels, Vector3 half, float radius, float length, float bRadius)
             {
                 Speed = speed;
                 HarvestRatio = harvestRatio;
+                DestroyVoxels = destroyVoxels;
                 HalfExtent = half;
                 Radius = radius;
                 Length = length;
@@ -319,6 +322,7 @@ namespace ToolCore.Definitions
         {
             var speed = values.Speed;
             var hRatio = values.HarvestRatio;
+            var destroyVoxels = values.DestroyVoxels;
 
             var halfExtent = (Vector3)values.HalfExtent;
             var radius = values.Radius;
@@ -384,14 +388,14 @@ namespace ToolCore.Definitions
 
             if (values.Actions == null || values.Actions.Length == 0)
             {
-                ActionMap.Add(ToolAction.Primary, new ActionDefinition(speed, hRatio, halfExtent, radius, length, boundingRadius));
+                ActionMap.Add(ToolAction.Primary, new ActionDefinition(speed, hRatio, destroyVoxels, halfExtent, radius, length, boundingRadius));
                 ToolActions.Add(ToolAction.Primary);
                 return;
             }
 
             foreach (var action in values.Actions)
             {
-                var actionValues = new ActionDefinition(action, speed, hRatio, halfExtent, radius, length, boundingRadius, EffectShape);
+                var actionValues = new ActionDefinition(action, speed, hRatio, destroyVoxels, halfExtent, radius, length, boundingRadius, EffectShape);
                 ActionMap.Add((ToolAction)action.Type, actionValues);
                 ToolActions.Add((ToolAction)action.Type);
             }

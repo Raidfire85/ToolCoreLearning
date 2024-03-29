@@ -229,10 +229,13 @@ namespace ToolCore
                                     comp.Yields[voxelDef.MinedOre] += yield;
                             }
 
-                            var newContent = content - removal;
-                            data.Content(index, (byte)newContent);
-                            if (newContent == 0)
-                                data.Material(index, byte.MaxValue);
+							if (toolValues.DestroyVoxels)
+							{
+								var newContent = content - removal;
+								data.Content(index, (byte)newContent);
+								if (newContent == 0)
+									data.Material(index, byte.MaxValue);
+							}
                         }
 
                         reduction -= maxContent;
@@ -240,8 +243,10 @@ namespace ToolCore
                             break;
                     }
 
-                    voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
-
+					if (toolValues.DestroyVoxels)
+					{
+						voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
+					}
                 }
                 drillData.WorkLayers.Clear();
 
@@ -429,10 +434,13 @@ namespace ToolCore
                                     comp.Yields[voxelDef.MinedOre] += yield;
                             }
 
-                            var newContent = content - removal;
-                            data.Content(index, (byte)newContent);
-                            if (newContent == 0)
-                                data.Material(index, byte.MaxValue);
+							if (toolValues.DestroyVoxels)
+							{
+								var newContent = content - removal;
+								data.Content(index, (byte)newContent);
+								if (newContent == 0)
+									data.Material(index, byte.MaxValue);
+							}
                         }
 
                         reduction -= maxContent;
@@ -444,7 +452,10 @@ namespace ToolCore
                     {
                         comp.Working = true;
                         drillData.StorageDatas.Add(new StorageInfo(min, max, true));
-                        voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
+						if (toolValues.DestroyVoxels)
+						{
+							voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
+						}
                     }
 
                 }
@@ -675,10 +686,13 @@ namespace ToolCore
                                     comp.Yields[voxelDef.MinedOre] += yield;
                             }
 
-                            var newContent = content - removal;
-                            data.Content(index, (byte)newContent);
-                            if (newContent == 0)
-                                data.Material(index, byte.MaxValue);
+							if (toolValues.DestroyVoxels)
+							{
+								var newContent = content - removal;
+								data.Content(index, (byte)newContent);
+								if (newContent == 0)
+									data.Material(index, byte.MaxValue);
+							}
                         }
 
                         reduction -= maxContent;
@@ -687,7 +701,10 @@ namespace ToolCore
                     }
                     drillData.WorkLayers.Clear();
 
-                    voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
+					if (toolValues.DestroyVoxels)
+					{
+						voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
+					}
 
                     if (reduction <= 0 && (int)def.Pattern > 2)
                         break;
@@ -876,10 +893,13 @@ namespace ToolCore
                                     comp.Yields[voxelDef.MinedOre] += yield;
                             }
 
-                            var newContent = content - removal;
-                            data.Content(index, (byte)newContent);
-                            if (newContent == 0)
-                                data.Material(index, byte.MaxValue);
+							if (toolValues.DestroyVoxels)
+							{
+								var newContent = content - removal;
+								data.Content(index, (byte)newContent);
+								if (newContent == 0)
+									data.Material(index, byte.MaxValue);
+							}
                         }
 
                         reduction -= maxContent;
@@ -890,7 +910,11 @@ namespace ToolCore
                     if (removedContent)
                     {
                         drillData.StorageDatas.Add(new StorageInfo(min, max, true));
-                        voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
+
+						if (toolValues.DestroyVoxels)
+						{
+							voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
+						}
                     }
 
                 }
