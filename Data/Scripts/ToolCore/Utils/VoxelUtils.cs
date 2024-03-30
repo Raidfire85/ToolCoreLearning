@@ -133,7 +133,7 @@ namespace ToolCore
                             drillData.WorkLayers[roundDist] = new List<PositionData>() { posData };
                     }
 
-                    var hit = false;
+                    var removedContent = false;
                     for (int i = 0; i <= maxLayer; i++)
                     {
                         List<PositionData> layer;
@@ -206,7 +206,7 @@ namespace ToolCore
                             //    session.DrawBoxes.Add(new MyTuple<MyOrientedBoundingBoxD, Color>(obb, color));
                             //}
 
-                            if (!hit)
+                            if (!removedContent)
                             {
                                 //data.ComputePosition(index, out testPos);
                                 //var localPos = (Vector3D)testPos + min;
@@ -216,7 +216,7 @@ namespace ToolCore
                                 //Vector3D.Transform(ref localPos, ref voxelMatrix, out worldPos);
                                 //comp.HitInfo.Update(worldPos, voxelDef.MaterialTypeNameHash);
 
-                                hit = true;
+                                removedContent = true;
                                 comp.Working = true;
                             }
 
@@ -243,7 +243,7 @@ namespace ToolCore
                             break;
                     }
 
-					if (toolValues.DestroyVoxels)
+					if (removedContent && toolValues.DestroyVoxels)
 					{
 						voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
 					}
@@ -450,7 +450,6 @@ namespace ToolCore
 
                     if (removedContent && toolValues.DestroyVoxels)
                     {
-                        comp.Working = true;
                         drillData.StorageDatas.Add(new StorageInfo(min, max, true));
 						voxel.Storage.WriteRange(data, MyStorageDataTypeFlags.Content, min, max, false);
                     }
