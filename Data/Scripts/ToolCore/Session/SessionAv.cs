@@ -1,5 +1,4 @@
 ﻿using Sandbox.Game.Entities;
-using Sandbox.ModAPI;
 using System;
 using System.Collections.Generic;
 using ToolCore.Comp;
@@ -37,6 +36,14 @@ namespace ToolCore.Session
                     if (modeData.Turret != null)
                     {
                         var turret = modeData.Turret;
+                        if (turret.ActiveTarget != null)
+                        {
+                            var slim = turret.ActiveTarget;
+                            Vector3D worldPos, worldForward, worldUp;
+                            CalculateWorldVectors(comp, out worldPos, out worldForward, out worldUp);
+                            DrawLine(worldPos, slim.CubeGrid.GridIntegerToWorld(slim.Position), Color.BlueViolet, 0.01f);
+                        }
+
                         var part1 = turret.Part1;
                         var diff1 = part1.DesiredRotation - part1.CurrentRotation;
                         if (!MyUtils.IsZero(diff1, 0.001f))
@@ -51,9 +58,9 @@ namespace ToolCore.Session
                             part1.CurrentRotation += amount;
                         }
 
-                        var forward1 = part1.Subpart.PositionComp.LocalMatrixRef.Forward;
-                        DrawLocalVector(part1.DesiredFacing, part1.Parent, Color.Blue);
-                        DrawLocalVector(forward1, part1.Parent, Color.Green);
+                        //var forward1 = part1.Subpart.PositionComp.LocalMatrixRef.Forward;
+                        //DrawLocalVector(part1.DesiredFacing, part1.Parent, Color.Blue);
+                        //DrawLocalVector(forward1, part1.Parent, Color.Green);
 
                         if (turret.HasTwoParts && Math.Abs(diff1) < MathHelper.PiOver2)
                         {
@@ -71,9 +78,9 @@ namespace ToolCore.Session
                                 part2.CurrentRotation += amount;
                             }
 
-                            var forward2 = part2.Subpart.PositionComp.LocalMatrixRef.Forward;
-                            DrawLocalVector(part2.DesiredFacing, part2.Parent, Color.Blue);
-                            DrawLocalVector(forward2, part2.Parent, Color.Green);      
+                            //var forward2 = part2.Subpart.PositionComp.LocalMatrixRef.Forward;
+                            //DrawLocalVector(part2.DesiredFacing, part2.Parent, Color.Blue);
+                            //DrawLocalVector(forward2, part2.Parent, Color.Green);      
                         }
                     }
 

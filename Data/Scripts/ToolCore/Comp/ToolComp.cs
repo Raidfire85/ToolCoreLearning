@@ -650,8 +650,6 @@ namespace ToolCore.Comp
                     DesiredRotation = 0;
                     CurrentRotation = 0;
 
-                    Logs.WriteLine("Loaded turret models");
-
                     return true;
                 }
             }

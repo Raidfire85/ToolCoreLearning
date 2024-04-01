@@ -156,6 +156,21 @@ namespace ToolCore.Session
             if (!AggregatorTask.IsComplete)
                 AggregatorTask.Wait();
 
+            Logs.WriteLine($"Waiting for tasks to complete before closing...");
+            var taskCount = 0;
+            foreach (var gridComp in GridList)
+            {
+                foreach (var comp in gridComp.ToolComps)
+                {
+                    if (!comp.GridsTask.IsComplete)
+                    {
+                        comp.GridsTask.Wait();
+                        taskCount++;
+                    }
+                }
+            }
+            Logs.WriteLine($"Waited for {taskCount} tasks to complete before closing");
+
             DSAPI.Unload();
             APIServer.Unload();
 

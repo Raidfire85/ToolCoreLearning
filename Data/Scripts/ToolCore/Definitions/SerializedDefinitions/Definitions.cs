@@ -70,8 +70,6 @@ namespace ToolCore.Definitions.Serialised
         public float SpeedRatio = 1f;
         [XmlAttribute]
         public float HarvestRatio = 1f;
-        [XmlAttribute]
-        public bool DestroyVoxels = true;
     }
 
     public class Event
