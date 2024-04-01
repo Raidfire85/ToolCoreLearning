@@ -157,13 +157,21 @@ namespace ToolCore
                         if (!data.HitBlocksHash.Add(slim))
                             continue;
 
-                        if (slim.FatBlock != null && (slim.FatBlock.MarkedForClose))
+                        if (slim.FatBlock != null && slim.FatBlock.MarkedForClose)
                             continue;
 
-                        if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
+                        var projector = grid.Projector as IMyProjector;
+                        if (projector != null)
+                        {
+                            var projGrid = (MyCubeGrid)projector.CubeGrid;
+                            var projGridPos = projGrid.WorldToGridInteger(grid.GridIntegerToWorld(slim.Position));
+                            if (projGrid.GetCubeBlock(projGridPos) != null)
+                                continue;
+                        }
+                        else if (comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation)
                             continue;
 
-                        var colour = (grid.Projector as IMyProjector)?.SlimBlock.ColorMaskHSV ?? slim.ColorMaskHSV;
+                        var colour = projector?.SlimBlock.ColorMaskHSV ?? slim.ColorMaskHSV;
                         if (comp.UseWorkColour && colour.PackHSVToUint() != comp.WorkColourPacked)
                             continue;
 
@@ -244,13 +252,21 @@ namespace ToolCore
                         if (!data.HitBlocksHash.Add(slim))
                             continue;
 
-                        if (slim.FatBlock != null && (slim.FatBlock.MarkedForClose))
+                        if (slim.FatBlock != null && slim.FatBlock.MarkedForClose)
                             continue;
 
-                        if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
+                        var projector = grid.Projector as IMyProjector;
+                        if (projector != null)
+                        {
+                            var projGrid = (MyCubeGrid)projector.CubeGrid;
+                            var projGridPos = projGrid.WorldToGridInteger(grid.GridIntegerToWorld(slim.Position));
+                            if (projGrid.GetCubeBlock(projGridPos) != null)
+                                continue;
+                        }
+                        else if (comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation)
                             continue;
 
-                        var colour = (grid.Projector as IMyProjector)?.SlimBlock.ColorMaskHSV ?? slim.ColorMaskHSV;
+                        var colour = projector?.SlimBlock.ColorMaskHSV ?? slim.ColorMaskHSV;
                         if (comp.UseWorkColour && colour.PackHSVToUint() != comp.WorkColourPacked)
                             continue;
 
@@ -296,13 +312,21 @@ namespace ToolCore
                         if (!data.HitBlocksHash.Add(slim))
                             continue;
 
-                        if (slim.FatBlock != null && (slim.FatBlock.MarkedForClose))
+                        if (slim.FatBlock != null && slim.FatBlock.MarkedForClose)
                             continue;
 
-                        if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
+                        var projector = grid.Projector as IMyProjector;
+                        if (projector != null)
+                        {
+                            var projGrid = (MyCubeGrid)projector.CubeGrid;
+                            var projGridPos = projGrid.WorldToGridInteger(grid.GridIntegerToWorld(slim.Position));
+                            if (projGrid.GetCubeBlock(projGridPos) != null)
+                                continue;
+                        }
+                        else if (comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation)
                             continue;
 
-                        var colour = (grid.Projector as IMyProjector)?.SlimBlock.ColorMaskHSV ?? slim.ColorMaskHSV;
+                        var colour = projector?.SlimBlock.ColorMaskHSV ?? slim.ColorMaskHSV;
                         if (comp.UseWorkColour && colour.PackHSVToUint() != comp.WorkColourPacked)
                             continue;
 
@@ -342,13 +366,21 @@ namespace ToolCore
                 if (!data.HitBlocksHash.Add(slim))
                     continue;
 
-                if (slim.FatBlock != null && (slim.FatBlock.MarkedForClose))
+                if (slim.FatBlock != null && slim.FatBlock.MarkedForClose)
                     continue;
 
-                if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
+                var projector = grid.Projector as IMyProjector;
+                if (projector != null)
+                {
+                    var projGrid = (MyCubeGrid)projector.CubeGrid;
+                    var projGridPos = projGrid.WorldToGridInteger(grid.GridIntegerToWorld(slim.Position));
+                    if (projGrid.GetCubeBlock(projGridPos) != null)
+                        continue;
+                }
+                else if (comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation)
                     continue;
 
-                var colour = (grid.Projector as IMyProjector)?.SlimBlock.ColorMaskHSV ?? slim.ColorMaskHSV;
+                var colour = projector?.SlimBlock.ColorMaskHSV ?? slim.ColorMaskHSV;
                 if (comp.UseWorkColour && colour.PackHSVToUint() != comp.WorkColourPacked)
                     continue;
 
@@ -379,13 +411,21 @@ namespace ToolCore
 
             var slim = (IMySlimBlock)cube.CubeBlock;
 
-            if (slim.FatBlock != null && (slim.FatBlock.MarkedForClose))
+            if (slim.FatBlock != null && slim.FatBlock.MarkedForClose)
                 return;
 
-            if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
+            var projector = grid.Projector as IMyProjector;
+            if (projector != null)
+            {
+                var projGrid = (MyCubeGrid)projector.CubeGrid;
+                var projGridPos = projGrid.WorldToGridInteger(grid.GridIntegerToWorld(slim.Position));
+                if (projGrid.GetCubeBlock(projGridPos) != null)
+                    return;
+            }
+            else if (comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation)
                 return;
 
-            var colour = (grid.Projector as IMyProjector)?.SlimBlock.ColorMaskHSV ?? slim.ColorMaskHSV;
+            var colour = projector?.SlimBlock.ColorMaskHSV ?? slim.ColorMaskHSV;
             if (comp.UseWorkColour && colour.PackHSVToUint() != comp.WorkColourPacked)
                 return;
 
@@ -808,10 +848,12 @@ namespace ToolCore
                 var tryCount = 0;
                 while (i <= comp.MaxLayer)
                 {
-                    i++;
                     List<IMySlimBlock> layer;
                     if (!comp.HitBlockLayers.TryGetValue(i, out layer))
+                    {
+                        i++;
                         continue;
+                    }
 
                     while (j < layer.Count)
                     {
@@ -840,9 +882,10 @@ namespace ToolCore
                         {
                             tempMissing.Clear();
                             slim.GetMissingComponents(tempMissing);
-                            if (comp.FailedPulls.Contains(tempMissing.Keys.FirstOrDefault()))
+                            if (!creative && comp.FailedPulls.Contains(tempMissing.Keys.FirstOrDefault()))
                             {
                                 if (def.IsTurret && modeData.Turret.ActiveTarget == slim) modeData.Turret.DeselectTarget();
+                                if (def.Debug) comp.DebugDrawBlock(slim, Color.Pink);
                                 continue;
                             }
 
@@ -869,8 +912,11 @@ namespace ToolCore
                         if (components != null && components.Length != 0)
                         {
                             var firstComp = components[0].Definition.Id.SubtypeName;
-                            if (comp.FailedPulls.Contains(firstComp))
+                            if (!creative && comp.FailedPulls.Contains(firstComp))
+                            {
+                                if (def.Debug) comp.DebugDrawBlock(slim, Color.Pink);
                                 continue;
+                            }
 
                             if (missing.ContainsKey(firstComp))
                                 missing[firstComp] += 1;
@@ -884,6 +930,7 @@ namespace ToolCore
                     if (tryCount >= remaining)
                         break;
 
+                    i++;
                     j = 0;
                 }
 
