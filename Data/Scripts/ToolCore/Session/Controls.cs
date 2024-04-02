@@ -235,7 +235,7 @@ namespace ToolCore.Session
             if (!_session.IsMultiPlayer || comp.Activated == wasActivated)
                 return;
 
-            _session.Networking.SendPacketToServer(new SbyteUpdatePacket(comp.ToolEntity.EntityId, FieldType.Activated, 1));
+            _session.Networking.SendPacketToServer(new BoolUpdatePacket(comp.ToolEntity.EntityId, FieldType.Activated, true));
         }
 
         internal void SetActivatedOnWriter(IMyTerminalBlock block, StringBuilder builder)
@@ -271,7 +271,7 @@ namespace ToolCore.Session
             if (!_session.IsMultiPlayer || comp.Activated == wasActivated)
                 return;
 
-            _session.Networking.SendPacketToServer(new SbyteUpdatePacket(comp.ToolEntity.EntityId, FieldType.Activated, 0));
+            _session.Networking.SendPacketToServer(new BoolUpdatePacket(comp.ToolEntity.EntityId, FieldType.Activated, false));
         }
 
         internal void SetActivatedOffWriter(IMyTerminalBlock block, StringBuilder builder)
