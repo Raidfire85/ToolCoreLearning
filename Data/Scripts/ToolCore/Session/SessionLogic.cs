@@ -383,7 +383,7 @@ namespace ToolCore.Session
                     foreach (var item in comp.ClientWorkSet)
                     {
                         MyCube cube;
-                        if (!item.Key.TryGetCube(item.Value, out cube))
+                        if (!item.Item2.TryGetCube(item.Item1, out cube))
                             continue;
 
                         var slim = (IMySlimBlock)cube.CubeBlock;

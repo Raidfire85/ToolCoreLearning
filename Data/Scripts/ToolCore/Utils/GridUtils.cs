@@ -554,7 +554,7 @@ namespace ToolCore
                             var integrityChange = grindAmount * cubeDef.IntegrityPointsPerSec / cubeDef.DisassembleRatio;
                             if (slim.Integrity > integrityChange)
                             {
-                                comp.ClientWorkSet.Add(grid, slim.Position);
+                                comp.ClientWorkSet.Add(new MyTuple<Vector3I, MyCubeGrid>(slim.Position, grid));
                             }
                         }
 
@@ -686,7 +686,7 @@ namespace ToolCore
                             if (def.CacheBlocks && !creative)
                             {
                                 var newPos = projector.CubeGrid.WorldToGridInteger(grid.GridIntegerToWorld(slim.Position));
-                                comp.ClientWorkSet.Add((MyCubeGrid)projector.CubeGrid, newPos);
+                                comp.ClientWorkSet.Add(new MyTuple<Vector3I, MyCubeGrid>(newPos, (MyCubeGrid)projector.CubeGrid));
                             }
                             continue;
                         }
@@ -736,7 +736,7 @@ namespace ToolCore
                             var integrityChange = weldAmount * cubeDef.IntegrityPointsPerSec;
                             if (integrityChange < slim.MaxIntegrity - slim.Integrity)
                             {
-                                comp.ClientWorkSet.Add(grid, slim.Position);
+                                comp.ClientWorkSet.Add(new MyTuple<Vector3I, MyCubeGrid>(slim.Position, grid));
                             }
                         }
 
@@ -991,7 +991,7 @@ namespace ToolCore
                             if (def.CacheBlocks && !creative)
                             {
                                 var slimPos = projector.CubeGrid.WorldToGridInteger(slim.CubeGrid.GridIntegerToWorld(slim.Position));
-                                comp.ClientWorkSet.Add((MyCubeGrid)projector.CubeGrid, slimPos);
+                                comp.ClientWorkSet.Add(new MyTuple<Vector3I, MyCubeGrid>(slimPos, (MyCubeGrid)projector.CubeGrid));
                             }
                             continue;
                         }
@@ -1037,7 +1037,7 @@ namespace ToolCore
 
                         var integrityChange = weldAmount * cubeDef.IntegrityPointsPerSec;
                         if (def.CacheBlocks && integrityChange < slim.MaxIntegrity - slim.Integrity)
-                            comp.ClientWorkSet.Add(grid, slim.Position);
+                            comp.ClientWorkSet.Add(new MyTuple<Vector3I, MyCubeGrid>(slim.Position, grid));
 
                         continue;
                     }

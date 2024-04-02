@@ -58,7 +58,7 @@ namespace ToolCore.Comp
         internal TargetTypes Targets = TargetTypes.All;
 
         internal readonly ConcurrentDictionary<string, float> Yields = new ConcurrentDictionary<string, float>();
-        internal readonly Dictionary<MyCubeGrid, Vector3I> ClientWorkSet = new Dictionary<MyCubeGrid, Vector3I>();
+        internal readonly List<MyTuple<Vector3I, MyCubeGrid>> ClientWorkSet = new List<MyTuple<Vector3I, MyCubeGrid>>();
         internal readonly Dictionary<int, List<IMySlimBlock>> HitBlockLayers = new Dictionary<int, List<IMySlimBlock>>();
 
         internal readonly Dictionary<ToolMode, ModeSpecificData> ModeMap = new Dictionary<ToolMode, ModeSpecificData>();
