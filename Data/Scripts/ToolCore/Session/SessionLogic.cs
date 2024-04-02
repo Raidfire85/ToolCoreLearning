@@ -343,7 +343,7 @@ namespace ToolCore.Session
             if (!workTick)
                 return;
 
-            if (comp.ActiveThreads > 0)
+            if (comp.ActiveThreads > 0 || !comp.GridsTask.IsComplete)
                 return;
 
             comp.DrawBoxes.ClearList();
