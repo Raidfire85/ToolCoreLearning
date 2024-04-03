@@ -1165,9 +1165,6 @@ namespace ToolCore
                 var session = ToolSession.Instance;
                 var turret = comp.ModeData.Turret;
 
-                var toolData = comp.GridData;
-                toolData.Clean();
-
                 for (int i = comp.MaxLayer; i > 0; i--)
                 {
                     List<IMySlimBlock> layer;
@@ -1186,13 +1183,15 @@ namespace ToolCore
                         turret.Targets.Add(slim);
                     }
                 }
-
-                comp.HitBlockLayers.Clear();
             }
             catch (Exception ex)
             {
+                Logs.WriteLine($"turret null: {comp.ModeData?.Turret == null} - modeData null: {comp.ModeData == null}");
                 Logs.LogException(ex);
             }
+
+            comp.GridData.Clean();
+            comp.HitBlockLayers.Clear();
         }
 
         #endregion
