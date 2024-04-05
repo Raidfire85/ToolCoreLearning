@@ -5,16 +5,14 @@ using Sandbox.ModAPI;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
 using ToolCore.Comp;
 using ToolCore.Definitions.Serialised;
 using ToolCore.Session;
 using ToolCore.Utils;
 using VRage;
-using VRage.Collections;
 using VRage.Game;
-using VRage.Game.Entity;
 using VRage.Game.ModAPI;
+using VRage.Utils;
 using VRageMath;
 using static ToolCore.Comp.ToolComp;
 
@@ -163,9 +161,7 @@ namespace ToolCore
                         var projector = grid.Projector as IMyProjector;
                         if (projector != null)
                         {
-                            var projGrid = (MyCubeGrid)projector.CubeGrid;
-                            var projGridPos = projGrid.WorldToGridInteger(grid.GridIntegerToWorld(slim.Position));
-                            if (projGrid.GetCubeBlock(projGridPos) != null)
+                            if (!MyUtils.IsEqual(slim.Dithering, -0.25f))
                                 continue;
                         }
                         else if (comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation)
@@ -258,9 +254,7 @@ namespace ToolCore
                         var projector = grid.Projector as IMyProjector;
                         if (projector != null)
                         {
-                            var projGrid = (MyCubeGrid)projector.CubeGrid;
-                            var projGridPos = projGrid.WorldToGridInteger(grid.GridIntegerToWorld(slim.Position));
-                            if (projGrid.GetCubeBlock(projGridPos) != null)
+                            if (!MyUtils.IsEqual(slim.Dithering, -0.25f))
                                 continue;
                         }
                         else if (comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation)
@@ -318,9 +312,7 @@ namespace ToolCore
                         var projector = grid.Projector as IMyProjector;
                         if (projector != null)
                         {
-                            var projGrid = (MyCubeGrid)projector.CubeGrid;
-                            var projGridPos = projGrid.WorldToGridInteger(grid.GridIntegerToWorld(slim.Position));
-                            if (projGrid.GetCubeBlock(projGridPos) != null)
+                            if (!MyUtils.IsEqual(slim.Dithering, -0.25f))
                                 continue;
                         }
                         else if (comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation)
@@ -372,10 +364,14 @@ namespace ToolCore
                 var projector = grid.Projector as IMyProjector;
                 if (projector != null)
                 {
-                    var projGrid = (MyCubeGrid)projector.CubeGrid;
-                    var projGridPos = projGrid.WorldToGridInteger(grid.GridIntegerToWorld(slim.Position));
-                    if (projGrid.GetCubeBlock(projGridPos) != null)
+                    if (!MyUtils.IsEqual(slim.Dithering, -0.25f))
                         continue;
+                    //var projGrid = (MyCubeGrid)projector.CubeGrid;
+                    //var projGridPos = projGrid.WorldToGridInteger(grid.GridIntegerToWorld(slim.Position));
+                    //if (projGrid.GetCubeBlock(projGridPos) != null)
+                    //{
+                    //    continue;
+                    //}
                 }
                 else if (comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation)
                     continue;
@@ -417,9 +413,7 @@ namespace ToolCore
             var projector = grid.Projector as IMyProjector;
             if (projector != null)
             {
-                var projGrid = (MyCubeGrid)projector.CubeGrid;
-                var projGridPos = projGrid.WorldToGridInteger(grid.GridIntegerToWorld(slim.Position));
-                if (projGrid.GetCubeBlock(projGridPos) != null)
+                if (!MyUtils.IsEqual(slim.Dithering, -0.25f))
                     return;
             }
             else if (comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation)
