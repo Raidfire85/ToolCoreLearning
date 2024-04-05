@@ -568,7 +568,7 @@ namespace ToolCore.Comp
                     return;
 
                 gridData.Position = worldPos;
-                MyAPIGateway.Parallel.Start(Comp.GetBlockTargets, Comp.OnGetBlockTargetsComplete);
+                Comp.GridsTask = MyAPIGateway.Parallel.Start(Comp.GetBlockTargets, Comp.OnGetBlockTargetsComplete);
             }
 
             internal class TurretPart
