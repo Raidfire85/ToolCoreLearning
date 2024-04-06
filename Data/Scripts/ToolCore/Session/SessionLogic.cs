@@ -44,7 +44,7 @@ namespace ToolCore.Session
 
                 for (int j = 0; j < gridComp.ToolComps.Count; j++)
                 {
-                    UpdateComp(gridComp.ToolComps[j], gridComp);
+                    UpdateComp(gridComp.ToolComps[j]);
                 } //Tools loop
 
             } //Grids loop
@@ -56,12 +56,12 @@ namespace ToolCore.Session
 
         }
 
-        private void UpdateComp(ToolComp comp, GridComp gridComp = null)
+        private void UpdateComp(ToolComp comp)
         {
             var modeData = comp.ModeData;
             var def = modeData.Definition;
 
-            UpdateTool(comp, gridComp);
+            UpdateTool(comp);
 
             var avState = comp.AvState & def.EventFlags;
             if (!comp.AvActive && avState > 0)
@@ -193,7 +193,7 @@ namespace ToolCore.Session
             }
         }
 
-        private void UpdateTool(ToolComp comp, GridComp gridComp = null)
+        private void UpdateTool(ToolComp comp)
         {
             var modeData = comp.ModeData;
             var def = modeData.Definition;
@@ -334,7 +334,7 @@ namespace ToolCore.Session
                     
                     if (comp.TargetsDirty)
                     {
-                        turret.DeselectTarget();
+                        turret.DeselectTarget(); //consider waiting before going home
                         comp.TargetsDirty = false;
                     }
                 }
@@ -652,7 +652,7 @@ namespace ToolCore.Session
                     if (!grid.Editable)
                         continue;
 
-                    if (isBlock && !def.AffectOwnGrid && (grid == comp.Grid || gridComp.GroupMap.ConnectedGrids.Contains(grid)))
+                    if (isBlock && !def.AffectOwnGrid && (grid == comp.Grid || comp.GridComp.GroupMap.ConnectedGrids.Contains(grid)))
                         continue;
 
                     if (comp.HasTargetControls)

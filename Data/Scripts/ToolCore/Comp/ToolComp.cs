@@ -219,8 +219,8 @@ namespace ToolCore.Comp
                 return;
             }
             Inventory = (MyInventory)ToolEntity.GetInventoryBase();
-            Grid = BlockTool.CubeGrid as MyCubeGrid;
-            Parent = Grid;
+            Parent = Grid = BlockTool.CubeGrid as MyCubeGrid;
+            ToolSession.Instance.GridMap.TryGetValue(BlockTool.CubeGrid, out GridComp);
 
             BlockTool.EnabledChanged += EnabledChanged;
             BlockTool.IsWorkingChanged += IsWorkingChanged;
@@ -361,6 +361,7 @@ namespace ToolCore.Comp
         internal void ChangeGrid()
         {
             Grid = (MyCubeGrid)BlockTool.CubeGrid;
+            ToolSession.Instance.GridMap.TryGetValue(BlockTool.CubeGrid, out GridComp);
         }
 
         internal class TurretComp
