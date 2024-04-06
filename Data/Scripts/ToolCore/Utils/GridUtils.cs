@@ -12,7 +12,6 @@ using ToolCore.Utils;
 using VRage;
 using VRage.Game;
 using VRage.Game.ModAPI;
-using VRage.Utils;
 using VRageMath;
 using static ToolCore.Comp.ToolComp;
 
@@ -161,7 +160,8 @@ namespace ToolCore
                         var projector = grid.Projector as IMyProjector;
                         if (projector != null)
                         {
-                            if (!MyUtils.IsEqual(slim.Dithering, -0.25f))
+                            var diff = Math.Abs(slim.Dithering + 0.25f);
+                            if (diff > 0.24f)
                                 continue;
                         }
                         else if (comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation)
@@ -254,7 +254,8 @@ namespace ToolCore
                         var projector = grid.Projector as IMyProjector;
                         if (projector != null)
                         {
-                            if (!MyUtils.IsEqual(slim.Dithering, -0.25f))
+                            var diff = Math.Abs(slim.Dithering + 0.25f);
+                            if (diff > 0.24f)
                                 continue;
                         }
                         else if (comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation)
@@ -312,7 +313,8 @@ namespace ToolCore
                         var projector = grid.Projector as IMyProjector;
                         if (projector != null)
                         {
-                            if (!MyUtils.IsEqual(slim.Dithering, -0.25f))
+                            var diff = Math.Abs(slim.Dithering + 0.25f);
+                            if (diff > 0.24f)
                                 continue;
                         }
                         else if (comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation)
@@ -364,7 +366,8 @@ namespace ToolCore
                 var projector = grid.Projector as IMyProjector;
                 if (projector != null)
                 {
-                    if (!MyUtils.IsEqual(slim.Dithering, -0.25f))
+                    var diff = Math.Abs(slim.Dithering + 0.25f);
+                    if (diff > 0.24f)
                         continue;
                     //var projGrid = (MyCubeGrid)projector.CubeGrid;
                     //var projGridPos = projGrid.WorldToGridInteger(grid.GridIntegerToWorld(slim.Position));
@@ -413,7 +416,8 @@ namespace ToolCore
             var projector = grid.Projector as IMyProjector;
             if (projector != null)
             {
-                if (!MyUtils.IsEqual(slim.Dithering, -0.25f))
+                var diff = Math.Abs(slim.Dithering + 0.25f);
+                if (diff > 0.24f)
                     return;
             }
             else if (comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation)
@@ -1119,13 +1123,20 @@ namespace ToolCore
                                 if (!data.HitBlocksHash.Add(slim))
                                     continue;
 
-                                if (slim.FatBlock != null && (slim.FatBlock.MarkedForClose))
+                                if (slim.FatBlock != null && slim.FatBlock.MarkedForClose)
                                     continue;
 
-                                if (comp.Mode == ToolMode.Weld && grid.Projector == null && slim.IsFullIntegrity && !slim.HasDeformation)
+                                var projector = grid.Projector as IMyProjector;
+                                if (projector != null)
+                                {
+                                    var diff = Math.Abs(slim.Dithering + 0.25f);
+                                    if (diff > 0.24f)
+                                        continue;
+                                }
+                                else if (comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation)
                                     continue;
 
-                                var colour = (grid.Projector as IMyProjector)?.SlimBlock.ColorMaskHSV ?? slim.ColorMaskHSV;
+                                var colour = projector?.SlimBlock.ColorMaskHSV ?? slim.ColorMaskHSV;
                                 if (comp.UseWorkColour && colour.PackHSVToUint() != comp.WorkColourPacked)
                                     continue;
 
