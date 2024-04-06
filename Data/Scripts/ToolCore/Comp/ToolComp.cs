@@ -25,6 +25,7 @@ using VRage.Utils;
 using VRage.Voxels;
 using VRageMath;
 using static ToolCore.Definitions.ToolDefinition;
+using static VRage.Game.ObjectBuilders.Definitions.MyObjectBuilder_GameDefinition;
 
 namespace ToolCore.Comp
 {
@@ -547,7 +548,10 @@ namespace ToolCore.Comp
 
                     var grid = entity as MyCubeGrid;
 
-                    if (Comp.IsBlock && !def.AffectOwnGrid && grid == Comp.Grid || !grid.Editable)
+                    if (!grid.Editable)
+                        continue;
+
+                    if (Comp.IsBlock && !def.AffectOwnGrid && (grid == Comp.Grid || Comp.GridComp.GroupMap.ConnectedGrids.Contains(grid)))
                         continue;
 
                     if (Comp.HasTargetControls)
@@ -557,7 +561,15 @@ namespace ToolCore.Comp
                             continue;
                     }
 
-                    if (Comp.Mode != ToolMode.Weld && (grid.Immune || !grid.DestructibleBlocks || grid.Projector != null || grid.Physics == null || !grid.Physics.Enabled))
+                    var weldMode = Comp.Mode == ToolMode.Weld;
+                    var projector = grid.Projector as IMyProjector;
+                    if (projector != null)
+                    {
+                        if (!weldMode || projector.BuildableBlocksCount == 0)
+                            continue;
+                    }
+
+                    if (!weldMode && (grid.Immune || !grid.DestructibleBlocks || grid.Physics == null || !grid.Physics.Enabled))
                         continue;
 
                     gridData.Grids.Add(grid);
