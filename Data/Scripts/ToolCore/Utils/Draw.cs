@@ -9,10 +9,11 @@ namespace ToolCore.Utils
     {
         internal static readonly MyStringId _square = MyStringId.GetOrCompute("Square");
 
-        internal static void DrawLocalVector(Vector3 local, MyEntity entity, Color color, float length = 5f)
+        internal static void DrawLocalVector(Vector3 local, MyEntity entity, MyEntity parent, Color color, float length = 5f)
         {
             Vector3 world;
-            var matrix = (Matrix)entity.PositionComp.WorldMatrixRef;
+            var matrix = (Matrix)parent.PositionComp.WorldMatrixRef;
+            matrix.Translation += entity.PositionComp.LocalMatrixRef.Translation;
             Vector3.TransformNormal(ref local, ref matrix, out world);
             DrawLine(matrix.Translation, world, color, 0.05f, length);
         }

@@ -9,6 +9,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using ToolCore.Definitions;
 using ToolCore.Definitions.Serialised;
 using ToolCore.Session;
@@ -25,7 +26,6 @@ using VRage.Utils;
 using VRage.Voxels;
 using VRageMath;
 using static ToolCore.Definitions.ToolDefinition;
-using static VRage.Game.ObjectBuilders.Definitions.MyObjectBuilder_GameDefinition;
 
 namespace ToolCore.Comp
 {
@@ -115,7 +115,7 @@ namespace ToolCore.Comp
                 return _workColour;
             }
             set
-            { 
+            {
                 _workColour = value;
 
                 WorkColourPacked = _workColour.PackHSVToUint();
@@ -231,7 +231,11 @@ namespace ToolCore.Comp
             SinkInit();
 
             if (!ToolSession.Instance.IsDedicated)
+            {
                 GetShowInToolbarSwitch();
+                BlockTool.AppendingCustomInfo += AppendingCustomData;
+                RefreshTerminal();
+            }
         }
 
         internal void FunctionalInit()
@@ -364,6 +368,20 @@ namespace ToolCore.Comp
             ToolSession.Instance.GridMap.TryGetValue(BlockTool.CubeGrid, out GridComp);
         }
 
+        private void AppendingCustomData(IMyTerminalBlock block, StringBuilder builder)
+        {
+            var modeData = ModeData;
+            if (modeData.Turret == null)
+                return;
+
+            var turret = modeData.Turret;
+            var target = turret.HasTarget ? turret.ActiveTarget.FatBlock?.DisplayNameText ?? turret.ActiveTarget.BlockDefinition.DisplayNameText : "None";
+
+            builder.Append("Target: ")
+                .Append(target)
+                .Append("\n");
+        }
+
         internal class TurretComp
         {
             internal readonly List<IMySlimBlock> Targets = new List<IMySlimBlock>();
@@ -378,6 +396,7 @@ namespace ToolCore.Comp
 
             internal IMySlimBlock ActiveTarget;
             internal bool HasTarget;
+            internal bool HadTarget;
             internal bool IsValid;
             internal int LastRefreshTick;
 
@@ -462,14 +481,14 @@ namespace ToolCore.Comp
                 var target = ActiveTarget;
                 var targetWorld = target.CubeGrid.GridIntegerToWorld(target.Position);
 
-                Vector3D targetLocal;
-                var parentMatrixNI = Part1.Parent.PositionComp.WorldMatrixNormalizedInv;
-                Vector3D.Transform(ref targetWorld, ref parentMatrixNI, out targetLocal);
-                var targetVector = targetLocal - Part1.Subpart.PositionComp.LocalMatrixRef.Translation;
+                Vector3D targetLocal1;
+                var parentMatrixNI1 = Part1.Parent.PositionComp.WorldMatrixNormalizedInv;
+                Vector3D.Transform(ref targetWorld, ref parentMatrixNI1, out targetLocal1);
+                var targetVector1 = targetLocal1 - Part1.Subpart.PositionComp.LocalMatrixRef.Translation;
 
-                var desiredFacing = (Vector3)Vector3D.ProjectOnPlane(ref targetVector, ref Part1.Axis);
-                Part1.DesiredFacing = desiredFacing;
-                var desiredAngle1 = (float)Vector3.Angle(desiredFacing, Part1.Facing) * Math.Sign(Vector3.Dot(desiredFacing, Part1.Normal));
+                var desiredFacing1 = (Vector3)Vector3D.ProjectOnPlane(ref targetVector1, ref Part1.Axis);
+                Part1.DesiredFacing = desiredFacing1;
+                var desiredAngle1 = (float)Vector3.Angle(desiredFacing1, Part1.Facing) * Math.Sign(Vector3.Dot(desiredFacing1, Part1.Normal));
                 if (Part1.Definition.RotationCapped && (desiredAngle1 > Part1.Definition.MaxRotation || desiredAngle1 < Part1.Definition.MinRotation))
                 {
                     return false;
@@ -477,13 +496,18 @@ namespace ToolCore.Comp
 
                 if (HasTwoParts)
                 {
-                    parentMatrixNI = Part2.Parent.PositionComp.WorldMatrixNormalizedInv;
-                    Vector3D.Transform(ref targetWorld, ref parentMatrixNI, out targetLocal);
-                    targetVector = targetLocal - Part2.Subpart.PositionComp.LocalMatrixRef.Translation;
+                    Vector3D targetLocal2;
+                    var parentMatrixNI2 = Part2.Parent.PositionComp.WorldMatrixNormalizedInv;
+                    Vector3D.Transform(ref targetWorld, ref parentMatrixNI2, out targetLocal2);
+                    var targetVector2 = targetLocal2 - Part2.Subpart.PositionComp.LocalMatrixRef.Translation;
 
-                    desiredFacing = (Vector3)Vector3D.ProjectOnPlane(ref targetVector, ref Part2.Axis);
-                    Part2.DesiredFacing = desiredFacing;
-                    var desiredAngle2 = (float)Vector3.Angle(desiredFacing, Part2.Facing) * Math.Sign(Vector3.Dot(desiredFacing, Part2.Normal));
+                    var part1AngleDiff = desiredAngle1 - Part1.CurrentRotation;
+                    var finalFacing = ((Vector3D)Part2.Facing).Rotate(Part2.Normal, part1AngleDiff);
+                    var finalAxis = ((Vector3D)Part2.Axis).Rotate(Part2.Normal, part1AngleDiff);
+
+                    var desiredFacing2 = (Vector3)Vector3D.ProjectOnPlane(ref targetVector2, ref finalAxis);
+                    Part2.DesiredFacing = desiredFacing2;
+                    var desiredAngle2 = (float)Vector3.Angle(desiredFacing2, finalFacing) * Math.Sign(Vector3.Dot(desiredFacing2, Part2.Normal));
                     if (Part2.Definition.RotationCapped && (desiredAngle2 > Part2.Definition.MaxRotation || desiredAngle2 < Part2.Definition.MinRotation))
                     {
                         return false;
@@ -499,14 +523,21 @@ namespace ToolCore.Comp
 
             internal void DeselectTarget()
             {
+                HadTarget = HasTarget;
                 HasTarget = false;
+
+                if (Comp.IsBlock) Comp.RefreshTerminal();
+            }
+
+            internal void GoHome()
+            {
                 Part1.DesiredRotation = 0;
                 if (HasTwoParts) Part2.DesiredRotation = 0;
             }
 
             internal void SelectNewTarget(Vector3D worldPos)
             {
-                Logs.WriteLine($"Selecting from {Targets.Count} targets");
+                //Logs.WriteLine($"Selecting from {Targets.Count} targets");
                 for (int i = Targets.Count - 1; i >= 0; i--)
                 {
                     var next = Targets[i];
@@ -522,17 +553,22 @@ namespace ToolCore.Comp
                         continue;
                     }
 
+                    HadTarget = HasTarget;
                     HasTarget = true;
                     ActiveTarget = next;
-                    break;
+                    if (Comp.IsBlock) Comp.RefreshTerminal();
+                    return;
                 }
-                Logs.WriteLine($"{Targets.Count} targets remaining");
+
+                HadTarget = false;
+
+                //Logs.WriteLine($"{Targets.Count} targets remaining");
             }
 
             internal void RefreshTargetList(ToolDefinition def, Vector3D worldPos)
             {
                 Targets.Clear();
-                Logs.WriteLine("Refreshing target list");
+                //Logs.WriteLine("Refreshing target list");
 
                 var ownerId = Comp.IsBlock ? Comp.BlockTool.OwnerId : Comp.HandTool.OwnerIdentityId;
                 var toolFaction = MyAPIGateway.Session.Factions.TryGetPlayerFaction(ownerId);
@@ -555,23 +591,27 @@ namespace ToolCore.Comp
                     if (Comp.IsBlock && !def.AffectOwnGrid && (grid == Comp.Grid || Comp.GridComp.GroupMap.ConnectedGrids.Contains(grid)))
                         continue;
 
+                    var weldMode = Comp.Mode == ToolMode.Weld;
+                    var projector = grid.Projector as IMyProjector;
+                    if (projector == null)
+                    {
+                        if (grid.IsPreview)
+                            continue;
+                    }
+                    else if (!weldMode || projector.BuildableBlocksCount == 0)
+                    {
+                        continue;
+                    }
+
+                    if (!weldMode && (grid.Immune || !grid.DestructibleBlocks || grid.Physics == null || !grid.Physics.Enabled))
+                        continue;
+
                     if (Comp.HasTargetControls)
                     {
                         var relation = Comp.GetRelationToGrid(grid, toolFaction);
                         if ((relation & Comp.Targets) == TargetTypes.None)
                             continue;
                     }
-
-                    var weldMode = Comp.Mode == ToolMode.Weld;
-                    var projector = grid.Projector as IMyProjector;
-                    if (projector != null)
-                    {
-                        if (!weldMode || projector.BuildableBlocksCount == 0)
-                            continue;
-                    }
-
-                    if (!weldMode && (grid.Immune || !grid.DestructibleBlocks || grid.Physics == null || !grid.Physics.Enabled))
-                        continue;
 
                     gridData.Grids.Add(grid);
                 }
@@ -599,6 +639,8 @@ namespace ToolCore.Comp
                 internal Vector3 Normal;
 
                 internal Vector3 DesiredFacing;
+                internal Vector3 Temp;
+                internal Vector3 Temp2;
 
                 internal float CurrentRotation;
                 internal float DesiredRotation;
@@ -1438,7 +1480,7 @@ namespace ToolCore.Comp
 
         internal void Close()
         {
-            if (!MyAPIGateway.Session.IsServer)
+            if (!ToolSession.Instance.IsServer)
                 ToolSession.Instance.Networking.SendPacketToServer(new ReplicationPacket { EntityId = ToolEntity.EntityId, Add = false, PacketType = (byte)PacketType.Replicate });
 
             Clean();
@@ -1447,6 +1489,9 @@ namespace ToolCore.Comp
             {
                 BlockTool.EnabledChanged -= EnabledChanged;
                 BlockTool.IsWorkingChanged -= IsWorkingChanged;
+
+                if (!ToolSession.Instance.IsDedicated)
+                    BlockTool.AppendingCustomInfo -= AppendingCustomData;
 
                 return;
             }

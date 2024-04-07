@@ -3,7 +3,6 @@ using Sandbox.Game.WorldEnvironment;
 using Sandbox.ModAPI;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using ToolCore.Comp;
 using ToolCore.Definitions;
 using ToolCore.Definitions.Serialised;
@@ -374,6 +373,10 @@ namespace ToolCore.Session
                     turret.SelectNewTarget(worldPos);
                 }
 
+                if (!turret.HasTarget && !turret.HadTarget)
+                {
+                    turret.GoHome();
+                }
             }
 
             if (def.CacheBlocks && comp.Mode != ToolMode.Drill)
@@ -655,23 +658,27 @@ namespace ToolCore.Session
                     if (isBlock && !def.AffectOwnGrid && (grid == comp.Grid || comp.GridComp.GroupMap.ConnectedGrids.Contains(grid)))
                         continue;
 
+                    var weldMode = comp.Mode == ToolMode.Weld;
+                    var projector = grid.Projector as IMyProjector;
+                    if (projector == null)
+                    {
+                        if (grid.IsPreview)
+                            continue;
+                    }
+                    else if (!weldMode || projector.BuildableBlocksCount == 0)
+                    {
+                        continue;
+                    }
+
+                    if (!weldMode && (grid.Immune || !grid.DestructibleBlocks || grid.Physics == null || !grid.Physics.Enabled))
+                        continue;
+
                     if (comp.HasTargetControls)
                     {
                         var relation = comp.GetRelationToGrid(grid, toolFaction);
                         if ((relation & comp.Targets) == TargetTypes.None)
                             continue;
                     }
-
-                    var weldMode = comp.Mode == ToolMode.Weld;
-                    var projector = grid.Projector as IMyProjector;
-                    if (projector != null)
-                    {
-                        if (!weldMode || projector.BuildableBlocksCount == 0)
-                            continue;
-                    }
-
-                    if (!weldMode && (grid.Immune || !grid.DestructibleBlocks || grid.Physics == null || !grid.Physics.Enabled))
-                        continue;
 
                     comp.GridData.Grids.Add(grid);
                 }

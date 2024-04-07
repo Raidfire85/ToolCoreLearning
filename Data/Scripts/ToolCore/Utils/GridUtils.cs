@@ -717,7 +717,7 @@ namespace ToolCore
                         continue;
                     }
 
-                    if (!slim.IsFullIntegrity && !slim.CanContinueBuild(inventory))
+                    if (!slim.IsFullIntegrity && !creative && !slim.CanContinueBuild(inventory))
                     {
                         if (def.IsTurret && modeData.Turret.ActiveTarget == slim) modeData.Turret.DeselectTarget();
                         if (def.Debug) comp.DebugDrawBlock(slim, Color.Blue);
@@ -1021,7 +1021,7 @@ namespace ToolCore
                         continue;
                     }
 
-                    if (!slim.IsFullIntegrity && !slim.CanContinueBuild(inventory))
+                    if (!slim.IsFullIntegrity && !creative && !slim.CanContinueBuild(inventory))
                     {
                         if (def.IsTurret && modeData.Turret.ActiveTarget == slim) modeData.Turret.DeselectTarget();
                         if (def.Debug) comp.DebugDrawBlock(slim, Color.Blue);

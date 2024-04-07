@@ -1,5 +1,4 @@
 ﻿using Sandbox.Game.Entities;
-using System;
 using System.Collections.Generic;
 using ToolCore.Comp;
 using ToolCore.Definitions.Serialised;
@@ -36,7 +35,7 @@ namespace ToolCore.Session
                     if (modeData.Turret != null)
                     {
                         var turret = modeData.Turret;
-                        if (turret.ActiveTarget != null)
+                        if (turret.ActiveTarget != null && comp.Draw)
                         {
                             var slim = turret.ActiveTarget;
                             Vector3D worldPos, worldForward, worldUp;
@@ -58,11 +57,13 @@ namespace ToolCore.Session
                             part1.CurrentRotation += amount;
                         }
 
-                        //var forward1 = part1.Subpart.PositionComp.LocalMatrixRef.Forward;
-                        //DrawLocalVector(part1.DesiredFacing, part1.Parent, Color.Blue);
-                        //DrawLocalVector(forward1, part1.Parent, Color.Green);
+                        if (modeData.Definition.Debug)
+                        {
+                            DrawLocalVector(part1.DesiredFacing, part1.Subpart, part1.Parent, Color.Green);
+                            DrawLocalVector(part1.Facing, part1.Subpart, part1.Parent, Color.Blue);
+                        }
 
-                        if (turret.HasTwoParts && Math.Abs(diff1) < MathHelper.PiOver2)
+                        if (turret.HasTwoParts)
                         {
                             var part2 = turret.Part2;
                             var diff2 = part2.DesiredRotation - part2.CurrentRotation;
@@ -78,9 +79,11 @@ namespace ToolCore.Session
                                 part2.CurrentRotation += amount;
                             }
 
-                            //var forward2 = part2.Subpart.PositionComp.LocalMatrixRef.Forward;
-                            //DrawLocalVector(part2.DesiredFacing, part2.Parent, Color.Blue);
-                            //DrawLocalVector(forward2, part2.Parent, Color.Green);      
+                            if (modeData.Definition.Debug)
+                            {
+                                DrawLocalVector(part2.DesiredFacing, part2.Subpart, part2.Parent, Color.Red);
+                                DrawLocalVector(part2.Facing, part2.Subpart, part2.Parent, Color.Blue);
+                            }
                         }
                     }
 
