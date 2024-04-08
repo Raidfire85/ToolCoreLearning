@@ -35,7 +35,7 @@ namespace ToolCore.Session
                     if (modeData.Turret != null)
                     {
                         var turret = modeData.Turret;
-                        if (turret.ActiveTarget != null && comp.Draw)
+                        if (turret.ActiveTarget != null && comp.Draw && !IsDedicated)
                         {
                             var slim = turret.ActiveTarget;
                             Vector3D worldPos, worldForward, worldUp;
@@ -44,20 +44,19 @@ namespace ToolCore.Session
                         }
 
                         var part1 = turret.Part1;
-                        var diff1 = part1.DesiredRotation - part1.CurrentRotation;
+                        var diff1 = part1.CurrentRotation - part1.VisualRotation;
                         if (!MyUtils.IsZero(diff1, 0.001f))
                         {
-                            var amount = MathHelper.Clamp(diff1, -part1.Definition.RotationSpeed, part1.Definition.RotationSpeed);
-                            var rotation = part1.RotationFactory.Invoke(amount);
+                            var rotation = part1.RotationFactory.Invoke(diff1);
                             var lm = part1.Subpart.PositionComp.LocalMatrixRef;
                             var translation = lm.Translation;
                             lm *= rotation;
                             lm.Translation = translation;
                             part1.Subpart.PositionComp.SetLocalMatrix(ref lm);
-                            part1.CurrentRotation += amount;
+                            part1.VisualRotation = part1.CurrentRotation;
                         }
 
-                        if (modeData.Definition.Debug)
+                        if (modeData.Definition.Debug && !IsDedicated)
                         {
                             DrawLocalVector(part1.DesiredFacing, part1.Subpart, part1.Parent, Color.Green);
                             DrawLocalVector(part1.Facing, part1.Subpart, part1.Parent, Color.Blue);
@@ -66,20 +65,19 @@ namespace ToolCore.Session
                         if (turret.HasTwoParts)
                         {
                             var part2 = turret.Part2;
-                            var diff2 = part2.DesiredRotation - part2.CurrentRotation;
+                            var diff2 = part2.CurrentRotation - part2.VisualRotation;
                             if (!MyUtils.IsZero(diff2, 0.001f))
                             {
-                                var amount = MathHelper.Clamp(diff2, -part2.Definition.RotationSpeed, part2.Definition.RotationSpeed);
-                                var rotation = part2.RotationFactory.Invoke(amount);
+                                var rotation = part2.RotationFactory.Invoke(diff2);
                                 var lm = part2.Subpart.PositionComp.LocalMatrixRef;
                                 var translation = lm.Translation;
                                 lm *= rotation;
                                 lm.Translation = translation;
                                 part2.Subpart.PositionComp.SetLocalMatrix(ref lm);
-                                part2.CurrentRotation += amount;
+                                part2.VisualRotation = part2.CurrentRotation;
                             }
 
-                            if (modeData.Definition.Debug)
+                            if (modeData.Definition.Debug && !IsDedicated)
                             {
                                 DrawLocalVector(part2.DesiredFacing, part2.Subpart, part2.Parent, Color.Red);
                                 DrawLocalVector(part2.Facing, part2.Subpart, part2.Parent, Color.Blue);
@@ -89,6 +87,9 @@ namespace ToolCore.Session
 
                 }
             }
+
+            if (IsDedicated)
+                return;
 
             AvComps.ApplyAdditions();
             for (int i = 0; i < AvComps.Count; i++)

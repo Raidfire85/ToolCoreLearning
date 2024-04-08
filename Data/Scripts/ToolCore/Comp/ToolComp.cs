@@ -527,6 +527,7 @@ namespace ToolCore.Comp
                 HasTarget = false;
 
                 if (Comp.IsBlock) Comp.RefreshTerminal();
+                //Logs.WriteLine("Deselecting target");
             }
 
             internal void GoHome()
@@ -557,12 +558,13 @@ namespace ToolCore.Comp
                     HasTarget = true;
                     ActiveTarget = next;
                     if (Comp.IsBlock) Comp.RefreshTerminal();
+
+                    //var target = ActiveTarget.FatBlock?.DisplayNameText ?? ActiveTarget.BlockDefinition.DisplayNameText;
+                    //Logs.WriteLine($"Targeting " + target);
                     return;
                 }
 
                 HadTarget = false;
-
-                //Logs.WriteLine($"{Targets.Count} targets remaining");
             }
 
             internal void RefreshTargetList(ToolDefinition def, Vector3D worldPos)
@@ -606,6 +608,15 @@ namespace ToolCore.Comp
                     if (!weldMode && (grid.Immune || !grid.DestructibleBlocks || grid.Physics == null || !grid.Physics.Enabled))
                         continue;
 
+                    if (session.DSAPIReady)
+                    {
+                        var shieldBlock = session.DSAPI.MatchEntToShieldFast(entity, true);
+                        if (shieldBlock != null && shieldBlock.OwnerId != ownerId)
+                        {
+                            continue;
+                        }
+                    }
+
                     if (Comp.HasTargetControls)
                     {
                         var relation = Comp.GetRelationToGrid(grid, toolFaction);
@@ -639,11 +650,10 @@ namespace ToolCore.Comp
                 internal Vector3 Normal;
 
                 internal Vector3 DesiredFacing;
-                internal Vector3 Temp;
-                internal Vector3 Temp2;
 
                 internal float CurrentRotation;
                 internal float DesiredRotation;
+                internal float VisualRotation;
 
                 internal TurretPart(TurretDefinition.TurretPartDef def)
                 {
@@ -702,8 +712,9 @@ namespace ToolCore.Comp
                             break;
                     }
 
-                    DesiredRotation = 0;
-                    CurrentRotation = 0;
+                    DesiredRotation = 0f;
+                    CurrentRotation = 0f;
+                    VisualRotation = 0f;
 
                     return true;
                 }

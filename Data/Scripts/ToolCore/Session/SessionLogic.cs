@@ -337,6 +337,25 @@ namespace ToolCore.Session
                         comp.TargetsDirty = false;
                     }
                 }
+
+                var part1 = turret.Part1;
+                var diff1 = part1.DesiredRotation - part1.CurrentRotation;
+                if (!MyUtils.IsZero(diff1, 0.001f))
+                {
+                    var amount = MathHelper.Clamp(diff1, -part1.Definition.RotationSpeed, part1.Definition.RotationSpeed);
+                    part1.CurrentRotation += amount;
+                }
+
+                if (turret.HasTwoParts)
+                {
+                    var part2 = turret.Part2;
+                    var diff2 = part2.DesiredRotation - part2.CurrentRotation;
+                    if (!MyUtils.IsZero(diff2, 0.001f))
+                    {
+                        var amount = MathHelper.Clamp(diff2, -part2.Definition.RotationSpeed, part2.Definition.RotationSpeed);
+                        part2.CurrentRotation += amount;
+                    }
+                }
             }
 
             if (!workTick)
