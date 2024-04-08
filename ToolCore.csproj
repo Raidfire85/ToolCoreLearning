@@ -185,6 +185,18 @@
     <Compile Include="Data\Scripts\ToolCore\Definitions\ToolDefinition.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>
+    <Compile Include="Data\Scripts\ToolCore\External\MGP\BlockLocation.cs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Compile>
+    <Compile Include="Data\Scripts\ToolCore\External\MGP\BlockState.cs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Compile>
+    <Compile Include="Data\Scripts\ToolCore\External\MGP\IMultigridProjectorApi.cs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Compile>
+    <Compile Include="Data\Scripts\ToolCore\External\MGP\MultigridProjectorModAgent.cs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Compile>
     <Compile Include="Data\Scripts\ToolCore\Session\BlockLimits.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>
@@ -221,7 +233,7 @@
     <Compile Include="Data\Scripts\ToolCore\Utils\GridUtils.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>
-    <Compile Include="Data\Scripts\ToolCore\Utils\ShieldsAPI.cs">
+    <Compile Include="Data\Scripts\ToolCore\External\ShieldsAPI.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>
     <Compile Include="Data\Scripts\ToolCore\Utils\Utils.cs">

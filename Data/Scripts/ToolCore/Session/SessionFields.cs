@@ -1,4 +1,5 @@
 ﻿using DefenseShields;
+using MultigridProjector.Api;
 using Sandbox.Game.Entities;
 using System;
 using System.Collections.Concurrent;
@@ -67,11 +68,14 @@ namespace ToolCore.Session
         internal readonly Networking Networking;
         internal readonly APIBackend API;
         internal readonly APIServer APIServer;
+
+        internal MultigridProjectorModAgent MGPAPI;
         internal object InitObj = new object();
 
         internal readonly BlockLimitInfo BlockLimits = new BlockLimitInfo();
 
         internal bool DSAPIReady;
+        internal bool MGPAPIReady;
 
         internal volatile bool Inited;
         internal volatile bool ControlsInited;

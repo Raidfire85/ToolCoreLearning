@@ -67,6 +67,7 @@ namespace ToolCore.Session
 
             APIServer.Load();
             DSAPI.Load();
+            MGPAPI = new MultigridProjector.Api.MultigridProjectorModAgent();
 
             if (IsServer)
             {
