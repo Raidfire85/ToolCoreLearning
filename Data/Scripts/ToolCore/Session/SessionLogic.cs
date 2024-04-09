@@ -3,6 +3,7 @@ using Sandbox.Game.WorldEnvironment;
 using Sandbox.ModAPI;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using ToolCore.Comp;
 using ToolCore.Definitions;
 using ToolCore.Definitions.Serialised;
@@ -475,9 +476,11 @@ namespace ToolCore.Session
                 if (DSAPIReady)
                 {
                     var shieldBlock = DSAPI.MatchEntToShieldFast(entity, true);
-                    if (shieldBlock != null && shieldBlock.OwnerId != ownerId)
+                    if (shieldBlock != null)
                     {
-                        continue;
+                        var relation = comp.GetRelationToPlayer(shieldBlock.OwnerId, toolFaction);
+                        if (relation > TargetTypes.Friendly)
+                            continue;
                     }
                 }
 
@@ -694,7 +697,8 @@ namespace ToolCore.Session
 
                     if (comp.HasTargetControls)
                     {
-                        var relation = comp.GetRelationToGrid(grid, toolFaction);
+                        var gridOwner = grid.Projector?.OwnerId ?? grid.BigOwners.FirstOrDefault();
+                        var relation = comp.GetRelationToPlayer(gridOwner, toolFaction);
                         if ((relation & comp.Targets) == TargetTypes.None)
                             continue;
                     }

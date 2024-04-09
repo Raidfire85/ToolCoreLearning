@@ -26,6 +26,7 @@ using VRage.Utils;
 using VRage.Voxels;
 using VRageMath;
 using static ToolCore.Definitions.ToolDefinition;
+using static VRage.Game.ObjectBuilders.Definitions.MyObjectBuilder_GameDefinition;
 
 namespace ToolCore.Comp
 {
@@ -611,15 +612,18 @@ namespace ToolCore.Comp
                     if (session.DSAPIReady)
                     {
                         var shieldBlock = session.DSAPI.MatchEntToShieldFast(entity, true);
-                        if (shieldBlock != null && shieldBlock.OwnerId != ownerId)
+                        if (shieldBlock != null)
                         {
-                            continue;
+                            var relation = Comp.GetRelationToPlayer(shieldBlock.OwnerId, toolFaction);
+                            if (relation > TargetTypes.Friendly)
+                                continue;
                         }
                     }
 
                     if (Comp.HasTargetControls)
                     {
-                        var relation = Comp.GetRelationToGrid(grid, toolFaction);
+                        var gridOwner = grid.Projector?.OwnerId ?? grid.BigOwners.FirstOrDefault();
+                        var relation = Comp.GetRelationToPlayer(gridOwner, toolFaction);
                         if ((relation & Comp.Targets) == TargetTypes.None)
                             continue;
                     }
@@ -1083,16 +1087,15 @@ namespace ToolCore.Comp
             }
         }
 
-        internal TargetTypes GetRelationToGrid(MyCubeGrid grid, IMyFaction toolFaction)
+        internal TargetTypes GetRelationToPlayer(long playerId, IMyFaction toolFaction)
         {
             var ownerId = IsBlock ? BlockTool.OwnerId : HandTool.OwnerIdentityId;
-            var targetOwner = grid.Projector?.OwnerId ?? grid.BigOwners.FirstOrDefault();
-            if (ownerId == targetOwner)
+            if (ownerId == playerId)
             {
                 return TargetTypes.Own;
             }
 
-            if (ownerId == 0 || targetOwner == 0)
+            if (ownerId == 0 || playerId == 0)
             {
                 return TargetTypes.Neutral;
             }
@@ -1102,7 +1105,7 @@ namespace ToolCore.Comp
                 return TargetTypes.Hostile;
             }
 
-            var targetFaction = MyAPIGateway.Session.Factions.TryGetPlayerFaction(targetOwner);
+            var targetFaction = MyAPIGateway.Session.Factions.TryGetPlayerFaction(playerId);
             if (targetFaction == null)
             {
                 return TargetTypes.Hostile;
