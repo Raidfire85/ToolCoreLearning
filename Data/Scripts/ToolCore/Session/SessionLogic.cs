@@ -537,6 +537,7 @@ namespace ToolCore.Session
                     }
                     comp.Working = true;
 
+                    var damage = 100f;
                     if (entity is MyFloatingObject && isBlock && def.PickUpFloatings)
                     {
                         var floating = (MyFloatingObject)entity;
@@ -546,15 +547,21 @@ namespace ToolCore.Session
                         comp.LastPushSucceeded = comp.Grid.ConveyorSystem.PushGenerateItem(id, amount, out transferred, comp.BlockTool, false);
                         if (!comp.LastPushSucceeded)
                         {
-                            comp.Inventory.AddItems(amount - transferred, floating.Item.Content);
+                            amount -= transferred;
+                            var space = comp.Inventory.MaxVolume - comp.Inventory.CurrentVolume;
+                            var added = MyFixedPoint.Min(amount, (MyFixedPoint)((float)space / floating.ItemDefinition.Volume));
+                            comp.Inventory.AddItems(added, floating.Item.Content);
+
+                            amount -= added;
+                            damage = (float)transferred + (float)added;
                         }
 
-                        MyFloatingObjects.RemoveFloatingObject(floating, true);
-                        continue;
+                        if (amount <= 0)
+                            continue;
                     }
 
                     var destroyableObject = (IMyDestroyableObject)entity;
-                    destroyableObject.DoDamage(1f, damageType, true, null, ownerId);
+                    destroyableObject.DoDamage(damage, damageType, true, null, ownerId);
                     continue;
                 }
 
