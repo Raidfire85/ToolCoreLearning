@@ -57,11 +57,13 @@ namespace ToolCore.Definitions
         internal class TurretDefinition
         {
             internal readonly int TargetRadiusSqr;
+            internal BoundingSphereD TargetSphere;
             internal readonly List<TurretPartDef> Subparts = new List<TurretPartDef>();
 
             internal TurretDefinition(TurretValues values)
             {
                 TargetRadiusSqr = values.TargetRadius * values.TargetRadius;
+                TargetSphere = new BoundingSphereD(Vector3D.Zero, values.TargetRadius);
 
                 for (int i = 0; i < values.Subparts.Length; i++)
                 {
@@ -314,7 +316,6 @@ namespace ToolCore.Definitions
                 return false;
 
             def = new TurretDefinition(values);
-            EffectSphere = new BoundingSphereD(Vector3D.Zero, values.TargetRadius);
             return true;
         }
 

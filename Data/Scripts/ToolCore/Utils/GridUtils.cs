@@ -1084,7 +1084,7 @@ namespace ToolCore
                     var localCentre = grid.WorldToGridScaledLocal(data.Position);
 
                     var gridSizeR = grid.GridSizeR;
-                    var radius = toolValues.BoundingRadius * gridSizeR;
+                    var radius = def.Turret.TargetSphere.Radius * gridSizeR;
 
                     var minExtent = localCentre - radius;
                     var maxExtent = localCentre + radius;

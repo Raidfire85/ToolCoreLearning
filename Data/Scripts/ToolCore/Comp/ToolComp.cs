@@ -575,12 +575,14 @@ namespace ToolCore.Comp
 
                 var ownerId = Comp.IsBlock ? Comp.BlockTool.OwnerId : Comp.HandTool.OwnerIdentityId;
                 var toolFaction = MyAPIGateway.Session.Factions.TryGetPlayerFaction(ownerId);
-                def.EffectSphere.Center = worldPos;
+
                 var gridData = Comp.GridData;
+                var turretDef = def.Turret;
+                turretDef.TargetSphere.Center = worldPos;
 
                 var session = ToolSession.Instance;
                 var entities = session.Entities;
-                MyGamePruningStructure.GetAllTopMostEntitiesInSphere(ref def.EffectSphere, entities);
+                MyGamePruningStructure.GetAllTopMostEntitiesInSphere(ref turretDef.TargetSphere, entities);
                 foreach (var entity in entities)
                 {
                     if (!(entity is MyCubeGrid))
