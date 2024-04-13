@@ -26,7 +26,6 @@ using VRage.Utils;
 using VRage.Voxels;
 using VRageMath;
 using static ToolCore.Definitions.ToolDefinition;
-using static VRage.Game.ObjectBuilders.Definitions.MyObjectBuilder_GameDefinition;
 
 namespace ToolCore.Comp
 {
@@ -76,6 +75,7 @@ namespace ToolCore.Comp
         internal readonly List<IMySlimBlock> WorkSet = new List<IMySlimBlock>();
 
         internal readonly HashSet<string> FailedPulls = new HashSet<string>();
+        internal readonly HashSet<string> FailedPushes = new HashSet<string>();
 
         internal readonly bool IsBlock;
         internal readonly bool HasTargetControls;

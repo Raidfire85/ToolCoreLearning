@@ -268,7 +268,7 @@ namespace ToolCore.Session
                 }
             }
 
-            if (IsServer && comp.CompTick60 == TickMod60 && comp.Mode != ToolMode.Weld)
+            if (IsServer && comp.Mode != ToolMode.Weld && (comp.CompTick60 == TickMod60 || comp.Inventory.VolumeFillFactor > 0.9f))
                 comp.ManageInventory();
 
             Vector3D worldPos, worldForward, worldUp;
