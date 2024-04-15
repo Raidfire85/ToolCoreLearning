@@ -1,4 +1,5 @@
 ﻿using Sandbox.Game.Entities;
+using Sandbox.Game.Entities.Character;
 using Sandbox.Game.WorldEnvironment;
 using Sandbox.ModAPI;
 using System;
@@ -206,6 +207,12 @@ namespace ToolCore.Session
             var isBlock = comp.IsBlock;
             var isTurret = def.IsTurret;
 
+            var tTickDiff = Tick - comp.LastGridsTaskTick;
+            if (!comp.GridsTask.IsComplete && tTickDiff > 0 && (tTickDiff % 100) == 0)
+            {
+                Logs.WriteLine($"{comp.BlockTool?.DisplayNameText ?? "handtool"} has frozen grid work task!");
+            }
+
             if (isBlock && comp.Functional != block.IsFunctional)
             {
                 comp.Functional = block.IsFunctional;
@@ -327,7 +334,7 @@ namespace ToolCore.Session
             {
                 var turret = modeData.Turret;
                 var dirty = comp.TargetsDirty || turret.Targets.Count < 1;
-                if (dirty && (Tick - turret.LastRefreshTick) > def.UpdateInterval && tickModUpdate < (def.UpdateInterval / 2) && comp.GridsTask.IsComplete)
+                if (dirty && (Tick - turret.LastRefreshTick) > def.UpdateInterval && tickModUpdate < (def.UpdateInterval / 2) && comp.GridsTask.IsComplete && comp.CallbackComplete)
                 {
                     turret.RefreshTargetList(def, worldPos);
                     turret.LastRefreshTick = Tick;
@@ -362,7 +369,7 @@ namespace ToolCore.Session
             if (!workTick)
                 return;
 
-            if (comp.ActiveThreads > 0 || !comp.GridsTask.IsComplete)
+            if (comp.ActiveThreads > 0 || !comp.GridsTask.IsComplete || !comp.CallbackComplete)
                 return;
 
             comp.DrawBoxes.ClearList();
@@ -465,6 +472,8 @@ namespace ToolCore.Session
             var damageType = (int)def.ToolType < 2 ? MyDamageType.Drill : (int)def.ToolType < 4 ? MyDamageType.Grind : MyDamageType.Weld;
             var toolFaction = MyAPIGateway.Session.Factions.TryGetPlayerFaction(ownerId);
 
+            //comp.GridData.Clean(comp);
+
             var count = line ? _lineOverlaps.Count : Entities.Count;
             for (int k = 0; k < count; k++)
             {
@@ -537,7 +546,7 @@ namespace ToolCore.Session
                     }
                     comp.Working = true;
 
-                    var damage = 100f;
+                    var damage = entity is IMyCharacter ? 1f : 100f;
                     if (entity is MyFloatingObject && isBlock && def.PickUpFloatings)
                     {
                         var floating = (MyFloatingObject)entity;
@@ -724,6 +733,7 @@ namespace ToolCore.Session
             gridData.Up = worldUp;
             gridData.RayLength = rayLength;
             comp.GridsTask = MyAPIGateway.Parallel.Start(comp.GetBlocksInVolume, comp.OnGetBlocksComplete);
+            comp.LastGridsTaskTick = Tick;
 
             Entities.Clear();
             _lineOverlaps.Clear();

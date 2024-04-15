@@ -31,7 +31,6 @@ namespace ToolCore.Session
         internal readonly Stack<GridComp> GridCompPool = new Stack<GridComp>(64);
         internal readonly Stack<GroupMap> GroupMapPool = new Stack<GroupMap>(64);
         internal readonly Stack<DrillData> DrillDataPool = new Stack<DrillData>(64);
-        internal readonly Stack<GridData> ToolDataPool = new Stack<GridData>(64);
 
         internal readonly FastLookupCachingList<IMySlimBlock> SlimList = new FastLookupCachingList<IMySlimBlock>();
 
@@ -98,7 +97,6 @@ namespace ToolCore.Session
         {
             GridCompPool.Clear();
             DrillDataPool.Clear();
-            ToolDataPool.Clear();
 
             SlimList.Clear();
 

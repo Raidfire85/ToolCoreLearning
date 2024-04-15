@@ -17,7 +17,7 @@ using static ToolCore.Comp.ToolComp;
 
 namespace ToolCore
 {
-    internal class GridData : WorkData
+    internal class GridData
     {
         internal Vector3D Position;
         internal Vector3D Forward;
@@ -125,6 +125,8 @@ namespace ToolCore
             {
                 Logs.LogException(ex);
             }
+
+            comp.CallbackComplete = false;
         }
 
         private static void GetBlocksInSphere(this ToolComp comp, GridData data, MyCubeGrid grid, 
@@ -442,33 +444,34 @@ namespace ToolCore
         internal static void OnGetBlocksComplete(this ToolComp comp)
         {
             var session = ToolSession.Instance;
-            var modeData = comp.ModeData;
-            var def = modeData.Definition;
-            var workSet = comp.WorkSet;
-            var layers = comp.HitBlockLayers;
-
-            var gridData = comp.GridData;
-            var pos = gridData.Position;
-
-            if (def.CacheBlocks && gridData.Grids.Count > 0)
-            {
-                for (int s = workSet.Count - 1; s >= 0; s--)
-                {
-                    var slim = workSet[s];
-                    var fatClose = slim?.FatBlock == null ? false : slim.FatBlock.MarkedForClose;
-                    var gridClose = slim?.CubeGrid == null || slim.CubeGrid.MarkedForClose;
-                    var skip = slim == null || slim.IsFullyDismounted || comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation;
-                    if (fatClose || gridClose || skip)
-                    {
-                        workSet.RemoveAt(s);
-                        continue;
-                    }
-                }
-            }
-            gridData.Clean();
 
             try
             {
+                var modeData = comp.ModeData;
+                var def = modeData.Definition;
+                var workSet = comp.WorkSet;
+                var layers = comp.HitBlockLayers;
+
+                var gridData = comp.GridData;
+                var pos = gridData.Position;
+
+                if (def.CacheBlocks && gridData.Grids.Count > 0)
+                {
+                    for (int s = workSet.Count - 1; s >= 0; s--)
+                    {
+                        var slim = workSet[s];
+                        var fatClose = slim?.FatBlock == null ? false : slim.FatBlock.MarkedForClose;
+                        var gridClose = slim?.CubeGrid == null || slim.CubeGrid.MarkedForClose;
+                        var skip = slim == null || slim.IsFullyDismounted || comp.Mode == ToolMode.Weld && slim.IsFullIntegrity && !slim.HasDeformation;
+                        if (fatClose || gridClose || skip)
+                        {
+                            workSet.RemoveAt(s);
+                            continue;
+                        }
+                    }
+                }
+                gridData.Clean();
+
                 if (workSet.Count > 0)
                 {
                     layers[0] = workSet;
@@ -505,6 +508,7 @@ namespace ToolCore
             comp.FailedPulls.Clear();
             comp.HitBlockLayers.Clear();
             comp.MaxLayer = 0;
+            comp.CallbackComplete = true;
         }
 
         internal static void GrindBlocks(this ToolComp comp)
@@ -1161,6 +1165,7 @@ namespace ToolCore
             {
                 Logs.LogException(ex);
             }
+            comp.CallbackComplete = false;
         }
 
         internal static void OnGetBlockTargetsComplete(this ToolComp comp)
@@ -1191,12 +1196,13 @@ namespace ToolCore
             }
             catch (Exception ex)
             {
-                Logs.WriteLine($"turret null: {comp.ModeData?.Turret == null} - modeData null: {comp.ModeData == null}");
                 Logs.LogException(ex);
             }
 
+            comp.MaxLayer = 0;
             comp.GridData.Clean();
             comp.HitBlockLayers.Clear();
+            comp.CallbackComplete = true;
         }
 
         #endregion

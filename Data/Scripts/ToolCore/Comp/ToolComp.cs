@@ -94,6 +94,7 @@ namespace ToolCore.Comp
         internal bool UseWorkColour;
         internal bool Working;
         internal bool WasHitting;
+
         internal readonly Hit HitInfo = new Hit();
         internal MyStringHash HitMaterial = MyStringHash.GetOrCompute("Metal");
 
@@ -104,6 +105,9 @@ namespace ToolCore.Comp
         internal int LastPushTick;
         internal int ActiveThreads;
 
+        internal int LastGridsTaskTick;
+
+        internal volatile bool CallbackComplete = true;
         internal volatile int MaxLayer;
 
         internal uint WorkColourPacked;
@@ -571,6 +575,7 @@ namespace ToolCore.Comp
             internal void RefreshTargetList(ToolDefinition def, Vector3D worldPos)
             {
                 Targets.Clear();
+                //Comp.GridData.Clean(Comp);
                 //Logs.WriteLine("Refreshing target list");
 
                 var ownerId = Comp.IsBlock ? Comp.BlockTool.OwnerId : Comp.HandTool.OwnerIdentityId;
@@ -639,6 +644,7 @@ namespace ToolCore.Comp
 
                 gridData.Position = worldPos;
                 Comp.GridsTask = MyAPIGateway.Parallel.Start(Comp.GetBlockTargets, Comp.OnGetBlockTargetsComplete);
+                Comp.LastGridsTaskTick = ToolSession.Tick;
             }
 
             internal class TurretPart
