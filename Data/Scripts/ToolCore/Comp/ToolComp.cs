@@ -335,20 +335,36 @@ namespace ToolCore.Comp
 
         private void GetDummiesAndSubpartsRecursive(MyEntity entity)
         {
+            var model = ((IMyEntity)entity).Model;
+            if (model == null)
+            {
+                Logs.WriteLine($"Model for {BlockTool?.DisplayNameText ?? HandTool.DefinitionId.SubtypeName} was null!");
+                return;
+            }
+
             try
             {
-                ((IMyEntity)entity).Model.GetDummies(Dummies);
+                model.GetDummies(Dummies);
             }
             catch (Exception ex)
             {
-                var modelName = ((IMyEntity)entity).Model.AssetName;
-                var lastSlash = modelName.LastIndexOf('\\');
-                Logs.WriteLine($"Failed to get dummies from {modelName.Substring(lastSlash + 1)} - probably a duplicate empty name in another scene!");
+                var modelName = model.AssetName;
+                if (!string.IsNullOrEmpty(modelName))
+                {
+                    var lastSlash = modelName.LastIndexOf('\\');
+                    Logs.WriteLine($"Failed to get dummies from {modelName.Substring(lastSlash + 1)} - probably a duplicate empty name in another scene!");
+                }
                 Logs.LogException(ex);
             }
 
             foreach (var dummy in Dummies.Values)
             {
+                if (dummy == null)
+                {
+                    Logs.WriteLine("Somehow, a dummy was null...");
+                    continue;
+                }
+
                 if (DummyMap.ContainsKey(dummy))
                     continue;
 
@@ -361,6 +377,13 @@ namespace ToolCore.Comp
 
             foreach (var item in subparts)
             {
+                var subpart = item.Value;
+                if (subpart == null)
+                {
+                    Logs.WriteLine("Somehow, a subpart was null...");
+                    continue;
+                }
+
                 Subparts.Add(item.Key, item.Value);
 
                 GetDummiesAndSubpartsRecursive(item.Value);
