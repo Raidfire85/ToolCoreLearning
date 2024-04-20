@@ -26,6 +26,7 @@ using VRage.Utils;
 using VRage.Voxels;
 using VRageMath;
 using static ToolCore.Definitions.ToolDefinition;
+using static VRage.Game.ObjectBuilders.Definitions.MyObjectBuilder_GameDefinition;
 
 namespace ToolCore.Comp
 {
@@ -425,6 +426,7 @@ namespace ToolCore.Comp
             internal IMySlimBlock ActiveTarget;
             internal bool HasTarget;
             internal bool HadTarget;
+            internal bool Aligned;
             internal bool IsValid;
             internal int LastRefreshTick;
 
@@ -522,6 +524,7 @@ namespace ToolCore.Comp
                     return false;
                 }
 
+                var desiredAngle2 = 0f;
                 if (HasTwoParts)
                 {
                     Vector3D targetLocal2;
@@ -535,7 +538,7 @@ namespace ToolCore.Comp
 
                     var desiredFacing2 = (Vector3)Vector3D.ProjectOnPlane(ref targetVector2, ref finalAxis);
                     Part2.DesiredFacing = desiredFacing2;
-                    var desiredAngle2 = (float)Vector3.Angle(desiredFacing2, finalFacing) * Math.Sign(Vector3.Dot(desiredFacing2, Part2.Normal));
+                    desiredAngle2 = (float)Vector3.Angle(desiredFacing2, finalFacing) * Math.Sign(Vector3.Dot(desiredFacing2, Part2.Normal));
                     if (Part2.Definition.RotationCapped && (desiredAngle2 > Part2.Definition.MaxRotation || desiredAngle2 < Part2.Definition.MinRotation))
                     {
                         return false;

@@ -57,6 +57,8 @@ namespace ToolCore.Definitions
         internal class TurretDefinition
         {
             internal readonly int TargetRadiusSqr;
+            internal readonly float AimingToleranceSqr;
+
             internal BoundingSphereD TargetSphere;
             internal readonly List<TurretPartDef> Subparts = new List<TurretPartDef>();
 
@@ -64,6 +66,9 @@ namespace ToolCore.Definitions
             {
                 TargetRadiusSqr = values.TargetRadius * values.TargetRadius;
                 TargetSphere = new BoundingSphereD(Vector3D.Zero, values.TargetRadius);
+
+                var aimingTolerance = MathHelper.ToRadians(values.AimingTolerance);
+                AimingToleranceSqr = aimingTolerance * aimingTolerance;
 
                 for (int i = 0; i < values.Subparts.Length; i++)
                 {

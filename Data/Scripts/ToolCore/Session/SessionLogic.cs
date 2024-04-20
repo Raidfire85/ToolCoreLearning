@@ -260,9 +260,89 @@ namespace ToolCore.Session
             if (isBlock && !block.Enabled)
                 return;
 
+            Vector3D worldPos, worldForward, worldUp;
+            CalculateWorldVectors(comp, out worldPos, out worldForward, out worldUp);
+
+            var turret = modeData.Turret;
+            if (def.IsTurret)
+            {
+                var dirty = comp.TargetsDirty || turret.Targets.Count < 1;
+                if (dirty && (Tick - turret.LastRefreshTick) > def.UpdateInterval && tickModUpdate < (def.UpdateInterval / 2) && comp.GridsTask.IsComplete && comp.CallbackComplete)
+                {
+                    turret.RefreshTargetList(def, worldPos);
+                    turret.LastRefreshTick = Tick;
+
+                    if (comp.TargetsDirty)
+                    {
+                        turret.DeselectTarget(); //consider waiting before going home
+                        comp.TargetsDirty = false;
+                    }
+                }
+
+                if (workTick)
+                {
+                    if (turret.HasTarget)
+                    {
+                        var target = turret.ActiveTarget;
+                        var projector = ((MyCubeGrid)target.CubeGrid).Projector as IMyProjector;
+
+                        var closing = target.CubeGrid.MarkedForClose || target.FatBlock != null && target.FatBlock.MarkedForClose;
+                        var finished = target.IsFullyDismounted || comp.Mode == ToolMode.Weld && projector == null && target.IsFullIntegrity && !target.HasDeformation;
+                        var outOfRange = Vector3D.DistanceSquared(target.CubeGrid.GridIntegerToWorld(target.Position), worldPos) > turret.Definition.TargetRadiusSqr;
+                        if (closing || finished || outOfRange || (projector != null && projector.CanBuild(target, true) != BuildCheckResult.OK))
+                        {
+                            turret.DeselectTarget();
+                        }
+                    }
+
+                    if (!turret.HasTarget && turret.Targets.Count > 0)
+                        turret.SelectNewTarget(worldPos);
+
+                    while (turret.HasTarget && !turret.TrackTarget() && turret.Targets.Count > 0)
+                    {
+                        turret.Targets.RemoveAt(turret.Targets.Count - 1);
+                        turret.SelectNewTarget(worldPos);
+                    }
+
+                    if (!turret.HasTarget && !turret.HadTarget)
+                    {
+                        turret.GoHome();
+                    }
+                }
+
+                var part1 = turret.Part1;
+                var diff1 = part1.DesiredRotation - part1.CurrentRotation;
+                if (!MyUtils.IsZero(diff1, 0.001f))
+                {
+                    var amount = MathHelper.Clamp(diff1, -part1.Definition.RotationSpeed, part1.Definition.RotationSpeed);
+                    part1.CurrentRotation += amount;
+                }
+
+                var diff2 = 0f;
+                if (turret.HasTwoParts)
+                {
+                    var part2 = turret.Part2;
+                    diff2 = part2.DesiredRotation - part2.CurrentRotation;
+                    if (!MyUtils.IsZero(diff2, 0.001f))
+                    {
+                        var amount = MathHelper.Clamp(diff2, -part2.Definition.RotationSpeed, part2.Definition.RotationSpeed);
+                        part2.CurrentRotation += amount;
+                    }
+                }
+
+                var angleSqr = diff1 * diff1 + diff2 * diff2;
+                var aligned = turret.HasTarget && angleSqr < turret.Definition.AimingToleranceSqr;
+                if (aligned != turret.Aligned)
+                {
+                    turret.Aligned = aligned;
+                    comp.UpdateAvState(Trigger.Firing, turret.Aligned);
+                }
+            }
+
             var activated = comp.Activated;
             var handToolShooting = !isBlock && comp.HandTool.IsShooting;
-            var shooting = activated || handToolShooting || comp.GunBase.Shooting;
+            var turretAligned = isTurret && turret.HasTarget && turret.Aligned;
+            var shooting = activated || handToolShooting || turretAligned || comp.GunBase.Shooting;
             if (!shooting)
                 return;
 
@@ -277,9 +357,6 @@ namespace ToolCore.Session
 
             if (IsServer && comp.Mode != ToolMode.Weld && (comp.CompTick60 == TickMod60 || comp.Inventory.VolumeFillFactor > 0.9f))
                 comp.ManageInventory();
-
-            Vector3D worldPos, worldForward, worldUp;
-            CalculateWorldVectors(comp, out worldPos, out worldForward, out worldUp);
 
             var ownerId = isBlock ? block.OwnerId : handTool.OwnerIdentityId;
 
@@ -330,42 +407,6 @@ namespace ToolCore.Session
                 else comp.UpdateHitInfo(false);
             }
 
-            if (def.IsTurret)
-            {
-                var turret = modeData.Turret;
-                var dirty = comp.TargetsDirty || turret.Targets.Count < 1;
-                if (dirty && (Tick - turret.LastRefreshTick) > def.UpdateInterval && tickModUpdate < (def.UpdateInterval / 2) && comp.GridsTask.IsComplete && comp.CallbackComplete)
-                {
-                    turret.RefreshTargetList(def, worldPos);
-                    turret.LastRefreshTick = Tick;
-                    
-                    if (comp.TargetsDirty)
-                    {
-                        turret.DeselectTarget(); //consider waiting before going home
-                        comp.TargetsDirty = false;
-                    }
-                }
-
-                var part1 = turret.Part1;
-                var diff1 = part1.DesiredRotation - part1.CurrentRotation;
-                if (!MyUtils.IsZero(diff1, 0.001f))
-                {
-                    var amount = MathHelper.Clamp(diff1, -part1.Definition.RotationSpeed, part1.Definition.RotationSpeed);
-                    part1.CurrentRotation += amount;
-                }
-
-                if (turret.HasTwoParts)
-                {
-                    var part2 = turret.Part2;
-                    var diff2 = part2.DesiredRotation - part2.CurrentRotation;
-                    if (!MyUtils.IsZero(diff2, 0.001f))
-                    {
-                        var amount = MathHelper.Clamp(diff2, -part2.Definition.RotationSpeed, part2.Definition.RotationSpeed);
-                        part2.CurrentRotation += amount;
-                    }
-                }
-            }
-
             if (!workTick)
                 return;
 
@@ -373,38 +414,6 @@ namespace ToolCore.Session
                 return;
 
             comp.DrawBoxes.ClearList();
-
-            if (def.IsTurret)
-            {
-                var turret = modeData.Turret;
-                if (turret.HasTarget)
-                {
-                    var target = turret.ActiveTarget;
-                    var projector = ((MyCubeGrid)target.CubeGrid).Projector as IMyProjector;
-
-                    var closing = target.CubeGrid.MarkedForClose || target.FatBlock != null && target.FatBlock.MarkedForClose;
-                    var finished = target.IsFullyDismounted || comp.Mode == ToolMode.Weld && projector == null && target.IsFullIntegrity && !target.HasDeformation;
-                    var outOfRange = Vector3D.DistanceSquared(target.CubeGrid.GridIntegerToWorld(target.Position), worldPos) > turret.Definition.TargetRadiusSqr;
-                    if (closing || finished || outOfRange || (projector != null && projector.CanBuild(target, true) != BuildCheckResult.OK))
-                    {
-                        turret.DeselectTarget();
-                    }
-                }
-
-                if (!turret.HasTarget && turret.Targets.Count > 0)
-                    turret.SelectNewTarget(worldPos);
-
-                while (turret.HasTarget && !turret.TrackTarget() && turret.Targets.Count > 0)
-                {
-                    turret.Targets.RemoveAt(turret.Targets.Count - 1);
-                    turret.SelectNewTarget(worldPos);
-                }
-
-                if (!turret.HasTarget && !turret.HadTarget)
-                {
-                    turret.GoHome();
-                }
-            }
 
             if (def.CacheBlocks && comp.Mode != ToolMode.Drill)
             {

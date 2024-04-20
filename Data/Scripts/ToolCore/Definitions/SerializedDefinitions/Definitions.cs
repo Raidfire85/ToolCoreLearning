@@ -136,6 +136,7 @@ namespace ToolCore.Definitions.Serialised
     public class TurretValues
     {
         public int TargetRadius = 100;
+        public float AimingTolerance = 1f;
         [XmlElement("Subpart")]
         public SubpartValues[] Subparts;
     }
