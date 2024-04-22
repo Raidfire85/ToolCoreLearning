@@ -1,12 +1,9 @@
 ﻿using Sandbox.Game.Entities;
-using Sandbox.ModAPI;
 using System.Collections.Generic;
 using ToolCore.Comp;
 using ToolCore.Definitions.Serialised;
 using ToolCore.Utils;
 using VRage.Game;
-using VRage.Game.ModAPI;
-using VRage.Utils;
 using VRageMath;
 using static ToolCore.Comp.ToolComp;
 using static ToolCore.Utils.Draw;
@@ -17,81 +14,6 @@ namespace ToolCore.Session
     {
         internal void AvLoop()
         {
-            for (int i = 0; i < GridList.Count; i++)
-            {
-                var gridComp = GridList[i];
-
-                for (int j = 0; j < gridComp.ToolComps.Count; j++)
-                {
-                    var comp = gridComp.ToolComps[j];
-                    var isBlock = comp.IsBlock;
-
-                    if (!comp.Functional || !comp.Enabled || !comp.Powered)
-                        continue;
-
-                    if (!isBlock && ((IMyCharacter)comp.Parent).SuitEnergyLevel <= 0)
-                        continue;
-
-                    var modeData = comp.ModeData;
-                    if (modeData.Turret != null)
-                    {
-                        var turret = modeData.Turret;
-                        if (turret.ActiveTarget != null && comp.Draw && !IsDedicated)
-                        {
-                            var slim = turret.ActiveTarget;
-                            Vector3D worldPos, worldForward, worldUp;
-                            CalculateWorldVectors(comp, out worldPos, out worldForward, out worldUp);
-                            DrawLine(worldPos, slim.CubeGrid.GridIntegerToWorld(slim.Position), Color.BlueViolet, 0.01f);
-                        }
-
-                        var part1 = turret.Part1;
-                        var diff1 = part1.CurrentRotation - part1.VisualRotation;
-                        if (!MyUtils.IsZero(diff1, 0.001f))
-                        {
-                            var rotation = part1.RotationFactory.Invoke(diff1);
-                            var lm = part1.Subpart.PositionComp.LocalMatrixRef;
-                            var translation = lm.Translation;
-                            lm *= rotation;
-                            lm.Translation = translation;
-                            part1.Subpart.PositionComp.SetLocalMatrix(ref lm);
-                            part1.VisualRotation = part1.CurrentRotation;
-                        }
-
-                        if (modeData.Definition.Debug && !IsDedicated)
-                        {
-                            DrawLocalVector(part1.DesiredFacing, part1.Subpart, part1.Parent, Color.Green);
-                            DrawLocalVector(part1.Facing, part1.Subpart, part1.Parent, Color.Blue);
-                        }
-
-                        if (turret.HasTwoParts)
-                        {
-                            var part2 = turret.Part2;
-                            var diff2 = part2.CurrentRotation - part2.VisualRotation;
-                            if (!MyUtils.IsZero(diff2, 0.001f))
-                            {
-                                var rotation = part2.RotationFactory.Invoke(diff2);
-                                var lm = part2.Subpart.PositionComp.LocalMatrixRef;
-                                var translation = lm.Translation;
-                                lm *= rotation;
-                                lm.Translation = translation;
-                                part2.Subpart.PositionComp.SetLocalMatrix(ref lm);
-                                part2.VisualRotation = part2.CurrentRotation;
-                            }
-
-                            if (modeData.Definition.Debug && !IsDedicated)
-                            {
-                                DrawLocalVector(part2.DesiredFacing, part2.Subpart, part2.Parent, Color.Red);
-                                DrawLocalVector(part2.Facing, part2.Subpart, part2.Parent, Color.Blue);
-                            }
-                        }
-                    }
-
-                }
-            }
-
-            if (IsDedicated)
-                return;
-
             AvComps.ApplyAdditions();
             for (int i = 0; i < AvComps.Count; i++)
             {

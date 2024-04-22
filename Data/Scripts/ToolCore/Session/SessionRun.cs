@@ -117,7 +117,7 @@ namespace ToolCore.Session
 
         public override void UpdateAfterSimulation()
         {
-            //if (IsDedicated) return;
+            if (IsDedicated) return;
             try
             {
                 AvLoop();

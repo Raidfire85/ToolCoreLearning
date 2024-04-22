@@ -173,7 +173,13 @@
     <Compile Include="Data\Scripts\ToolCore\Comp\CoreGun.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>
+    <Compile Include="Data\Scripts\ToolCore\Comp\Effects.cs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Compile>
     <Compile Include="Data\Scripts\ToolCore\Comp\ToolComp.cs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Compile>
+    <Compile Include="Data\Scripts\ToolCore\Comp\Turret.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>
     <Compile Include="Data\Scripts\ToolCore\Definitions\SerializedDefinitions\Definitions.cs">

@@ -1,5 +1,4 @@
 ﻿using Sandbox.Game.Entities;
-using Sandbox.Game.Entities.Character;
 using Sandbox.Game.WorldEnvironment;
 using Sandbox.ModAPI;
 using System;
@@ -204,8 +203,9 @@ namespace ToolCore.Session
             var tool = comp.ToolEntity;
             var block = comp.BlockTool;
             var handTool = comp.HandTool;
+            var turret = modeData.Turret;
             var isBlock = comp.IsBlock;
-            var isTurret = def.IsTurret;
+            var isTurret = def.IsTurret && turret != null;
 
             var tTickDiff = Tick - comp.LastGridsTaskTick;
             if (!comp.GridsTask.IsComplete && tTickDiff > 0 && (tTickDiff % 100) == 0)
@@ -263,19 +263,26 @@ namespace ToolCore.Session
             Vector3D worldPos, worldForward, worldUp;
             CalculateWorldVectors(comp, out worldPos, out worldForward, out worldUp);
 
-            var turret = modeData.Turret;
-            if (def.IsTurret)
+            var activated = comp.Activated;
+            var handToolShooting = !isBlock && comp.HandTool.IsShooting;
+            var shooting = activated || handToolShooting || comp.GunBase.Shooting;
+
+            var turretAligned = false;
+            if (isTurret && comp.TrackTargets)
             {
                 var dirty = comp.TargetsDirty || turret.Targets.Count < 1;
-                if (dirty && (Tick - turret.LastRefreshTick) > def.UpdateInterval && tickModUpdate < (def.UpdateInterval / 2) && comp.GridsTask.IsComplete && comp.CallbackComplete)
+                if (dirty && comp.GridsTask.IsComplete && comp.CallbackComplete)
                 {
-                    turret.RefreshTargetList(def, worldPos);
-                    turret.LastRefreshTick = Tick;
-
-                    if (comp.TargetsDirty)
+                    if ((Tick - turret.LastRefreshTick) > def.UpdateInterval && tickModUpdate < (def.UpdateInterval / 2))
                     {
-                        turret.DeselectTarget(); //consider waiting before going home
-                        comp.TargetsDirty = false;
+                        turret.RefreshTargetList(def, worldPos);
+                        turret.LastRefreshTick = Tick;
+
+                        if (comp.TargetsDirty)
+                        {
+                            turret.DeselectTarget();
+                            comp.TargetsDirty = false;
+                        }
                     }
                 }
 
@@ -316,6 +323,25 @@ namespace ToolCore.Session
                 {
                     var amount = MathHelper.Clamp(diff1, -part1.Definition.RotationSpeed, part1.Definition.RotationSpeed);
                     part1.CurrentRotation += amount;
+                    diff1 -= amount;
+                }
+
+                var visDiff1 = part1.CurrentRotation - part1.VisualRotation;
+                if (!MyUtils.IsZero(visDiff1, 0.001f))
+                {
+                    var rotation = part1.RotationFactory.Invoke(visDiff1);
+                    var lm = part1.Subpart.PositionComp.LocalMatrixRef;
+                    var translation = lm.Translation;
+                    lm *= rotation;
+                    lm.Translation = translation;
+                    part1.Subpart.PositionComp.SetLocalMatrix(ref lm);
+                    part1.VisualRotation = part1.CurrentRotation;
+                }
+
+                if (def.Debug && !IsDedicated)
+                {
+                    DrawLocalVector(part1.DesiredFacing, part1.Subpart, part1.Parent, Color.Green);
+                    DrawLocalVector(part1.Facing, part1.Subpart, part1.Parent, Color.Blue);
                 }
 
                 var diff2 = 0f;
@@ -327,6 +353,25 @@ namespace ToolCore.Session
                     {
                         var amount = MathHelper.Clamp(diff2, -part2.Definition.RotationSpeed, part2.Definition.RotationSpeed);
                         part2.CurrentRotation += amount;
+                        diff2 -= amount;
+                    }
+
+                    var visDiff2 = part2.CurrentRotation - part2.VisualRotation;
+                    if (!MyUtils.IsZero(visDiff2, 0.001f))
+                    {
+                        var rotation = part2.RotationFactory.Invoke(visDiff2);
+                        var lm = part2.Subpart.PositionComp.LocalMatrixRef;
+                        var translation = lm.Translation;
+                        lm *= rotation;
+                        lm.Translation = translation;
+                        part2.Subpart.PositionComp.SetLocalMatrix(ref lm);
+                        part2.VisualRotation = part2.CurrentRotation;
+                    }
+
+                    if (def.Debug && !IsDedicated)
+                    {
+                        DrawLocalVector(part2.DesiredFacing, part2.Subpart, part2.Parent, Color.Red);
+                        DrawLocalVector(part2.Facing, part2.Subpart, part2.Parent, Color.Blue);
                     }
                 }
 
@@ -335,15 +380,23 @@ namespace ToolCore.Session
                 if (aligned != turret.Aligned)
                 {
                     turret.Aligned = aligned;
-                    comp.UpdateAvState(Trigger.Firing, turret.Aligned);
+
+                    if (!shooting)
+                    {
+                        comp.UpdateAvState(Trigger.Firing, turret.Aligned);
+                    }
                 }
+
+                if (turret.HasTarget && turret.ActiveTarget != null && comp.Draw && !IsDedicated)
+                {
+                    var slim = turret.ActiveTarget;
+                    DrawLine(worldPos, slim.CubeGrid.GridIntegerToWorld(slim.Position), Color.BlueViolet, 0.01f);
+                }
+
+                turretAligned = turret.HasTarget && turret.Aligned;
             }
 
-            var activated = comp.Activated;
-            var handToolShooting = !isBlock && comp.HandTool.IsShooting;
-            var turretAligned = isTurret && turret.HasTarget && turret.Aligned;
-            var shooting = activated || handToolShooting || turretAligned || comp.GunBase.Shooting;
-            if (!shooting)
+            if (!shooting && !turretAligned)
                 return;
 
             if (activated)

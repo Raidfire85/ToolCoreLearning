@@ -105,6 +105,9 @@ namespace ToolCore.Session
                 case FieldType.Draw:
                     comp.Draw = ((BoolUpdatePacket)packet).Value;
                     break;
+                case FieldType.TrackTargets:
+                    comp.TrackTargets = ((BoolUpdatePacket)packet).Value;
+                    break;
                 case FieldType.TargetType:
                     var value = ((SbyteUpdatePacket)packet).Value;
                     var target = (TargetTypes)Math.Abs(value);
@@ -281,9 +284,10 @@ namespace ToolCore.Session
         Mode = 2,
         Action = 3,
         Draw = 4,
-        TargetType = 5,
-        UseColour = 6,
-        Colour = 7,
+        TrackTargets = 5,
+        TargetType = 6,
+        UseColour = 7,
+        Colour = 8,
     }
 
 }
