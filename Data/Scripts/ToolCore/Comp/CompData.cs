@@ -13,6 +13,7 @@ namespace ToolCore.Comp
         [ProtoMember(5)] public byte Targets;
         [ProtoMember(6)] public bool UseWorkColour;
         [ProtoMember(7)] public Vector3 WorkColour;
+        [ProtoMember(8)] public bool TrackTargets;
 
         internal void Sync(ToolComp comp)
         {
@@ -23,6 +24,7 @@ namespace ToolCore.Comp
             Targets = (byte)comp.Targets;
             UseWorkColour = comp.UseWorkColour;
             WorkColour = comp.WorkColour;
+            TrackTargets = comp.TrackTargets;
         }
     }
 }

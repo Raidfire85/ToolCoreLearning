@@ -85,14 +85,15 @@ namespace ToolCore.Comp
         internal bool Powered = true;
         internal bool FullInit;
         internal bool Dirty;
-        internal bool TrackTargets;
         internal bool TargetsDirty;
         internal bool AvActive;
         internal bool UpdatePower;
         internal bool LastPushSucceeded;
 
         internal bool Draw;
+        internal bool TrackTargets;
         internal bool UseWorkColour;
+
         internal bool Working;
         internal bool WasHitting;
 
@@ -826,50 +827,6 @@ namespace ToolCore.Comp
             return ModeData.Definition.IdlePower;
         }
 
-        private void StorageInit()
-        {
-            string rawData;
-            ToolRepo loadRepo = null;
-            if (ToolEntity.Storage == null)
-            {
-                ToolEntity.Storage = new MyModStorageComponent();
-            }
-            else if (ToolEntity.Storage.TryGetValue(ToolSession.Instance.CompDataGuid, out rawData))
-            {
-                try
-                {
-                    var base64 = Convert.FromBase64String(rawData);
-                    loadRepo = MyAPIGateway.Utilities.SerializeFromBinary<ToolRepo>(base64);
-                }
-                catch (Exception ex)
-                {
-                    Logs.LogException(ex);
-                }
-            }
-
-            if (loadRepo != null)
-            {
-                Sync(loadRepo);
-            }
-            else
-            {
-                Repo = new ToolRepo();
-            }
-        }
-
-        private void Sync(ToolRepo repo)
-        {
-            Repo = repo;
-
-            Activated = repo.Activated;
-            Draw = repo.Draw;
-            Mode = (ToolMode)repo.Mode;
-            Action = (ToolAction)repo.Action;
-            Targets = (TargetTypes)repo.Targets;
-            UseWorkColour = repo.UseWorkColour;
-            WorkColour = repo.WorkColour;
-        }
-
         internal void OnDrillComplete(WorkData data)
         {
             var session = ToolSession.Instance;
@@ -970,6 +927,51 @@ namespace ToolCore.Comp
                 ShowInToolbarSwitch.Setter(BlockTool, !originalSetting);
                 ShowInToolbarSwitch.Setter(BlockTool, originalSetting);
             }
+        }
+
+        private void StorageInit()
+        {
+            string rawData;
+            ToolRepo loadRepo = null;
+            if (ToolEntity.Storage == null)
+            {
+                ToolEntity.Storage = new MyModStorageComponent();
+            }
+            else if (ToolEntity.Storage.TryGetValue(ToolSession.Instance.CompDataGuid, out rawData))
+            {
+                try
+                {
+                    var base64 = Convert.FromBase64String(rawData);
+                    loadRepo = MyAPIGateway.Utilities.SerializeFromBinary<ToolRepo>(base64);
+                }
+                catch (Exception ex)
+                {
+                    Logs.LogException(ex);
+                }
+            }
+
+            if (loadRepo != null)
+            {
+                Sync(loadRepo);
+            }
+            else
+            {
+                Repo = new ToolRepo();
+            }
+        }
+
+        private void Sync(ToolRepo repo)
+        {
+            Repo = repo;
+
+            Activated = repo.Activated;
+            Draw = repo.Draw;
+            Mode = (ToolMode)repo.Mode;
+            Action = (ToolAction)repo.Action;
+            Targets = (TargetTypes)repo.Targets;
+            UseWorkColour = repo.UseWorkColour;
+            WorkColour = repo.WorkColour;
+            TrackTargets = repo.TrackTargets;
         }
 
         internal void Close()
