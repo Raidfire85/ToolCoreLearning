@@ -757,7 +757,8 @@ namespace ToolCore
                     slim.MoveItemsToConstructionStockpile(inventory);
 
                     slim.IncreaseMountLevel(weldAmount, ownerId, inventory, 0.15f, false);
-                    slim.MoveItemsFromConstructionStockpile(inventory);
+
+                    //slim.MoveItemsFromConstructionStockpile(inventory);
 
                     if (def.CacheBlocks && !slim.IsFullIntegrity || slim.HasDeformation)
                     {
@@ -1056,7 +1057,7 @@ namespace ToolCore
                     slim.MoveItemsToConstructionStockpile(inventory);
 
                     slim.IncreaseMountLevel(weldAmount, ownerId, inventory, 0.15f, false);
-                    slim.MoveItemsFromConstructionStockpile(inventory);
+                    //slim.MoveItemsFromConstructionStockpile(inventory);
 
                     if (def.CacheBlocks && !slim.IsFullIntegrity || slim.HasDeformation)
                     {
