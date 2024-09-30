@@ -43,7 +43,8 @@ namespace ToolCore.Session
         internal readonly Dictionary<long, ToolComp> ToolMap = new Dictionary<long, ToolComp>();
         internal readonly Dictionary<IMySlimBlock, float> WorkMap = new Dictionary<IMySlimBlock, float>();
         internal readonly Dictionary<string, int> MissingComponents = new Dictionary<string, int>();
-        internal readonly Dictionary<string, int> TempComponents = new Dictionary<string, int>();
+        internal readonly Dictionary<string, int> TempMissing = new Dictionary<string, int>();
+        internal readonly Dictionary<string, float> TempItems = new Dictionary<string, float>();
         internal readonly ConcurrentDictionary<IMyCubeGrid, GridComp> GridMap = new ConcurrentDictionary<IMyCubeGrid, GridComp>();
         internal readonly ConcurrentDictionary<long, IMyPlayer> PlayerMap = new ConcurrentDictionary<long, IMyPlayer>();
 

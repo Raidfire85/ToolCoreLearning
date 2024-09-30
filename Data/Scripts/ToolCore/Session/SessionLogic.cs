@@ -260,6 +260,11 @@ namespace ToolCore.Session
             if (isBlock && !block.Enabled)
                 return;
 
+            var fill = comp.Inventory.VolumeFillFactor;
+            var needsPushing = comp.CompTick60 == TickMod60 && (fill > 0f || comp.Yields.Count > 0);
+            if (IsServer && comp.Mode != ToolMode.Weld && needsPushing)
+                comp.ManageInventory();
+
             Vector3D worldPos, worldForward, worldUp;
             CalculateWorldVectors(comp, out worldPos, out worldForward, out worldUp);
 
@@ -407,9 +412,6 @@ namespace ToolCore.Session
                     return;
                 }
             }
-
-            if (IsServer && comp.Mode != ToolMode.Weld && (comp.CompTick60 == TickMod60 || comp.Inventory.VolumeFillFactor > 0.9f))
-                comp.ManageInventory();
 
             var ownerId = isBlock ? block.OwnerId : handTool.OwnerIdentityId;
 

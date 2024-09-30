@@ -88,7 +88,7 @@ namespace ToolCore.Comp
         internal bool TargetsDirty;
         internal bool AvActive;
         internal bool UpdatePower;
-        internal bool LastPushSucceeded;
+        internal bool LastPushSucceeded = true;
 
         internal bool Draw;
         internal bool TrackTargets;
@@ -862,41 +862,77 @@ namespace ToolCore.Comp
 
         internal void ManageInventory()
         {
-            var tryPush = IsBlock && (LastPushSucceeded || ToolSession.Tick - LastPushTick > 1200);
+            var session = ToolSession.Instance;
+            var tryUpdate = ToolSession.Tick - LastPushTick > 1200;
+            //Logs.WriteLine($"ManageInventory() {LastPushSucceeded} : {ToolSession.Tick - LastPushTick}");
 
             foreach (var ore in Yields.Keys)
             {
+                var gross = Yields[ore];
+                if (!LastPushSucceeded && !tryUpdate && FailedPushes.Contains(ore))
+                {
+                    session.TempItems[ore] = gross;
+                    continue;
+                }
                 var oreOb = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_Ore>(ore);
                 var itemDef = MyDefinitionManager.Static.GetPhysicalItemDefinition(oreOb);
-                var amount = (MyFixedPoint)(Yields[ore] / itemDef.Volume);
-                if (tryPush)
-                {
-                    MyFixedPoint transferred;
-                    LastPushSucceeded = Grid.ConveyorSystem.PushGenerateItem(itemDef.Id, amount, out transferred, BlockTool, false);
-                    if (LastPushSucceeded)
-                        continue;
+                var itemVol = itemDef.Volume;
+                var amount = (MyFixedPoint)(gross / itemDef.Volume);
+                //Logs.WriteLine($"Holding {amount} ore");
 
-                    amount -= transferred;
-                    tryPush = false;
+                MyFixedPoint transferred;
+                Grid.ConveyorSystem.PushGenerateItem(itemDef.Id, amount, out transferred, BlockTool, false);
+                //Logs.WriteLine($"Pushed {transferred}");
+
+                amount -= transferred;
+                if (amount == MyFixedPoint.Zero)
+                {
+                    LastPushSucceeded = true;
+                    FailedPushes.Remove(ore);
+                    continue;
                 }
 
-                Inventory.AddItems(amount, oreOb);
+                if (FailedPushes.Add(ore))
+                {
+                    session.TempItems[ore] = (float)amount * itemVol;
+                    LastPushSucceeded = true;
+                    continue;
+                }
+
+                LastPushSucceeded = false;
+
+                var fits = Inventory.ComputeAmountThatFits(itemDef.Id);
+                var toAdd = amount;
+                if (fits < amount)
+                {
+                    toAdd = fits;
+                    amount -= fits;
+                    session.TempItems[ore] = (float)amount * itemVol;
+                }
+                Inventory.AddItems(toAdd, oreOb);
+                //Logs.WriteLine($"Added {toAdd}");
             }
+
             Yields.Clear();
-
-            if (tryPush && !Inventory.Empty())
+            foreach (var yield in session.TempItems)
             {
-                var items = new List<MyPhysicalInventoryItem>(Inventory.GetItems());
-                for (int i = 0; i < items.Count; i++)
-                {
-                    var item = items[i];
-                    MyFixedPoint transferred;
-                    LastPushSucceeded = Grid.ConveyorSystem.PushGenerateItem(item.Content.GetId(), item.Amount, out transferred, BlockTool, false);
-                    if (!LastPushSucceeded)
-                        break;
+                Yields[yield.Key] = yield.Value;
+            }
+            session.TempItems.Clear();
 
-                    Inventory.RemoveItems(item.ItemId, transferred);
-                }
+            if (!(LastPushSucceeded || tryUpdate) || Inventory.Empty())
+                return;
+
+            var items = new List<MyPhysicalInventoryItem>(Inventory.GetItems());
+            for (int i = 0; i < items.Count; i++)
+            {
+                var item = items[i];
+                MyFixedPoint transferred;
+                LastPushSucceeded = Grid.ConveyorSystem.PushGenerateItem(item.Content.GetId(), item.Amount, out transferred, BlockTool, false);
+                if (!LastPushSucceeded)
+                    break;
+
+                Inventory.RemoveItems(item.ItemId, transferred);
             }
 
         }
