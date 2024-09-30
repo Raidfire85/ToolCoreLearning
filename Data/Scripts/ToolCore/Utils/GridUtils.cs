@@ -128,7 +128,7 @@ namespace ToolCore
             comp.CallbackComplete = false;
         }
 
-        private static void GetBlocksInSphere(this ToolComp comp, GridData data, MyCubeGrid grid, 
+        private static void GetBlocksInSphere(this ToolComp comp, GridData data, MyCubeGrid grid,
             Vector3I min, Vector3I max, Vector3D centre, double radius)
         {
             int i, j, k;
@@ -187,7 +187,7 @@ namespace ToolCore
             }
         }
 
-        private static void GetBlocksInCylinder(this ToolComp comp, GridData data, MyCubeGrid grid, 
+        private static void GetBlocksInCylinder(this ToolComp comp, GridData data, MyCubeGrid grid,
             Vector3I min, Vector3I max, Vector3D centre, Vector3D forward, double radius, double length)
         {
             var endOffset = forward * (length / 2);
@@ -282,7 +282,7 @@ namespace ToolCore
             }
         }
 
-        private static void GetBlocksInCuboid(this ToolComp comp, GridData data, MyCubeGrid grid, 
+        private static void GetBlocksInCuboid(this ToolComp comp, GridData data, MyCubeGrid grid,
             Vector3I min, Vector3I max, MyOrientedBoundingBoxD obb)
         {
             int i, j, k;
@@ -343,7 +343,7 @@ namespace ToolCore
             }
         }
 
-        private static void GetBlocksOverlappingLine(this ToolComp comp, GridData data, MyCubeGrid grid, 
+        private static void GetBlocksOverlappingLine(this ToolComp comp, GridData data, MyCubeGrid grid,
             Vector3D start, Vector3D end)
         {
             var hitPositions = new List<Vector3I>();
@@ -399,7 +399,7 @@ namespace ToolCore
             }
         }
 
-        private static void GetBlockInRayPath(this ToolComp comp, GridData data, MyCubeGrid grid, 
+        private static void GetBlockInRayPath(this ToolComp comp, GridData data, MyCubeGrid grid,
             Vector3D pos)
         {
             var localPos = Vector3D.Transform(pos, grid.PositionComp.WorldMatrixNormalizedInv);
@@ -606,6 +606,7 @@ namespace ToolCore
             var toolValues = comp.Values;
             var maxBlocks = def.Rate;
             var ownerId = comp.IsBlock ? comp.BlockTool.OwnerId : comp.HandTool.OwnerIdentityId;
+            var steamId = MyAPIGateway.Players.TryGetSteamId(ownerId);
 
             var missing = ToolSession.Instance.MissingComponents;
             var creative = MyAPIGateway.Session.CreativeMode;
@@ -690,6 +691,12 @@ namespace ToolCore
                                 comp.ClientWorkSet.Add(new MyTuple<Vector3I, MyCubeGrid>(newPos, (MyCubeGrid)projector.CubeGrid));
                             }
                             continue;
+                        }
+
+                        if (steamId > 1 && cubeDef.DLCs != null && cubeDef.DLCs.Length > 0)
+                        {
+                            if (!OwnsDLC(cubeDef, steamId))
+                                continue;
                         }
 
                         if (!creative && inventory.RemoveItemsOfType(1, cubeDef.Components[0].Definition.Id) < 1)
@@ -810,6 +817,17 @@ namespace ToolCore
             return true;
         }
 
+        private static bool OwnsDLC(MyCubeBlockDefinition def, ulong steamId)
+        {
+            foreach (var dlc in def.DLCs)
+            {
+                if (!MyAPIGateway.DLC.HasDLC(dlc, steamId))
+                    return false;
+            }
+
+            return true;
+        }
+
         private static void DebugDrawBlock(this ToolComp comp, IMySlimBlock slim, Color color)
         {
             var grid = (MyCubeGrid)slim.CubeGrid;
@@ -835,9 +853,10 @@ namespace ToolCore
             var tempBlocks = session.TempBlocks;
             var maxBlocks = def.Rate;
             var ownerId = comp.IsBlock ? comp.BlockTool.OwnerId : comp.HandTool.OwnerIdentityId;
+            var steamId = MyAPIGateway.Players.TryGetSteamId(ownerId);
 
             var missing = session.MissingComponents;
-            var tempMissing = session.TempComponents;
+            var tempMissing = session.TempMissing;
             var creative = MyAPIGateway.Session.CreativeMode;
             var weldAmount = toolValues.Speed * MyAPIGateway.Session.WelderSpeedMultiplier;
 
@@ -996,6 +1015,12 @@ namespace ToolCore
                                 comp.ClientWorkSet.Add(new MyTuple<Vector3I, MyCubeGrid>(slimPos, (MyCubeGrid)projector.CubeGrid));
                             }
                             continue;
+                        }
+
+                        if (steamId > 1 && cubeDef.DLCs != null && cubeDef.DLCs.Length > 0)
+                        {
+                            if (!OwnsDLC(cubeDef, steamId))
+                                continue;
                         }
 
                         if (!creative && inventory.RemoveItemsOfType(1, cubeDef.Components[0].Definition.Id) < 1)
