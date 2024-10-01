@@ -610,29 +610,21 @@ namespace ToolCore.Session
                     }
                     comp.Working = true;
 
-                    var damage = entity is IMyCharacter ? 1f : 100f;
-                    if (entity is MyFloatingObject && isBlock && def.PickUpFloatings)
+                    if (isBlock && def.PickUpFloatings)
                     {
-                        var floating = (MyFloatingObject)entity;
-                        var id = floating.Item.Content.GetId();
-                        var amount = floating.Item.Amount;
-                        MyFixedPoint transferred;
-                        comp.LastPushSucceeded = comp.Grid.ConveyorSystem.PushGenerateItem(id, amount, out transferred, comp.BlockTool, false);
-                        if (!comp.LastPushSucceeded)
+                        if (entity is MyFloatingObject)
                         {
-                            amount -= transferred;
-                            var space = comp.Inventory.MaxVolume - comp.Inventory.CurrentVolume;
-                            var added = MyFixedPoint.Min(amount, (MyFixedPoint)((float)space / floating.ItemDefinition.Volume));
-                            comp.Inventory.AddItems(added, floating.Item.Content);
-
-                            amount -= added;
-                            damage = (float)transferred + (float)added;
-                        }
-
-                        if (amount <= 0)
+                            comp.Inventory.TakeFloatingObject(entity as MyFloatingObject);
                             continue;
+                        }
+                        if (entity is MyCargoContainerInventoryBagEntity)
+                        {
+                            comp.Inventory.TakeFloatingBag(entity as MyCargoContainerInventoryBagEntity);
+                            continue;
+                        }
                     }
 
+                    var damage = entity is IMyCharacter ? 1f : 100f;
                     var destroyableObject = (IMyDestroyableObject)entity;
                     destroyableObject.DoDamage(damage, damageType, true, null, ownerId);
                     continue;
