@@ -693,10 +693,11 @@ namespace ToolCore
                             continue;
                         }
 
-                        if (steamId > 1 && cubeDef.DLCs != null && cubeDef.DLCs.Length > 0)
+                        if (steamId > 1 && cubeDef.DLCs != null && cubeDef.DLCs.Length > 0 && !OwnsDLC(cubeDef, steamId))
                         {
-                            if (!OwnsDLC(cubeDef, steamId))
-                                continue;
+                            if (def.IsTurret && modeData.Turret.ActiveTarget == slim) modeData.Turret.DeselectTarget();
+                            if (def.Debug) comp.DebugDrawBlock(slim, Color.Gold);
+                            continue;
                         }
 
                         if (!creative && inventory.RemoveItemsOfType(1, cubeDef.Components[0].Definition.Id) < 1)
@@ -1017,10 +1018,11 @@ namespace ToolCore
                             continue;
                         }
 
-                        if (steamId > 1 && cubeDef.DLCs != null && cubeDef.DLCs.Length > 0)
+                        if (steamId > 1 && cubeDef.DLCs != null && cubeDef.DLCs.Length > 0 && !OwnsDLC(cubeDef, steamId))
                         {
-                            if (!OwnsDLC(cubeDef, steamId))
-                                continue;
+                            if (def.IsTurret && modeData.Turret.ActiveTarget == slim) modeData.Turret.DeselectTarget();
+                            if (def.Debug) comp.DebugDrawBlock(slim, Color.Gold);
+                            continue;
                         }
 
                         if (!creative && inventory.RemoveItemsOfType(1, cubeDef.Components[0].Definition.Id) < 1)
