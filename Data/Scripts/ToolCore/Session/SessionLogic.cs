@@ -436,7 +436,10 @@ namespace ToolCore.Session
             IHitInfo hitInfo = null;
             if (!IsDedicated || workTick && def.EffectShape == EffectShape.Ray)
             {
-                MyAPIGateway.Physics.CastRay(worldPos, worldPos + worldForward * toolValues.Length, out hitInfo);
+                if (def.EffectShape == EffectShape.Cylinder)
+                    MyAPIGateway.Physics.CastRay(worldPos - worldForward * toolValues.Length * 0.5f, worldPos + worldForward * toolValues.Length * 0.5f, out hitInfo);
+                else
+                    MyAPIGateway.Physics.CastRay(worldPos, worldPos + worldForward * toolValues.Length, out hitInfo);
                 if (hitInfo?.HitEntity != null)
                 {
                     MyStringHash material;
