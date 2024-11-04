@@ -821,7 +821,7 @@ namespace ToolCore.Comp
             if (!Functional || !Enabled)
                 return 0f;
 
-            if (Activated || GunBase.WantsToShoot)
+            if (Activated || Working || GunBase.WantsToShoot)
                 return ModeData.Definition.ActivePower;
 
             return ModeData.Definition.IdlePower;
