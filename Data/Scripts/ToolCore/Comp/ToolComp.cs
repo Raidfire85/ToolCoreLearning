@@ -91,7 +91,25 @@ namespace ToolCore.Comp
         internal bool LastPushSucceeded = true;
 
         internal bool Draw;
-        internal bool TrackTargets;
+        internal bool _trackTargets;
+        internal bool TrackTargets
+        {
+            get { return _trackTargets; }
+            set
+            {
+                if (_trackTargets == value)
+                    return;
+
+                _trackTargets = value;
+
+                UpdateAvState(Trigger.Activated, value);
+                if (!value)
+                {
+                    //WasHitting = false;
+                    UpdateHitInfo(false);
+                }
+            }
+        }
         internal bool UseWorkColour;
 
         internal bool Working;
@@ -821,7 +839,7 @@ namespace ToolCore.Comp
             if (!Functional || !Enabled)
                 return 0f;
 
-            if (Activated || GunBase.WantsToShoot)
+            if (Activated || Working || GunBase.WantsToShoot)
                 return ModeData.Definition.ActivePower;
 
             return ModeData.Definition.IdlePower;
