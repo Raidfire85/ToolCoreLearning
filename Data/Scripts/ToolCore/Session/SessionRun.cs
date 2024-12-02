@@ -92,14 +92,7 @@ namespace ToolCore.Session
             Tick120 = Tick % 120 == 0;
             Tick600 = Tick % 600 == 0;
 
-            try
-            {
-                CompLoop();
-            }
-            catch (Exception ex)
-            {
-                Logs.LogException(ex);
-            }
+            CompLoop();
 
             if (!_startComps.IsEmpty || !_startGrids.IsEmpty)
                 StartComps();

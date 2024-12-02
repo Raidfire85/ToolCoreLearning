@@ -35,7 +35,6 @@ namespace ToolCore.Utils
 
             var message = $"{DateTime.Now:dd-MM-yy HH-mm-ss} - Logging Started";
             TextWriter.WriteLine(message);
-            TextWriter.WriteLine("  Tick - Log");
             TextWriter.Flush();
 
         }
@@ -63,7 +62,7 @@ namespace ToolCore.Utils
 
         internal static void WriteLine(string text)
         {
-            string line = $"{ToolSession.Tick,6} - " + text;
+            string line = $"{DateTime.Now:dd-MM-yy HH-mm-ss} - " + text;
             lock (TextWriter)
             {
                 TextWriter.WriteLine(line);

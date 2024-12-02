@@ -26,60 +26,105 @@ namespace ToolCore.Session
     {
         internal void CompLoop()
         {
-
-            for (int i = 0; i < GridList.Count; i++)
+            try
             {
-                var gridComp = GridList[i];
-
-                if (gridComp.GroupMap == null)
+                for (int i = 0; i < GridList.Count; i++)
                 {
-                    var group = MyAPIGateway.GridGroups.GetGridGroup(GridLinkTypeEnum.Logical, gridComp.Grid);
-                    if (group != null)
+                    var gridComp = GridList[i];
+
+                    if (gridComp.GroupMap == null)
                     {
-                        GroupMap map;
-                        if (GridGroupMap.TryGetValue(group, out map))
-                            gridComp.GroupMap = map;
+                        var group = MyAPIGateway.GridGroups.GetGridGroup(GridLinkTypeEnum.Logical, gridComp.Grid);
+                        if (group != null)
+                        {
+                            GroupMap map;
+                            if (GridGroupMap.TryGetValue(group, out map))
+                                gridComp.GroupMap = map;
+                        }
                     }
-                }
 
-                for (int j = 0; j < gridComp.ToolComps.Count; j++)
+                    for (int j = 0; j < gridComp.ToolComps.Count; j++)
+                    {
+                        UpdateComp(gridComp.ToolComps[j]);
+                    } //Tools loop
+
+                } //Grids loop
+
+                for (int i = 0; i < HandTools.Count; i++)
                 {
-                    UpdateComp(gridComp.ToolComps[j]);
-                } //Tools loop
-
-            } //Grids loop
-
-            for (int i = 0; i < HandTools.Count; i++)
+                    UpdateComp(HandTools[i]);
+                }//Handtools loop
+            }
+            catch (Exception ex)
             {
-                UpdateComp(HandTools[i]);
-            }//Handtools loop
-
+                Logs.LogException(ex);
+            }
         }
 
         private void UpdateComp(ToolComp comp)
         {
-            var modeData = comp.ModeData;
-            var def = modeData.Definition;
-
-            UpdateTool(comp);
-
-            var avState = comp.AvState & def.EventFlags;
-            if (!comp.AvActive && avState > 0)
+            try
             {
-                AvComps.Add(comp);
-                comp.AvActive = true;
+                var modeData = comp.ModeData;
+                var def = modeData.Definition;
+
+                UpdateTool(comp);
+
+                var avState = comp.AvState & def.EventFlags;
+                if (!comp.AvActive && avState > 0)
+                {
+                    AvComps.Add(comp);
+                    comp.AvActive = true;
+                }
+
+                if (comp.Mode != ToolMode.Drill && modeData.WorkTick == Tick % def.UpdateInterval)
+                    UpdateHitState(comp);
+
+                if (!IsDedicated && comp.Draw && comp.Functional)
+                    DrawComp(comp);
+
+                if (!IsDedicated && def.Debug)
+                {
+                    DrawDebug(comp);
+                }
+
+                if (comp.Broken)
+                    UnregisterBrokenComp(comp);
+            }
+            catch (Exception ex)
+            {
+                if (!comp.Broken)
+                {
+                    RegisterBrokenComp(comp, ex);
+                }
+            }
+        }
+
+        private void RegisterBrokenComp(ToolComp comp, Exception ex)
+        {
+            comp.Broken = true;
+            Logs.LogException(ex);
+
+            if (comp.IsBlock)
+            {
+                Logs.WriteLine($"{comp.BlockTool.CustomName} on grid {comp.Grid.DisplayName} is broken!");
+                return;
             }
 
-            if (comp.Mode != ToolMode.Drill && modeData.WorkTick == Tick % def.UpdateInterval)
-                UpdateHitState(comp);
+            Logs.WriteLine($"{comp.HandTool.DefinitionId.SubtypeName} on player {((IMyCharacter)comp.Parent).DisplayName} is broken!");
+        }
 
-            if (!IsDedicated && comp.Draw && comp.Functional)
-                DrawComp(comp);
+        private void UnregisterBrokenComp(ToolComp comp)
+        {
+            comp.Broken = false;
 
-            if (!IsDedicated && def.Debug)
+            if (comp.IsBlock)
             {
-                DrawDebug(comp);
+                Logs.WriteLine($"{comp.BlockTool.CustomName} on grid {comp.Grid.DisplayName} is no longer broken.");
+                return;
             }
+
+            Logs.WriteLine($"{comp.HandTool.DefinitionId.SubtypeName} on player {((IMyCharacter)comp.Parent).DisplayName} is no longer broken.");
         }
 
         private void DrawComp(ToolComp comp)
@@ -147,49 +192,67 @@ namespace ToolCore.Session
             var modeData = comp.ModeData;
             var def = modeData.Definition;
             var pos = comp.ToolEntity.PositionComp;
-            switch (def.Location)
+
+            try
             {
-                case Location.Emitter:
-                    var partMatrix = modeData.MuzzlePart.PositionComp.WorldMatrixRef;
-                    var muzzleMatrix = (MatrixD)modeData.Muzzle.Matrix;
+                switch (def.Location)
+                {
+                    case Location.Emitter:
+                        var partMatrix = modeData.MuzzlePart.PositionComp.WorldMatrixRef;
+                        var muzzleMatrix = (MatrixD)modeData.Muzzle.Matrix;
 
-                    var localPos = muzzleMatrix.Translation;
-                    var muzzleForward = Vector3D.Normalize(muzzleMatrix.Forward);
-                    var muzzleUp = Vector3D.Normalize(muzzleMatrix.Up);
+                        var localPos = muzzleMatrix.Translation;
+                        var muzzleForward = Vector3D.Normalize(muzzleMatrix.Forward);
+                        var muzzleUp = Vector3D.Normalize(muzzleMatrix.Up);
 
-                    if (!Vector3D.IsZero(def.Offset))
-                    {
-                        localPos += def.Offset;
-                    }
+                        if (!Vector3D.IsZero(def.Offset))
+                        {
+                            localPos += def.Offset;
+                        }
 
-                    Vector3D.Transform(ref localPos, ref partMatrix, out worldPos);
-                    Vector3D.TransformNormal(ref muzzleForward, ref partMatrix, out worldForward);
-                    Vector3D.TransformNormal(ref muzzleUp, ref partMatrix, out worldUp);
-                    break;
-                case Location.Parent:
-                    var parentMatrix = comp.IsBlock ? comp.Parent.PositionComp.WorldMatrixRef : ((IMyCharacter)comp.Parent).GetHeadMatrix(true);
-                    worldPos = comp.IsBlock ? comp.Parent.PositionComp.WorldAABB.Center : ((IMyCharacter)comp.Parent).GetHeadMatrix(true).Translation;
-                    Vector3D offset;
-                    Vector3D.Rotate(ref def.Offset, ref parentMatrix, out offset);
-                    worldPos += offset;
+                        Vector3D.Transform(ref localPos, ref partMatrix, out worldPos);
+                        Vector3D.TransformNormal(ref muzzleForward, ref partMatrix, out worldForward);
+                        Vector3D.TransformNormal(ref muzzleUp, ref partMatrix, out worldUp);
+                        break;
+                    case Location.Parent:
+                        var parent = comp.Parent;
+                        var parentMatrix = comp.IsBlock ? parent.PositionComp.WorldMatrixRef : ((IMyCharacter)parent).GetHeadMatrix(true);
+                        worldPos = comp.IsBlock ? parent.PositionComp.WorldAABB.Center : parentMatrix.Translation;
 
-                    worldForward = parentMatrix.Forward;
-                    worldUp = parentMatrix.Up;
-                    break;
-                case Location.Centre:
-                    var toolMatrix = pos.WorldMatrixRef;
-                    worldPos = pos.WorldAABB.Center;
-                    Vector3D.Rotate(ref def.Offset, ref toolMatrix, out offset);
-                    worldPos += offset;
+                        Vector3D offset;
+                        Vector3D.Rotate(ref def.Offset, ref parentMatrix, out offset);
+                        worldPos += offset;
 
-                    worldForward = toolMatrix.Forward;
-                    worldUp = toolMatrix.Up;
-                    break;
-                default:
-                    worldPos = Vector3D.Zero;
-                    worldForward = Vector3D.Forward;
-                    worldUp = Vector3D.Up;
-                    break;
+                        worldForward = parentMatrix.Forward;
+                        worldUp = parentMatrix.Up;
+                        break;
+                    case Location.Centre:
+                        var toolMatrix = pos.WorldMatrixRef;
+                        worldPos = pos.WorldAABB.Center;
+                        Vector3D.Rotate(ref def.Offset, ref toolMatrix, out offset);
+                        worldPos += offset;
+
+                        worldForward = toolMatrix.Forward;
+                        worldUp = toolMatrix.Up;
+                        break;
+                    default:
+                        worldPos = Vector3D.Zero;
+                        worldForward = Vector3D.Forward;
+                        worldUp = Vector3D.Up;
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                worldPos = Vector3D.Zero;
+                worldForward = Vector3D.Forward;
+                worldUp = Vector3D.Up;
+
+                if (!comp.Broken)
+                {
+                    Logs.WriteLine($"Location: {def.Location} - Emitter Part Null: {modeData.MuzzlePart == null} - Parent Null: {comp.Parent == null}");
+                    RegisterBrokenComp(comp, ex);
+                }
             }
         }
 

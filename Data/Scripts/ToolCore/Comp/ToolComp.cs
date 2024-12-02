@@ -89,6 +89,7 @@ namespace ToolCore.Comp
         internal bool AvActive;
         internal bool UpdatePower;
         internal bool LastPushSucceeded = true;
+        internal bool Broken;
 
         internal bool Draw;
         internal bool _trackTargets;
