@@ -278,8 +278,7 @@ namespace ToolCore.Session
             if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
                 return;
 
-            builder.Append(comp.Activated ? "Active" : "Inactive")
-                   .Append(" | Tracking: ")
+            builder.Append(comp.Activated ? "Active" : "Inactive")              
                    .Append(comp.TrackTargets ? "Enabled" : "Disabled");
         }
 
@@ -326,7 +325,6 @@ namespace ToolCore.Session
                 return;
 
             builder.Append(comp.Activated ? "Active" : "Inactive")
-                   .Append(" | Tracking: ")
                    .Append(comp.TrackTargets ? "Enabled" : "Disabled");
         }
 
