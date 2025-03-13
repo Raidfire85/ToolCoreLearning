@@ -232,7 +232,6 @@ namespace ToolCore.Session
                 return;
 
             builder.Append(comp.Activated ? "Active" : "Inactive")
-                   .Append(" | Tracking: ")
                    .Append(comp.TrackTargets ? "Enabled" : "Disabled");
         }
 
