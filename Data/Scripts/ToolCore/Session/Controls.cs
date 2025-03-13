@@ -232,7 +232,7 @@ namespace ToolCore.Session
                 return;
 
             builder.Append(comp.Activated ? "Active" : "Inactive")
-                   .Append(comp.TrackTargets ? "Enabled" : "Disabled");
+                   .Append(comp.TrackTargets);
         }
 
         internal IMyTerminalAction CreateActivateOnAction<T>() where T : IMyConveyorSorter
@@ -278,7 +278,7 @@ namespace ToolCore.Session
                 return;
 
             builder.Append(comp.Activated ? "Active" : "Inactive")              
-                   .Append(comp.TrackTargets ? "Enabled" : "Disabled");
+                   .Append(comp.TrackTargets);
         }
 
 
@@ -324,7 +324,7 @@ namespace ToolCore.Session
                 return;
 
             builder.Append(comp.Activated ? "Active" : "Inactive")
-                   .Append(comp.TrackTargets ? "Enabled" : "Disabled");
+                   .Append(comp.TrackTargets);
         }
 
 
