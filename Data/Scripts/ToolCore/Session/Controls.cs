@@ -239,7 +239,7 @@ namespace ToolCore.Session
             action.Icon = @"Textures\GUI\Icons\Actions\SwitchOn.dds";
             action.Name = new StringBuilder("Activate");
             action.Action = SetActivatedAndTrackTargetsOn;
-            action.Writer = SetActivatedAndTrackTargetsOnWriter;
+            action.Writer = SetActivatedOnWriter;
             action.Enabled = IsTurret;
             action.Enabled = IsTrue;
 
@@ -268,7 +268,7 @@ namespace ToolCore.Session
             }
         }
 
-        internal void SetActivatedAndTrackTargetsOnWriter(IMyTerminalBlock block, StringBuilder builder)
+        internal void SetActivatedOnWriter(IMyTerminalBlock block, StringBuilder builder)
         {
             ToolComp comp;
             if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
@@ -283,7 +283,7 @@ namespace ToolCore.Session
             action.Icon = @"Textures\GUI\Icons\Actions\SwitchOff.dds";
             action.Name = new StringBuilder("Deactivate");
             action.Action = SetActivatedAndTrackTargetsOff;
-            action.Writer = SetActivatedAndTrackTargetsOffWriter;
+            action.Writer = SetActivatedOffWriter;
             action.Enabled = IsTurret;
             action.Enabled = IsTrue;
 
@@ -312,7 +312,7 @@ namespace ToolCore.Session
             }
         }
 
-        internal void SetActivatedAndTrackTargetsOffWriter(IMyTerminalBlock block, StringBuilder builder)
+        internal void SetActivatedOffWriter(IMyTerminalBlock block, StringBuilder builder)
         {
             ToolComp comp;
             if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
