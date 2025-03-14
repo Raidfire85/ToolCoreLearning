@@ -224,15 +224,13 @@ namespace ToolCore.Session
             }
         }
 
-
         internal void ToggleActivatedAndTrackTargetsWriter(IMyTerminalBlock block, StringBuilder builder)
         {
             ToolComp comp;
             if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
                 return;
 
-            builder.Append(comp.Activated ? "Active" : "Inactive")
-                   .Append(comp.TrackTargets);
+            builder.Append(comp.Activated ? "Active" : "Inactive");
         }
 
         internal IMyTerminalAction CreateActivateOnAction<T>() where T : IMyConveyorSorter
@@ -270,17 +268,14 @@ namespace ToolCore.Session
             }
         }
 
-
         internal void SetActivatedAndTrackTargetsOnWriter(IMyTerminalBlock block, StringBuilder builder)
         {
             ToolComp comp;
             if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
                 return;
 
-            builder.Append(comp.Activated ? "Active" : "Inactive")              
-                   .Append(comp.TrackTargets);
+            builder.Append(comp.Activated ? "Active" : "Inactive");              
         }
-
 
         internal IMyTerminalAction CreateActivateOffAction<T>() where T : IMyConveyorSorter
         {
@@ -323,10 +318,8 @@ namespace ToolCore.Session
             if (!_session.ToolMap.TryGetValue(block.EntityId, out comp))
                 return;
 
-            builder.Append(comp.Activated ? "Active" : "Inactive")
-                   .Append(comp.TrackTargets);
+            builder.Append(comp.Activated ? "Active" : "Inactive");
         }
-
 
         #endregion
 
